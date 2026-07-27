@@ -160,18 +160,6 @@ confirmado para o seu equipamento especificamente**. Veja
 protocolo sem afetar o resto do sistema (site, app e a resolução
 funcionário/aluno são todos agnósticos ao protocolo do dispositivo).
 
-## 7. O que fica para a próxima etapa
-
-- Telas no site para Funcionários, Turmas, Alunos, Relatórios, Banco de
-  horas (o padrão já está em Dispositivos/Unidades — extensão direta).
-- Tela de cadastro do responsável dentro do próprio app (hoje só existe via
-  API — `POST /api/responsaveis/cadastro`).
-- Um endpoint tipo `/api/responsaveis/me` para restaurar os dados da sessão
-  ao reabrir o app sem precisar logar de novo (hoje só guardamos se HÁ
-  token, não os dados do responsável).
-- Gerador de AEJ e assinatura PAdES no comprovante.
-- Suporte completo a escala 12x36 (hoje usa aproximação de 12h fixas).
-- Fila de resolução manual para batidas sem funcionário/aluno vinculado.
 
 ## 8. Segurança
 
