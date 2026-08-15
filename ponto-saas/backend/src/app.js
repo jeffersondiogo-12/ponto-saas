@@ -1,0 +1,70 @@
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+const helmet = require('helmet');
+const compression = require('compression');
+const morgan = require('morgan');
+
+const { errorHandler } = require('./middlewares/errorHandler');
+
+const authRoutes = require('./modules/auth/auth.routes');
+const empresasRoutes = require('./modules/empresas/empresas.routes');
+const funcionariosRoutes = require('./modules/funcionarios/funcionarios.routes');
+const dispositivosRoutes = require('./modules/dispositivos/dispositivos.routes');
+const pontoRoutes = require('./modules/ponto/ponto.routes');
+const relatoriosRoutes = require('./modules/relatorios/relatorios.routes');
+const afdRoutes = require('./modules/afd/afd.routes');
+const filiaisRoutes = require('./modules/filiais/filiais.routes');
+const turmasRoutes = require('./modules/turmas/turmas.routes');
+const alunosRoutes = require('./modules/alunos/alunos.routes');
+const responsaveisRoutes = require('./modules/responsaveis/responsaveis.routes');
+const professoresRoutes = require('./modules/professores/professores.routes');
+const chamadasRoutes = require('./modules/chamadas/chamadas.routes');
+
+const app = express();
+
+/**
+ * API pura - sem view engine, sem paginas server-rendered. O site (web/) e o
+ * app (mobile/) sao clientes separados, consumindo isto so por HTTP/JSON.
+ * Autenticacao e 100% Bearer token (sem cookie), porque um app mobile nao
+ * tem "cookie do navegador" - o mesmo mecanismo de token serve os dois.
+ */
+
+const origensPermitidas = (process.env.CORS_ORIGINS || 'http://localhost:5173')
+  .split(',')
+  .map((o) => o.trim());
+
+app.use(
+  helmet({
+    contentSecurityPolicy: false, // API pura, sem HTML proprio para proteger com CSP
+  })
+);
+app.use(cors({ origin: origensPermitidas }));
+app.use(compression());
+app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+app.use('/api/auth', authRoutes);
+app.use('/api/empresas', empresasRoutes);
+app.use('/api/funcionarios', funcionariosRoutes);
+app.use('/api/dispositivos', dispositivosRoutes);
+app.use('/api/ponto', pontoRoutes);
+app.use('/api/relatorios', relatoriosRoutes);
+app.use('/api/afd', afdRoutes);
+app.use('/api/filiais', filiaisRoutes);
+app.use('/api/turmas', turmasRoutes);
+app.use('/api/alunos', alunosRoutes);
+app.use('/api/responsaveis', responsaveisRoutes);
+app.use('/api/professores', professoresRoutes);
+app.use('/api/chamadas', chamadasRoutes);
+
+app.get('/', (req, res) => res.json({ ok: true, servico: 'ponto-saas-api' }));
+
+app.use((req, res) => {
+  res.status(404).json({ erro: 'Rota nao encontrada.' });
+});
+
+app.use(errorHandler);
+
+module.exports = app;

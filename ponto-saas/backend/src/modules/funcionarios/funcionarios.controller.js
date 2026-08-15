@@ -1,0 +1,57 @@
+const funcionariosService = require('./funcionarios.service');
+
+async function listar(req, res, next) {
+  try {
+    const { ativo } = req.query;
+    const funcionarios = await funcionariosService.listar(req.empresaId, {
+      ativo: ativo === undefined ? undefined : ativo === 'true',
+    });
+    res.json({ funcionarios });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function buscar(req, res, next) {
+  try {
+    const funcionario = await funcionariosService.buscarPorId(req.empresaId, req.params.id);
+    res.json({ funcionario });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function criar(req, res, next) {
+  try {
+    const funcionario = await funcionariosService.criar(req.empresaId, req.body);
+    res.status(201).json({ funcionario });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function atualizar(req, res, next) {
+  try {
+    const funcionario = await funcionariosService.atualizar(req.empresaId, req.params.id, req.body);
+    res.json({ funcionario });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function vincularDispositivo(req, res, next) {
+  try {
+    const { dispositivo_id, id_no_dispositivo } = req.body;
+    const vinculo = await funcionariosService.vincularDispositivo(
+      req.empresaId,
+      req.params.id,
+      dispositivo_id,
+      id_no_dispositivo
+    );
+    res.status(201).json({ vinculo });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { listar, buscar, criar, atualizar, vincularDispositivo };
