@@ -10,7 +10,7 @@ router.use(autenticar, exigirTipo('staff'), resolverTenant, exigirPapel('super_a
 router.get('/', async (req, res, next) => {
   try {
     const exportacoes = await afdService.listarExportacoes(req.empresaId);
-    res.json({ exportacoes });
+    res.json({exportacoes });
   } catch (err) {
     next(err);
   }
