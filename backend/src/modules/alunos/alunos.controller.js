@@ -60,4 +60,13 @@ async function frequencia(req, res, next) {
   }
 }
 
-module.exports = { listar, buscar, criar, atualizar, vincularDispositivo, frequencia };
+async function excluir(req, res, next) {
+  try {
+    await alunosService.excluir(req.empresaId, req.params.id);
+    res.status(204).send();
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { listar, buscar, criar, atualizar, vincularDispositivo, frequencia, excluir };
