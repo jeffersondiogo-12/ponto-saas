@@ -16,5 +16,6 @@ router.post(
   exigirPapel('super_admin', 'admin', 'rh'),
   funcionariosController.vincularDispositivo
 );
+router.delete('/:id', exigirPapel('super_admin', 'admin', 'rh'), funcionariosController.excluir);
 
 module.exports = router;
