@@ -1,6 +1,20 @@
 const pontoService = require('./ponto.service');
 const bancoHorasService = require('./bancoHoras.service');
 
+async function obterFoto(req, res, next) {
+  try {
+    const caminho = await pontoService.buscarFoto(req.empresaId, req.params.id);
+    res.sendFile(caminho, (err) => {
+      // sendFile ja pode ter mandado headers antes de falhar (ex: arquivo
+      // sumiu do disco entre a consulta no banco e o envio) - so repassa
+      // pro errorHandler se a resposta ainda nao foi iniciada.
+      if (err && !res.headersSent) next(new Error('Arquivo de foto nao encontrado em disco.'));
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function registrarBatidaManual(req, res, next) {
   try {
     const registro = await pontoService.registrarBatidaManual(req.empresaId, {
@@ -81,6 +95,7 @@ module.exports = {
   registrarBatidaManual,
   processarDia,
   listarApontamentos,
+  obterFoto,
   listarNaoResolvidos,
   extratoBancoHoras,
   lancamentoManualBancoHoras,

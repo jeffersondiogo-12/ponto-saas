@@ -36,6 +36,7 @@ export default function DispositivosLista() {
                   <th>Número de série</th>
                   <th>Protocolo</th>
                   <th>Situação</th>
+                  <th>Conexão</th>
                   <th></th>
                 </tr>
               </thead>
@@ -44,10 +45,17 @@ export default function DispositivosLista() {
                   <tr key={d.id}>
                     <td>{d.descricao}</td>
                     <td>{d.modelo}</td>
-                    <td className="mono">{d.ip}:{d.porta}</td>
+                    <td className="mono">{d.ip || '—'}:{d.porta}</td>
                     <td className="mono">{d.numero_serie}</td>
                     <td><span className="chip-dado">{d.protocolo === 'desconhecido' ? 'a confirmar' : d.protocolo}</span></td>
                     <td><span className={`badge badge-${d.situacao}`}>{d.situacao === 'ativo' ? 'Ativo' : 'Inativo'}</span></td>
+                    <td>
+                      {d.conectado_agora !== null && (
+                        <span className={`badge badge-${d.conectado_agora ? 'ativo' : 'inativo'}`}>
+                          {d.conectado_agora ? 'Conectado' : 'Offline'}
+                        </span>
+                      )}
+                    </td>
                     <td>
                       <Link to={`/dispositivos/${d.id}/editar`} className="btn btn-secundario" style={{ padding: '6px 12px', fontSize: 12.5 }}>
                         Editar
@@ -56,7 +64,7 @@ export default function DispositivosLista() {
                   </tr>
                 ))}
                 {dispositivos.length === 0 && (
-                  <tr><td colSpan={7} className="texto-apoio">Nenhum dispositivo cadastrado ainda.</td></tr>
+                  <tr><td colSpan={8} className="texto-apoio">Nenhum dispositivo cadastrado ainda.</td></tr>
                 )}
               </tbody>
             </table>

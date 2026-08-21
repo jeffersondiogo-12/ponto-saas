@@ -107,7 +107,8 @@ CREATE TYPE public.dispositivo_modo_conexao AS ENUM (
 CREATE TYPE public.dispositivo_protocolo AS ENUM (
     'zk_tcp',
     'http_rest',
-    'desconhecido'
+    'desconhecido',
+    'evo_ws'
 );
 
 
@@ -459,7 +460,7 @@ CREATE TABLE public.dispositivos (
     fuso_horario character varying(60) DEFAULT 'America/Sao_Paulo'::character varying NOT NULL,
     enviar_comprovante_email boolean DEFAULT false NOT NULL,
     modo_conexao public.dispositivo_modo_conexao DEFAULT 'client'::public.dispositivo_modo_conexao NOT NULL,
-    ip inet NOT NULL,
+    ip inet,
     porta integer DEFAULT 4370 NOT NULL,
     nao_validar_empresa boolean DEFAULT false NOT NULL,
     numero_serie character varying(60) NOT NULL,
@@ -473,6 +474,8 @@ CREATE TABLE public.dispositivos (
     protocolo public.dispositivo_protocolo DEFAULT 'desconhecido'::public.dispositivo_protocolo NOT NULL,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    ultima_conexao_ws_em timestamp with time zone,
+    ultimo_devinfo jsonb,
     CONSTRAINT chk_dispositivos_nsr_positivo CHECK ((ultimo_nsr >= 0)),
     CONSTRAINT chk_dispositivos_porta_valida CHECK (((porta >= 1) AND (porta <= 65535)))
 );
@@ -679,6 +682,7 @@ CREATE TABLE public.registros_ponto (
     criado_por_usuario_id uuid,
     criado_em timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     aluno_id uuid,
+    payload_bruto jsonb,
     CONSTRAINT chk_registros_nsr_positivo CHECK (((nsr IS NULL) OR (nsr >= 0))),
     CONSTRAINT chk_registros_pessoa_unica CHECK ((NOT ((funcionario_id IS NOT NULL) AND (aluno_id IS NOT NULL))))
 );
@@ -878,14 +882,6 @@ ALTER TABLE ONLY public.banco_horas_lancamentos
 
 ALTER TABLE ONLY public.departamentos
     ADD CONSTRAINT departamentos_pkey PRIMARY KEY (id);
-
-
---
--- Name: dispositivos dispositivos_empresa_id_numero_serie_unique; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.dispositivos
-    ADD CONSTRAINT dispositivos_empresa_id_numero_serie_unique UNIQUE (empresa_id, numero_serie);
 
 
 --
@@ -1134,6 +1130,13 @@ CREATE INDEX banco_horas_lancamentos_empresa_id_funcionario_id_data_referenc ON 
 --
 
 CREATE INDEX dispositivos_empresa_id_situacao_index ON public.dispositivos USING btree (empresa_id, situacao);
+
+
+--
+-- Name: dispositivos_numero_serie_unique; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX dispositivos_numero_serie_unique ON public.dispositivos USING btree (numero_serie);
 
 
 --

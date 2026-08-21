@@ -61,9 +61,10 @@ cp .env.example .env
 # edite .env: credenciais do Postgres, JWT_SECRET, DEVICE_CREDENTIALS_KEY
 #   (gere as duas com: openssl rand -hex 32)
 # CORS_ORIGINS já vem com http://localhost:5173 (Vite) e :19006 (Expo web)
+# EVO_FACIAL_WS_PORT já vem com um padrão (9998) - só mude se essa porta colidir com algo
 npm install
-npm run seed      # opcional: empresa "Weld Inox" + dispositivo do print original
-npm run dev       # http://localhost:3000
+npm run seed      # opcional: empresa "Weld Inox" + os dois dispositivos de exemplo (ZK e Evo Facial)
+npm run dev       # http://localhost:3000 (o servidor WebSocket do Evo Facial sobe junto, ver seção 6)
 ```
 
 Teste rápido: `curl -X POST http://localhost:3000/api/auth/login -H "Content-Type: application/json" -d '{"email":"admin@weldinox.example.com","senha":"admin123"}'`
@@ -149,16 +150,64 @@ arquitetura já foi desenhada em torno destes pontos, confirmados via pesquisa:
 
 ## 6. A situação do protocolo do relógio
 
-O fabricante real por trás do "Evo Facial AI-5" é a **Evo Sistemas
-Inteligentes** (Curitiba/PR — contato@evosistemasinteligentes.com.br), que
-declara oferecer um SDK para integradores — esse é o caminho definitivo.
-Enquanto isso não chega, o backend usa um adapter experimental
-(`ZkProtocolAdapter.js`, biblioteca `node-zklib`) baseado no protocolo mais
-comum entre terminais biométricos chineses revendidos no Brasil — **não
-confirmado para o seu equipamento especificamente**. Veja
-`backend/src/modules/dispositivos/adapters/` para como validar e trocar o
-protocolo sem afetar o resto do sistema (site, app e a resolução
-funcionário/aluno são todos agnósticos ao protocolo do dispositivo).
+**Atualização: o protocolo real chegou e está implementado.** O fabricante
+por trás do "Evo Facial AI-5" é a **Evo Sistemas Inteligentes**
+(Curitiba/PR — contato@evosistemasinteligentes.com.br), que forneceu o
+documento oficial do protocolo ("Protocolo WebSocket EVO FACIAL — Revisão
+5"). Diferente do `ZkProtocolAdapter.js` (que segue sendo uma hipótese não
+confirmada, mantido por precaução), o protocolo Evo Facial real é
+**WebSocket + JSON, com o equipamento como client** — ele se conecta a
+este backend, não o contrário. Isso muda a arquitetura de coleta:
+
+- **`ZkProtocolAdapter` (dispositivo `modo_conexao=client`)**: o backend
+  abre a conexão, por polling (`npm run coleta:worker`, a cada
+  `COLETA_INTERVALO_MINUTOS`).
+- **`EvoFacialAdapter` (dispositivo `modo_conexao=server`, `protocolo=evo_ws`)**:
+  o equipamento abre a conexão contra este backend (`reg` a cada 20s até
+  ser confirmado; `sendlog` a cada nova marcação). O servidor WebSocket que
+  aceita essas conexões (`backend/src/modules/dispositivos/evoFacialServidor.js`)
+  roda **dentro do mesmo processo do backend** (não precisa de um worker
+  separado) — configure no menu do próprio equipamento o IP deste servidor
+  e a porta de `EVO_FACIAL_WS_PORT` (`.env`, padrão `9998`).
+
+**Para testar sem o equipamento físico**, há um simulador que fala o
+protocolo real:
+```bash
+cd backend
+npm run simular:evo-facial -- --sn=EVOFACIAL0001 --bater-ponto
+```
+(o dispositivo de exemplo `EVOFACIAL0001` já vem no `npm run seed`). Use
+`--responder-comandos` para também simular o equipamento respondendo a
+comandos do servidor (cadastro/remoção remota de face, listagem de
+usuários) — ver comentário no topo do script para todas as opções.
+
+**O que este adapter cobre**: registro do equipamento, recebimento de
+marcações (incluindo foto, quando o modo de verificação inclui
+reconhecimento facial — servida de volta via
+`GET /api/ponto/registros/:id/foto`, autenticada), cadastro e remoção
+remota de rosto (`POST /api/dispositivos/:id/cadastrar-face` e
+`/remover-face` — dispensa ir até o equipamento fisicamente), e listagem
+dos usuários cadastrados no equipamento para reconciliação. **O que fica de
+fora por ora** (o protocolo documenta mas não foi implementado, por não ser
+essencial ao fluxo de ponto): reboot remoto, ajuste de data/hora,
+abertura remota de porta, controle de catraca e as particularidades de
+equipamento 4G — a função `enviarComando()` em `evoFacialServidor.js` já
+resolve a troca de mensagens ponto-a-ponto, então adicionar qualquer um
+desses é majoritariamente escrever mais um método curto no adapter, não
+uma peça de arquitetura nova.
+
+**Uma interpretação sem confirmação 100% byte-a-byte**: o PDF não deixa
+explícito como numerar de forma única cada marcação dentro de um mesmo
+lote de `sendlog` (só expõe um `logindex` por lote). Seguimos a mesma
+solução já usada no `ZkProtocolAdapter` para uma lacuna parecida: gerar um
+NSR sequencial internamente a partir do `ultimo_nsr` já persistido, em vez
+de confiar num campo do equipamento para isso — ver comentário em
+`evoFacialServidor.js` (`tratarSendlog`).
+
+Veja `backend/src/modules/dispositivos/adapters/` para o padrão geral de
+adapter e como trocar/adicionar protocolos sem afetar o resto do sistema
+(site, app e a resolução funcionário/aluno seguem agnósticos ao protocolo
+do dispositivo).
 
 
 ## 8. Segurança

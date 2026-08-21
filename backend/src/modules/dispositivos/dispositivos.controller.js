@@ -59,4 +59,51 @@ async function forcarColeta(req, res, next) {
   }
 }
 
-module.exports = { listar, buscar, criar, atualizar, testarConexao, forcarColeta };
+async function usuariosNoEquipamento(req, res, next) {
+  try {
+    const usuarios = await dispositivosService.listarUsuariosNoEquipamento(req.empresaId, req.params.id);
+    res.json({ usuarios });
+  } catch (err) {
+    // Mesmo padrao de testarConexao/forcarColeta: equipamento offline ou
+    // protocolo sem suporte a isso e um resultado esperado, nao um bug.
+    res.status(200).json({ ok: false, erro: err.message });
+  }
+}
+
+async function cadastrarFace(req, res, next) {
+  try {
+    const { tipo, pessoa_id, id_no_dispositivo, nome, foto_base64 } = req.body;
+    const resultado = await dispositivosService.cadastrarFace(req.empresaId, req.params.id, {
+      tipo,
+      pessoaId: pessoa_id,
+      idNoDispositivo: id_no_dispositivo,
+      nome,
+      fotoBase64: foto_base64,
+    });
+    res.status(201).json({ ok: true, ...resultado });
+  } catch (err) {
+    res.status(200).json({ ok: false, erro: err.message });
+  }
+}
+
+async function removerFace(req, res, next) {
+  try {
+    const { tipo, pessoa_id } = req.body;
+    await dispositivosService.removerFace(req.empresaId, req.params.id, { tipo, pessoaId: pessoa_id });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(200).json({ ok: false, erro: err.message });
+  }
+}
+
+module.exports = {
+  listar,
+  buscar,
+  criar,
+  atualizar,
+  testarConexao,
+  forcarColeta,
+  usuariosNoEquipamento,
+  cadastrarFace,
+  removerFace,
+};

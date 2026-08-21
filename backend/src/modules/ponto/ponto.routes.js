@@ -11,6 +11,7 @@ router.get('/apontamentos', pontoController.listarApontamentos);
 router.post('/apontamentos/processar', exigirPapel('super_admin', 'admin', 'rh'), pontoController.processarDia);
 router.get('/registros/nao-resolvidos', exigirPapel('super_admin', 'admin', 'rh'), pontoController.listarNaoResolvidos);
 router.post('/registros/manual', exigirPapel('super_admin', 'admin', 'rh'), pontoController.registrarBatidaManual);
+router.get('/registros/:id/foto', pontoController.obterFoto);
 
 router.get('/banco-horas/:funcionarioId/extrato', pontoController.extratoBancoHoras);
 router.post(

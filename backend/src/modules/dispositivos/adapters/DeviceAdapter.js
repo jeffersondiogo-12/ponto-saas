@@ -61,6 +61,29 @@ class DeviceAdapter {
   async listarUsuarios() {
     throw new Error('listarUsuarios() nao implementado');
   }
+
+  /**
+   * Envia um rosto (e opcionalmente nome) para o equipamento cadastrar
+   * localmente, permitindo reconhecimento facial. So faz sentido para
+   * protocolos que suportam comando remoto de cadastro (ex: evo_ws) - por
+   * isso o comportamento padrao e falhar com uma mensagem clara, em vez de
+   * fingir sucesso. Implementacoes concretas devem retornar
+   * { enrollId } com o identificador que o equipamento passa a usar para
+   * essa pessoa.
+   * @param {{ enrollId: string, nome: string, fotoBase64: string }} dados
+   */
+  async cadastrarFace(dados) {
+    throw new Error(
+      `Este dispositivo (protocolo "${this.dispositivo.protocolo}") nao suporta cadastro remoto de face - cadastre fisicamente no equipamento e vincule o ID pela tela de funcionario/aluno.`
+    );
+  }
+
+  /** Remove um usuario/rosto do equipamento pelo ID que ele usa internamente. */
+  async removerFace(enrollId) {
+    throw new Error(
+      `Este dispositivo (protocolo "${this.dispositivo.protocolo}") nao suporta remocao remota de face.`
+    );
+  }
 }
 
 module.exports = DeviceAdapter;

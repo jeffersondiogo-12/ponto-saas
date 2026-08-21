@@ -28,6 +28,7 @@ export default function DispositivoForm() {
   const navigate = useNavigate();
   const [dados, setDados] = useState(PADRAO);
   const [ultimoNsr, setUltimoNsr] = useState(null);
+  const [conectadoAgora, setConectadoAgora] = useState(null);
   const [statusAcao, setStatusAcao] = useState('');
 
   useEffect(() => {
@@ -35,6 +36,7 @@ export default function DispositivoForm() {
     api.buscarDispositivo(id).then((r) => {
       setDados({ ...PADRAO, ...r.dispositivo, senha_dispositivo: '' });
       setUltimoNsr(r.dispositivo.ultimo_nsr);
+      setConectadoAgora(r.dispositivo.conectado_agora);
     });
   }, [id]);
 
@@ -71,6 +73,24 @@ export default function DispositivoForm() {
     try {
       const r = await api.forcarColeta(id);
       setStatusAcao(r.ok ? `${r.totalNovos} novo(s), ${r.totalNaoResolvidos} sem vínculo.` : `Falha: ${r.erro}`);
+    } catch (err) {
+      setStatusAcao(`Falha: ${err.message}`);
+    }
+  }
+
+  async function verUsuariosNoEquipamento() {
+    setStatusAcao('Consultando equipamento...');
+    try {
+      const r = await api.usuariosNoEquipamento(id);
+      if (r.ok === false) {
+        setStatusAcao(`Falha: ${r.erro}`);
+      } else {
+        setStatusAcao(
+          r.usuarios.length
+            ? `${r.usuarios.length} usuário(s) no equipamento: ${r.usuarios.map((u) => u.idNoDispositivo).join(', ')}`
+            : 'Nenhum usuário cadastrado no equipamento.'
+        );
+      }
     } catch (err) {
       setStatusAcao(`Falha: ${err.message}`);
     }
@@ -138,8 +158,19 @@ export default function DispositivoForm() {
                 </select>
               </div>
               <div className="campo">
-                <label>IP</label>
-                <input className="mono" value={dados.ip} onChange={(e) => set('ip', e.target.value)} placeholder="192.168.0.206" required />
+                <label>IP{dados.modo_conexao === 'server' ? ' (opcional)' : ''}</label>
+                <input
+                  className="mono"
+                  value={dados.ip || ''}
+                  onChange={(e) => set('ip', e.target.value)}
+                  placeholder={dados.modo_conexao === 'server' ? 'preenchido automaticamente ao conectar' : '192.168.0.206'}
+                  required={dados.modo_conexao !== 'server'}
+                />
+                {dados.modo_conexao === 'server' && (
+                  <span className="texto-apoio">
+                    Em modo Server é o equipamento quem se conecta a este servidor — o IP é detectado sozinho no primeiro registro.
+                  </span>
+                )}
               </div>
               <div className="campo">
                 <label>Porta de acesso</label>
@@ -166,14 +197,29 @@ export default function DispositivoForm() {
                 <label>Protocolo de comunicação</label>
                 <select value={dados.protocolo} onChange={(e) => set('protocolo', e.target.value)}>
                   <option value="desconhecido">A confirmar</option>
-                  <option value="zk_tcp">Protocolo ZK (TCP)</option>
+                  <option value="zk_tcp">Protocolo ZK (TCP) — não confirmado</option>
+                  <option value="evo_ws">Evo Facial (WebSocket) — protocolo oficial do fabricante</option>
                   <option value="http_rest">HTTP/REST</option>
                 </select>
+                {dados.protocolo === 'evo_ws' && (
+                  <span className="texto-apoio">
+                    Requer modo de conexão "Server". Configure no equipamento o IP deste servidor e a porta definida em
+                    EVO_FACIAL_WS_PORT (backend/.env).
+                  </span>
+                )}
               </div>
               {id && (
                 <div className="campo">
                   <label>Último NSR sincronizado</label>
                   <span className="chip-dado" style={{ width: 'fit-content' }}>{ultimoNsr}</span>
+                </div>
+              )}
+              {id && dados.protocolo === 'evo_ws' && (
+                <div className="campo">
+                  <label>Conexão WebSocket</label>
+                  <span className={`badge badge-${conectadoAgora ? 'ativo' : 'inativo'}`} style={{ width: 'fit-content' }}>
+                    {conectadoAgora ? 'Conectado agora' : 'Não conectado no momento'}
+                  </span>
                 </div>
               )}
             </div>
@@ -182,6 +228,11 @@ export default function DispositivoForm() {
               <div className="acoes-form" style={{ justifyContent: 'flex-start', marginTop: 20 }}>
                 <button type="button" className="btn btn-secundario" onClick={testarConexao}>Testar conexão</button>
                 <button type="button" className="btn btn-secundario" onClick={forcarColeta}>Forçar coleta</button>
+                {dados.protocolo === 'evo_ws' && (
+                  <button type="button" className="btn btn-secundario" onClick={verUsuariosNoEquipamento}>
+                    Usuários no equipamento
+                  </button>
+                )}
                 <span className="texto-apoio">{statusAcao}</span>
               </div>
             )}

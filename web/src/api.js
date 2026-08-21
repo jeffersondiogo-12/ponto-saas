@@ -93,6 +93,9 @@ export const api = {
   atualizarDispositivo: (id, dados) => requisitar(`/api/dispositivos/${id}`, { method: 'PUT', body: dados }),
   testarConexaoDispositivo: (id) => requisitar(`/api/dispositivos/${id}/testar-conexao`, { method: 'POST' }),
   forcarColeta: (id) => requisitar(`/api/dispositivos/${id}/forcar-coleta`, { method: 'POST' }),
+  usuariosNoEquipamento: (id) => requisitar(`/api/dispositivos/${id}/usuarios-no-equipamento`),
+  cadastrarFaceDispositivo: (id, dados) => requisitar(`/api/dispositivos/${id}/cadastrar-face`, { method: 'POST', body: dados }),
+  removerFaceDispositivo: (id, dados) => requisitar(`/api/dispositivos/${id}/remover-face`, { method: 'POST', body: dados }),
 
   listarUnidades: () => requisitar('/api/filiais'),
   buscarUnidade: (id) => requisitar(`/api/filiais/${id}`),

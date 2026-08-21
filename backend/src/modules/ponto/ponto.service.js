@@ -4,6 +4,7 @@ const { calcularApontamentoDoDia } = require('./calculoJornada');
 const bancoHorasService = require('./bancoHoras.service');
 const { horaLocalParaUTC } = require('../../utils/tempo');
 const notificacoesService = require('../responsaveis/notificacoes.service');
+const { caminhoAbsoluto } = require('../dispositivos/fotoStorage');
 
 const FUSO_PADRAO = 'America/Sao_Paulo';
 
@@ -84,6 +85,11 @@ async function ingerirRegistros(empresaId, dispositivo, registros) {
           tipo_batida: normalizarTipoBatida(registro.tipoVerificacaoBruto),
           origem: 'dispositivo',
           id_bruto_nao_resolvido: resolvido ? null : registro.idNoDispositivo,
+          // Nem toda origem de registro preenche isso (o protocolo ZK, por
+          // exemplo, nunca manda foto nem payload bruto) - por isso o
+          // `|| null` em vez de deixar `undefined` ir pro insert.
+          foto_url: registro.fotoUrl || null,
+          payload_bruto: registro.payloadBruto ? JSON.stringify(registro.payloadBruto) : null,
         })
         .onConflict(['dispositivo_id', 'nsr'])
         .ignore()
@@ -259,6 +265,20 @@ async function listarApontamentos(empresaId, { funcionarioId, de, ate }) {
   return query;
 }
 
+/**
+ * Resolve a foto de uma batida (capturada pelo equipamento no momento do
+ * reconhecimento facial) pro caminho real em disco - sempre passando por
+ * aqui (autenticado, escopado por empresa_id) em vez de expor storage/
+ * direto via express.static, porque a mesma pasta tambem guarda arquivos
+ * AFD (dado de fiscalizacao trabalhista, nunca publico - ver README secao
+ * 5) e uma foto de uma pessoa batendo ponto e, em si, dado sensivel.
+ */
+async function buscarFoto(empresaId, registroId) {
+  const registro = await db('registros_ponto').where({ id: registroId, empresa_id: empresaId }).first();
+  if (!registro || !registro.foto_url) throw new AppError('Foto nao encontrada.', 404);
+  return caminhoAbsoluto(registro.foto_url);
+}
+
 async function listarRegistrosNaoResolvidos(empresaId) {
   return db('registros_ponto as r')
     .select('r.*', 'd.descricao as dispositivo_descricao')
@@ -274,5 +294,6 @@ module.exports = {
   registrarBatidaManual,
   processarDia,
   listarApontamentos,
+  buscarFoto,
   listarRegistrosNaoResolvidos,
 };

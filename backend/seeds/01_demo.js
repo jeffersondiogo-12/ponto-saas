@@ -86,6 +86,35 @@ exports.seed = async function (knex) {
     protocolo: 'desconhecido',
   });
 
+  // Segundo dispositivo, de exemplo: protocolo evo_ws real (confirmado via
+  // PDF do fabricante), modo_conexao='server' - e o EQUIPAMENTO quem se
+  // conecta a este backend, entao nao precisamos saber o IP dele de
+  // antemao (o servidor WebSocket preenche isso sozinho assim que o
+  // equipamento fizer o primeiro "reg" - ver evoFacialServidor.js). Para
+  // testar de verdade, aponte um Evo Facial real (ou o script de simulacao
+  // em backend/scripts/simular-evo-facial.js) para EVO_FACIAL_WS_PORT com
+  // numero_serie = 'EVOFACIAL0001'.
+  await knex('dispositivos').insert({
+    empresa_id: empresa.id,
+    descricao: 'Facial entrada principal',
+    modelo: 'Evo Facial AI-5',
+    tipo_biometria: 'facial',
+    situacao: 'ativo',
+    fuso_horario: 'America/Sao_Paulo',
+    enviar_comprovante_email: false,
+    modo_conexao: 'server',
+    ip: null,
+    porta: 4370,
+    nao_validar_empresa: false,
+    numero_serie: 'EVOFACIAL0001',
+    mac_address: null,
+    ultimo_nsr: 0,
+    usuario_dispositivo: null,
+    senha_dispositivo_cifrada: null,
+    identificador_equipamento: null,
+    protocolo: 'evo_ws',
+  });
+
   // eslint-disable-next-line no-console
   console.log('Seed aplicado. Login: admin@weldinox.example.com / admin123');
 };

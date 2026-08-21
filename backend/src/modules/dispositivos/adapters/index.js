@@ -1,4 +1,5 @@
 const ZkProtocolAdapter = require('./ZkProtocolAdapter');
+const EvoFacialAdapter = require('./EvoFacialAdapter');
 const NaoConfiguradoAdapter = require('./NaoConfiguradoAdapter');
 
 /**
@@ -9,6 +10,7 @@ const NaoConfiguradoAdapter = require('./NaoConfiguradoAdapter');
  */
 const ADAPTERS = {
   zk_tcp: ZkProtocolAdapter,
+  evo_ws: EvoFacialAdapter, // protocolo real do Evo Facial, confirmado via PDF do fabricante - ver evoFacialServidor.js
   desconhecido: NaoConfiguradoAdapter,
   // http_rest: HttpRestAdapter, // implementar quando o formato for confirmado
 };
