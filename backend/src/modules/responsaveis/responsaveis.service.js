@@ -8,6 +8,15 @@ async function obterAlunoIdsVinculados(responsavelId) {
   return vinculos.map((v) => v.aluno_id);
 }
 
+async function buscarPorId(empresaId, responsavelId) {
+  const responsavel = await db('responsaveis')
+    .where({ id: responsavelId, empresa_id: empresaId })
+    .first();
+
+  if (!responsavel) throw new AppError('Responsavel nao encontrado.', 404);
+  return responsavel;
+}
+
 async function login(email, senha) {
   const responsavel = await db('responsaveis').where({ email: email.toLowerCase().trim() }).first();
 
@@ -118,6 +127,14 @@ async function registrarPushToken(responsavelId, token, plataforma) {
   return registro;
 }
 
+async function excluir(empresaId, responsavelId) {
+  const responsavel = await buscarPorId(empresaId, responsavelId);
+
+  await db('responsaveis').where({ id: responsavelId, empresa_id: empresaId }).del();
+
+  return responsavel;
+}
+
 module.exports = {
   login,
   cadastrar,
@@ -126,4 +143,6 @@ module.exports = {
   frequenciaDoAluno,
   registrarPushToken,
   obterAlunoIdsVinculados,
+  buscarPorId,
+  excluir,
 };

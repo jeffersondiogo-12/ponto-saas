@@ -61,4 +61,21 @@ async function vincularAluno(req, res, next) {
   }
 }
 
-module.exports = { cadastrar, login, listarAlunos, frequenciaDoAluno, registrarPushToken, vincularAluno };
+async function excluir(req, res, next) {
+  try {
+    await responsaveisService.excluir(req.empresaId, req.params.id);
+    res.status(204).send();
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = {
+  cadastrar,
+  login,
+  listarAlunos,
+  frequenciaDoAluno,
+  registrarPushToken,
+  vincularAluno,
+  excluir,
+};

@@ -54,4 +54,13 @@ async function vincularDispositivo(req, res, next) {
   }
 }
 
-module.exports = { listar, buscar, criar, atualizar, vincularDispositivo };
+async function excluir(req, res, next) {
+  try {
+    await funcionariosService.excluir(req.empresaId, req.params.id);
+    res.status(204).send();
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { listar, buscar, criar, atualizar, vincularDispositivo, excluir };
