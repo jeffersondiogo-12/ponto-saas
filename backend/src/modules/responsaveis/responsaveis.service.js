@@ -91,6 +91,34 @@ async function vincularAluno(empresaId, responsavelId, matriculaAluno, parentesc
   return vinculo;
 }
 
+function normalizarCpf(cpf) {
+  return String(cpf || '').replace(/\D/g, '');
+}
+
+async function vincularFilhoDoResponsavel(responsavelId, { nome_completo, cpf, matricula_aluno, parentesco }) {
+  const responsavel = await db('responsaveis').where({ id: responsavelId }).first();
+  if (!responsavel) throw new AppError('Responsavel nao encontrado.', 404);
+
+  const cpfNormalizado = normalizarCpf(cpf);
+  if (!nome_completo || cpfNormalizado.length !== 11 || !matricula_aluno) {
+    throw new AppError('Informe nome completo, CPF e matricula do aluno.', 400);
+  }
+
+  const aluno = await db('alunos')
+    .where({ empresa_id: responsavel.empresa_id, matricula: String(matricula_aluno).trim(), cpf: cpfNormalizado, ativo: true })
+    .whereRaw('LOWER(TRIM(nome)) = LOWER(TRIM(?))', [nome_completo])
+    .first();
+  if (!aluno) throw new AppError('Nao encontramos um aluno com esses dados. Confira com a secretaria.', 404);
+
+  const [vinculo] = await db('responsavel_alunos')
+    .insert({ responsavel_id: responsavelId, aluno_id: aluno.id, parentesco: parentesco || null })
+    .onConflict(['responsavel_id', 'aluno_id'])
+    .merge({ parentesco: parentesco || null })
+    .returning('*');
+
+  return { vinculo, aluno };
+}
+
 async function listarAlunosVinculados(alunoIds) {
   if (!alunoIds || alunoIds.length === 0) return [];
 
@@ -117,6 +145,56 @@ async function frequenciaDoAluno(alunoIdsPermitidos, alunoId, { de, ate } = {}) 
   return query;
 }
 
+async function painelDoAluno(alunoIdsPermitidos, alunoId) {
+  if (!alunoIdsPermitidos.includes(alunoId)) {
+    throw new AppError('Voce nao tem acesso a este aluno.', 403);
+  }
+
+  const aluno = await db('alunos as a')
+    .select('a.id', 'a.nome', 'a.matricula', 't.nome as turma_nome', 'a.filial_id', 'a.empresa_id')
+    .leftJoin('turmas as t', 't.id', 'a.turma_id')
+    .where('a.id', alunoId)
+    .first();
+  if (!aluno) throw new AppError('Aluno nao encontrado.', 404);
+
+  const [presenca, notas, observacoes, avisos] = await Promise.all([
+    frequenciaDoAluno(alunoIdsPermitidos, alunoId),
+    db('notas_alunos').where({ aluno_id: alunoId }).select('id', 'disciplina', 'etapa', 'nota', 'observacao').orderBy('etapa').orderBy('disciplina'),
+    db('observacoes_alunos').where({ aluno_id: alunoId }).select('id', 'titulo', 'texto', 'autor_nome', 'created_at').orderBy('created_at', 'desc'),
+    db('avisos_escola').where({ empresa_id: aluno.empresa_id, ativo: true }).where(function () {
+      this.whereNull('filial_id').orWhere('filial_id', aluno.filial_id);
+    }).select('id', 'titulo', 'mensagem', 'publicado_em').orderBy('publicado_em', 'desc'),
+  ]);
+
+  return { aluno, presenca, notas, observacoes, avisos };
+}
+
+async function criarNota(empresaId, dados) {
+  await validarAlunoDaEmpresa(empresaId, dados.aluno_id);
+  const [nota] = await db('notas_alunos').insert({ ...dados, empresa_id: empresaId }).returning('*');
+  return nota;
+}
+
+async function criarObservacao(empresaId, dados) {
+  await validarAlunoDaEmpresa(empresaId, dados.aluno_id);
+  const [observacao] = await db('observacoes_alunos').insert({ ...dados, empresa_id: empresaId }).returning('*');
+  return observacao;
+}
+
+async function criarAviso(empresaId, dados) {
+  if (dados.filial_id) {
+    const filial = await db('filiais').where({ id: dados.filial_id, empresa_id: empresaId }).first();
+    if (!filial) throw new AppError('Unidade nao encontrada.', 404);
+  }
+  const [aviso] = await db('avisos_escola').insert({ ...dados, empresa_id: empresaId }).returning('*');
+  return aviso;
+}
+
+async function validarAlunoDaEmpresa(empresaId, alunoId) {
+  const aluno = await db('alunos').where({ id: alunoId, empresa_id: empresaId }).first();
+  if (!aluno) throw new AppError('Aluno nao encontrado.', 404);
+}
+
 async function registrarPushToken(responsavelId, token, plataforma) {
   const [registro] = await db('push_tokens')
     .insert({ responsavel_id: responsavelId, token, plataforma })
@@ -139,8 +217,13 @@ module.exports = {
   login,
   cadastrar,
   vincularAluno,
+  vincularFilhoDoResponsavel,
   listarAlunosVinculados,
   frequenciaDoAluno,
+  painelDoAluno,
+  criarNota,
+  criarObservacao,
+  criarAviso,
   registrarPushToken,
   obterAlunoIdsVinculados,
   buscarPorId,

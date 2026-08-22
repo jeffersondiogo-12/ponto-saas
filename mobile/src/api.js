@@ -44,7 +44,9 @@ export const api = {
   login: (email, senha) => requisitar('/api/responsaveis/login', { method: 'POST', body: { email, senha } }),
   cadastrar: (dados) => requisitar('/api/responsaveis/cadastro', { method: 'POST', body: dados }),
   listarAlunos: () => requisitar('/api/responsaveis/alunos'),
+  vincularFilho: (dados) => requisitar('/api/responsaveis/alunos/vincular', { method: 'POST', body: dados }),
   frequenciaDoAluno: (alunoId) => requisitar(`/api/responsaveis/alunos/${alunoId}/frequencia`),
+  painelDoAluno: (alunoId) => requisitar(`/api/responsaveis/alunos/${alunoId}/painel`),
   registrarPushToken: (token, plataforma) =>
     requisitar('/api/responsaveis/push-token', { method: 'POST', body: { token, plataforma } }),
 };

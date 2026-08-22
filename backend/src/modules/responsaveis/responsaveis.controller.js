@@ -21,7 +21,8 @@ async function login(req, res, next) {
 
 async function listarAlunos(req, res, next) {
   try {
-    const alunos = await responsaveisService.listarAlunosVinculados(req.usuario.alunoIds);
+    const alunoIds = await responsaveisService.obterAlunoIdsVinculados(req.usuario.responsavelId);
+    const alunos = await responsaveisService.listarAlunosVinculados(alunoIds);
     res.json({ alunos });
   } catch (err) {
     next(err);
@@ -31,11 +32,58 @@ async function listarAlunos(req, res, next) {
 async function frequenciaDoAluno(req, res, next) {
   try {
     const { de, ate } = req.query;
-    const registros = await responsaveisService.frequenciaDoAluno(req.usuario.alunoIds, req.params.alunoId, {
+    const alunoIds = await responsaveisService.obterAlunoIdsVinculados(req.usuario.responsavelId);
+    const registros = await responsaveisService.frequenciaDoAluno(alunoIds, req.params.alunoId, {
       de,
       ate,
     });
     res.json({ registros });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function painelDoAluno(req, res, next) {
+  try {
+    const alunoIds = await responsaveisService.obterAlunoIdsVinculados(req.usuario.responsavelId);
+    const painel = await responsaveisService.painelDoAluno(alunoIds, req.params.alunoId);
+    res.json(painel);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function vincularFilho(req, res, next) {
+  try {
+    const resultado = await responsaveisService.vincularFilhoDoResponsavel(req.usuario.responsavelId, req.body);
+    res.status(201).json(resultado);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function criarNota(req, res, next) {
+  try {
+    const nota = await responsaveisService.criarNota(req.empresaId, req.body);
+    res.status(201).json({ nota });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function criarObservacao(req, res, next) {
+  try {
+    const observacao = await responsaveisService.criarObservacao(req.empresaId, req.body);
+    res.status(201).json({ observacao });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function criarAviso(req, res, next) {
+  try {
+    const aviso = await responsaveisService.criarAviso(req.empresaId, req.body);
+    res.status(201).json({ aviso });
   } catch (err) {
     next(err);
   }
@@ -75,6 +123,11 @@ module.exports = {
   login,
   listarAlunos,
   frequenciaDoAluno,
+  painelDoAluno,
+  vincularFilho,
+  criarNota,
+  criarObservacao,
+  criarAviso,
   registrarPushToken,
   vincularAluno,
   excluir,
