@@ -2,6 +2,7 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const db = require('../../config/db');
 const { AppError } = require('../../middlewares/errorHandler');
+const { publicarEvento } = require('../../realtime');
 
 async function obterAlunoIdsVinculados(responsavelId) {
   const vinculos = await db('responsavel_alunos').where({ responsavel_id: responsavelId });
@@ -172,12 +173,14 @@ async function painelDoAluno(alunoIdsPermitidos, alunoId) {
 async function criarNota(empresaId, dados) {
   await validarAlunoDaEmpresa(empresaId, dados.aluno_id);
   const [nota] = await db('notas_alunos').insert({ ...dados, empresa_id: empresaId }).returning('*');
+  publicarEvento('nota.criada', { empresaId, alunoId: dados.aluno_id });
   return nota;
 }
 
 async function criarObservacao(empresaId, dados) {
   await validarAlunoDaEmpresa(empresaId, dados.aluno_id);
   const [observacao] = await db('observacoes_alunos').insert({ ...dados, empresa_id: empresaId }).returning('*');
+  publicarEvento('observacao.criada', { empresaId, alunoId: dados.aluno_id });
   return observacao;
 }
 
@@ -187,6 +190,7 @@ async function criarAviso(empresaId, dados) {
     if (!filial) throw new AppError('Unidade nao encontrada.', 404);
   }
   const [aviso] = await db('avisos_escola').insert({ ...dados, empresa_id: empresaId }).returning('*');
+  publicarEvento('aviso.criado', { empresaId, filialId: dados.filial_id || null });
   return aviso;
 }
 

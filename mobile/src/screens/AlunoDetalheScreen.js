@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { View, Text, FlatList, StyleSheet, ActivityIndicator } from 'react-native';
+import { DeviceEventEmitter, View, Text, FlatList, StyleSheet, ActivityIndicator } from 'react-native';
 import { api } from '../api';
 import { cores } from '../theme';
 
@@ -21,6 +21,14 @@ export default function AlunoDetalheScreen({ route }) {
 
   useEffect(() => {
     api.painelDoAluno(alunoId).then(setPainel).catch((err) => setErro(err.message)).finally(() => setCarregando(false));
+  }, [alunoId]);
+
+  useEffect(() => {
+    const assinatura = DeviceEventEmitter.addListener('ponto-saas:atualizado', () => {
+      setCarregando(true);
+      api.painelDoAluno(alunoId).then(setPainel).catch((err) => setErro(err.message)).finally(() => setCarregando(false));
+    });
+    return () => assinatura.remove();
   }, [alunoId]);
 
   return (

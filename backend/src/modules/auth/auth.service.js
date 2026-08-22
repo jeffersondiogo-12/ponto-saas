@@ -223,6 +223,9 @@ async function login(email, senha, unidade) {
 }
 
 async function criarUsuario({ empresa_id, filial_id, nome, email, senha, papel = 'admin' }) {
+  if (!['admin', 'rh', 'gestor', 'professor'].includes(papel)) {
+    throw new AppError('Papel de usuario invalido.', 400);
+  }
   const emailNormalizado = normalizarEmail(email);
   const filialId = await validarFilialDaEmpresa(empresa_id, filial_id);
 
@@ -285,7 +288,7 @@ async function atualizarUsuarios(empresaId, usuarioId, dados) {
   }
 
   if (dados.papel !== undefined) {
-    const papeisPermitidos = ['admin', 'rh', 'gestor'];
+    const papeisPermitidos = ['admin', 'rh', 'gestor', 'professor'];
     if (!papeisPermitidos.includes(dados.papel)) {
       throw new AppError('Papel de usuario invalido.', 400);
     }

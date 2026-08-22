@@ -22,6 +22,9 @@ export default function Layout({ children, empresaNome }) {
         </div>
         <nav className="nav">
           <Link to="/dashboard" className={ativo('/dashboard')}>Dashboard</Link>
+          {usuario?.papel === 'professor' && (
+            <Link to="/professor" className={ativo('/professor')}>Minhas turmas</Link>
+          )}
           {(usuario?.papel === 'admin' || usuario?.papel === 'super_admin') && (
             <Link to="/unidades" className={ativo('/unidades')}>Unidades</Link>
           )}
@@ -30,15 +33,15 @@ export default function Layout({ children, empresaNome }) {
             <Link to="/funcionarios" className={ativo('/funcionarios')}>Funcionários</Link>
           )}
 
-          {filialSelecionada && filialSelecionada.tipo === 'escola' && (
+          {usuario?.papel !== 'professor' && filialSelecionada && filialSelecionada.tipo === 'escola' && (
             <Link to="/turmas" className={ativo('/turmas')}>Turmas</Link>
           )}
 
-          {filialSelecionada && filialSelecionada.tipo === 'escola' && (
+          {usuario?.papel !== 'professor' && filialSelecionada && filialSelecionada.tipo === 'escola' && (
             <Link to="/alunos" className={ativo('/alunos')}>Alunos</Link>
           )}
 
-          {filialSelecionada && filialSelecionada.tipo === 'escola' && (
+          {usuario?.papel !== 'professor' && filialSelecionada && filialSelecionada.tipo === 'escola' && (
             <Link to="/usuarios" className={ativo('/usuarios')}>Usuários</Link>
           )}
 

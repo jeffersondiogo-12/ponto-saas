@@ -10,7 +10,7 @@ export default function UsuarioForm() {
   const [nome, setNome] = useState('');
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
-  const [papel, setPapel] = useState('staff');
+  const [papel, setPapel] = useState('professor');
   const [filialId, setFilialId] = useState('');
   const [filiais, setFiliais] = useState([]);
   const [carregando, setCarregando] = useState(false);
@@ -88,22 +88,22 @@ export default function UsuarioForm() {
             <div className="campo">
               <label>Papel</label>
               <select value={papel} onChange={(e) => setPapel(e.target.value)}>
-                <option value="staff">Staff</option>
+                <option value="professor">Professor</option>
                 <option value="rh">RH</option>
                 <option value="admin">Admin</option>
               </select>
             </div>
-+            {(usuario?.papel === 'admin' || usuario?.papel === 'super_admin') && (
-+              <div className="campo">
-+                <label>Filial (escola)</label>
-+                <select value={filialId} onChange={(e) => setFilialId(e.target.value)} required>
-+                  <option value="">-- selecione --</option>
-+                  {filiais.map((f) => (
-+                    <option key={f.id} value={f.id}>{f.nome || f.cnpj}</option>
-+                  ))}
-+                </select>
-+              </div>
-+            )}
+            {(usuario?.papel === 'admin' || usuario?.papel === 'super_admin') && (
+              <div className="campo">
+                <label>Filial (escola)</label>
+                <select value={filialId} onChange={(e) => setFilialId(e.target.value)} required>
+                  <option value="">-- selecione --</option>
+                  {filiais.map((f) => (
+                    <option key={f.id} value={f.id}>{f.nome || f.cnpj}</option>
+                  ))}
+                </select>
+              </div>
+            )}
             <button type="submit" className="btn btn-primario" disabled={carregando}>
               {carregando ? 'Salvando...' : 'Salvar'}
             </button>

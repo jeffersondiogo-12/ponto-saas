@@ -102,6 +102,13 @@ export const api = {
   criarUnidade: (dados) => requisitar('/api/filiais', { method: 'POST', body: dados }),
   atualizarUnidade: (id, dados) => requisitar(`/api/filiais/${id}`, { method: 'PUT', body: dados }),
   listarTurmas: () => requisitar('/api/turmas'),
+  listarMinhasTurmas: () => requisitar('/api/professores/minhas-turmas'),
+  listarAlunosDaTurma: (turmaId) => requisitar(`/api/professores/turmas/${turmaId}/alunos`),
+  registrarPresencasSala: (turmaId, dados) => requisitar(`/api/professores/turmas/${turmaId}/presencas`, { method: 'POST', body: dados }),
+  criarNotaProfessor: (turmaId, dados) => requisitar(`/api/professores/turmas/${turmaId}/notas`, { method: 'POST', body: dados }),
+  criarObservacaoProfessor: (turmaId, dados) => requisitar(`/api/professores/turmas/${turmaId}/observacoes`, { method: 'POST', body: dados }),
+  listarProfessoresTurma: (turmaId) => requisitar(`/api/professores/turmas/${turmaId}/professores`),
+  atribuirProfessor: (turmaId, dados) => requisitar(`/api/professores/turmas/${turmaId}/professores`, { method: 'POST', body: dados }),
 
   listarFuncionarios: () => requisitar('/api/funcionarios'),
   listarAlunos: () => requisitar('/api/alunos'),

@@ -14,6 +14,7 @@ import UsuariosLista from './pages/UsuariosLista';
 import UsuarioForm from './pages/UsuarioForm';
 import TurmasLista from './pages/TurmasLista';
 import Relatorios from './pages/Relatorios';
+import ProfessorPainel from './pages/ProfessorPainel';
 import SelecionarFilialModal from './components/SelecionarFilialModal';
 import ErrorOverlay from './components/ErrorOverlay';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -48,6 +49,7 @@ export default function App() {
           <Route path="/usuarios/novo" element={<RotaProtegida><UsuarioForm /></RotaProtegida>} />
           <Route path="/turmas" element={<RotaProtegida><TurmasLista /></RotaProtegida>} />
           <Route path="/relatorios" element={<RotaProtegida><Relatorios /></RotaProtegida>} />
+          <Route path="/professor" element={<RotaProtegida><ProfessorPainel /></RotaProtegida>} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </ErrorBoundary>

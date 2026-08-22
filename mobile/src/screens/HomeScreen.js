@@ -1,5 +1,5 @@
-import { useCallback, useState } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, RefreshControl } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { DeviceEventEmitter, View, Text, FlatList, TouchableOpacity, StyleSheet, RefreshControl } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
@@ -25,6 +25,11 @@ export default function HomeScreen({ navigation }) {
       carregar();
     }, [carregar])
   );
+
+  useEffect(() => {
+    const assinatura = DeviceEventEmitter.addListener('ponto-saas:atualizado', carregar);
+    return () => assinatura.remove();
+  }, [carregar]);
 
   return (
     <View style={estilos.container}>
