@@ -212,7 +212,17 @@ export default function DispositivoForm() {
                 <Selecao
                   rotuloAria="Protocolo de comunicação"
                   valor={dados.protocolo}
-                  aoMudar={(v) => set('protocolo', v)}
+                  aoMudar={(v) =>
+                    setDados((d) => ({
+                      ...d,
+                      protocolo: v,
+                      // evo_ws so funciona em modo 'server' (backend rejeita a combinacao
+                      // contraria com 400) - troca sozinho pra nao depender do admin lembrar
+                      // de mexer nos dois campos. Ao sair de evo_ws, volta pra 'client' se
+                      // estava em 'server', ja que nenhum outro protocolo hoje suporta isso.
+                      modo_conexao: v === 'evo_ws' ? 'server' : d.modo_conexao === 'server' ? 'client' : d.modo_conexao,
+                    }))
+                  }
                   opcoes={[
                     { valor: 'desconhecido', rotulo: 'A confirmar' },
                     { valor: 'zk_tcp', rotulo: 'Protocolo ZK (TCP) — não confirmado' },
@@ -222,8 +232,9 @@ export default function DispositivoForm() {
                 />
                 {dados.protocolo === 'evo_ws' && (
                   <span className="texto-apoio">
-                    Requer modo de conexão "Server". Configure no equipamento o IP deste servidor e a porta definida em
-                    EVO_FACIAL_WS_PORT (backend/.env).
+                    Modo "Server" (selecionado automaticamente). Em produção, aponte o equipamento para o domínio
+                    público deste servidor + <code>/evo</code>, porta 443/HTTPS — não use IP nem a porta
+                    EVO_FACIAL_WS_PORT, que só se aplica rodando o backend standalone na sua própria rede.
                   </span>
                 )}
               </div>
