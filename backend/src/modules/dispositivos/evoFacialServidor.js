@@ -31,6 +31,15 @@ const pontoService = require('../ponto/ponto.service');
  * conectado AGORA, na mesma hora da requisicao HTTP - se fossem processos
  * separados, isso exigiria algum tipo de fila/IPC entre eles so pra
  * repassar um comando, complexidade que nao se paga aqui.
+ *
+ * DECISAO 2: compartilha a MESMA porta HTTP da API (via o evento 'upgrade'
+ * do servidor http.Server que o Express ja usa - ver iniciarServidorEvoFacial),
+ * em vez de abrir uma porta TCP propria. Motivo: a maioria dos PaaS
+ * (Render incluido - a documentacao deles e explicita: "Render forwards
+ * inbound traffic to only one HTTP port per web service") so expoe
+ * publicamente UMA porta por servico. Uma porta adicional simplesmente nao
+ * seria alcancavel de fora nesse tipo de ambiente.
+ *
  * LIMITE CONHECIDO: se este backend algum dia rodar em mais de uma
  * instancia atras de um load balancer, cada instancia tera seu proprio
  * registro de conexoes em memoria (`conexoes` abaixo) - um equipamento
@@ -43,6 +52,43 @@ const pontoService = require('../ponto/ponto.service');
 
 // numero_serie -> { ws, dispositivo, ultimoDevinfo, pendente }
 const conexoes = new Map();
+
+/**
+ * EVO_FACIAL_DEBUG=true no .env liga o log da mensagem JSON crua, em ambas
+ * as direcoes - pensado para o primeiro contato com o equipamento fisico
+ * de verdade, quando o firmware real pode divergir do PDF em algum detalhe
+ * que so aparece olhando o payload exato que ele manda. Fica desligado por
+ * padrao (fica barulhento, e o campo `image` pode ter centenas de KB por
+ * batida). Nunca loga a foto inteira, so o tamanho - so o essencial pra
+ * comparar contra o que o PDF documenta.
+ */
+const DEBUG = process.env.EVO_FACIAL_DEBUG === 'true';
+
+function paraLog(msg) {
+  if (!msg || typeof msg !== 'object') return msg;
+  const copia = { ...msg };
+  if (Array.isArray(copia.record)) {
+    // sendlog/getuserlist/getnewlog: array de registros, cada um podendo ter foto em `image`.
+    copia.record = copia.record.map((r) =>
+      r && typeof r.image === 'string' ? { ...r, image: `<base64 omitido, ${r.image.length} chars>` } : r
+    );
+  } else if (typeof copia.record === 'string' && copia.record.length > 100) {
+    // setuserinfo/getuserinfo: `record` e uma string unica (o template Base64 em si).
+    copia.record = `<base64 omitido, ${copia.record.length} chars>`;
+  }
+  return copia;
+}
+
+function logDebug(direcao, numeroSerie, msg) {
+  if (!DEBUG) return;
+  console.log(`[evo-facial:debug] ${direcao} ${numeroSerie || '(antes do reg)'}:`, JSON.stringify(paraLog(msg)));
+}
+
+/** Envia e, se EVO_FACIAL_DEBUG=true, loga o JSON exato mandado ao equipamento. */
+function enviarMensagem(ws, numeroSerie, payload) {
+  logDebug('-> enviado', numeroSerie, payload);
+  ws.send(JSON.stringify(payload));
+}
 
 function estaConectado(numeroSerie) {
   const conexao = conexoes.get(numeroSerie);
@@ -107,6 +153,7 @@ async function enviarComando(numeroSerie, payload, { timeoutMs = 10000 } = {}) {
 
     conexao.pendente = { cmd: payload.cmd, resolve, reject, timer };
 
+    logDebug('-> enviado', numeroSerie, payload);
     conexao.ws.send(JSON.stringify(payload), (err) => {
       if (err) {
         clearTimeout(timer);
@@ -130,13 +177,24 @@ function tratarRespostaDeComando(ws, msg) {
 
 /** 1.1 Registro (PDF secao 1.1) - handshake inicial, repetido pelo equipamento a cada 20s ate ser confirmado. */
 async function tratarReg(ws, msg) {
+  logDebug('<- recebido', ws._numeroSerie || msg.sn, msg);
+
   const numeroSerie = msg.sn;
   if (!numeroSerie) {
     ws.send(JSON.stringify({ ret: 'reg', result: false, reason: 'sn ausente' }));
     return;
   }
 
-  const dispositivo = await db('dispositivos').where({ numero_serie: numeroSerie }).first();
+  // Case-insensitive e sem espacos nas pontas: o numero de serie digitado
+  // no cadastro (as vezes copiado de uma etiqueta/nota fiscal) pode nao
+  // bater exatamente com o que o firmware reporta em maiusculas/minusculas
+  // - erro de digitacao facil de cometer e dificil de perceber (as duas
+  // strings "parecem iguais" ao olho). Comparar por igualdade case-sensitive
+  // aqui faria o equipamento nunca conseguir se registrar por um motivo
+  // quase invisivel de diagnosticar.
+  const dispositivo = await db('dispositivos')
+    .whereRaw('UPPER(numero_serie) = UPPER(?)', [numeroSerie.trim()])
+    .first();
 
   if (!dispositivo) {
     // Deliberado: nao cadastramos o equipamento automaticamente so por ele
@@ -160,15 +218,26 @@ async function tratarReg(ws, msg) {
     return;
   }
 
+  // A partir daqui, usamos SEMPRE dispositivo.numero_serie (a grafia
+  // cadastrada no banco), nunca o `numeroSerie` bruto que veio do
+  // equipamento - sao a mesma coisa "para fins de busca" (por isso o
+  // UPPER() acima), mas precisam ser exatamente a MESMA STRING daqui pra
+  // frente, porque e essa chave que o adapter usa em enviarComando()
+  // (EvoFacialAdapter.numeroSerie le de this.dispositivo.numero_serie, o
+  // valor do banco). Se guardassemos a chave com a grafia que veio do
+  // equipamento e ela divergisse em maiusculas/minusculas do cadastro,
+  // cadastrar-face/remover-face/etc. nunca encontrariam esta conexao.
+  const chave = dispositivo.numero_serie;
+
   // Reconexao do mesmo equipamento (ex: reiniciou, trocou de rede): fecha a
   // sessao antiga com seguranca antes de assumir a nova.
-  const conexaoAntiga = conexoes.get(numeroSerie);
+  const conexaoAntiga = conexoes.get(chave);
   if (conexaoAntiga && conexaoAntiga.ws !== ws && conexaoAntiga.ws.readyState === conexaoAntiga.ws.OPEN) {
     conexaoAntiga.ws.terminate();
   }
 
-  ws._numeroSerie = numeroSerie;
-  conexoes.set(numeroSerie, { ws, dispositivo, ultimoDevinfo: msg.devinfo || null, pendente: null });
+  ws._numeroSerie = chave;
+  conexoes.set(chave, { ws, dispositivo, ultimoDevinfo: msg.devinfo || null, pendente: null });
 
   const patch = {
     ultima_conexao_ws_em: db.fn.now(),
@@ -192,21 +261,20 @@ async function tratarReg(ws, msg) {
   }
 
   const timeZone = dispositivo.fuso_horario || 'America/Sao_Paulo';
-  ws.send(
-    JSON.stringify({
-      ret: 'reg',
-      result: true,
-      cloudtime: formatarCloudTime(new Date(), timeZone),
-      nosenduser: true, // nao precisamos que o equipamento despeje a lista de usuarios no registro
-    })
-  );
+  enviarMensagem(ws, chave, {
+    ret: 'reg',
+    result: true,
+    cloudtime: formatarCloudTime(new Date(), timeZone),
+    nosenduser: true, // nao precisamos que o equipamento despeje a lista de usuarios no registro
+  });
 
-  console.log(`[evo-facial] "${dispositivo.descricao}" (${numeroSerie}) registrado - firmware ${msg.devinfo?.firmware || '?'}`);
+  console.log(`[evo-facial] "${dispositivo.descricao}" (${chave}) registrado - firmware ${msg.devinfo?.firmware || '?'}`);
 }
 
 /** 1.2 Enviar Logs (PDF secao 1.2) - as marcacoes de ponto propriamente ditas. */
 async function tratarSendlog(ws, msg) {
   const numeroSerie = ws._numeroSerie;
+  logDebug('<- recebido', numeroSerie, msg);
   const conexao = numeroSerie && conexoes.get(numeroSerie);
 
   if (!conexao) {
@@ -284,21 +352,19 @@ async function tratarSendlog(ws, msg) {
 
   conexao.dispositivo = dispositivoAtual;
 
-  ws.send(
-    JSON.stringify({
-      ret: 'sendlog',
-      result: true,
-      count: registrosBrutos.length,
-      logindex: msg.logindex,
-      cloudtime: formatarCloudTime(new Date(), timeZone),
-      // access/message so tem efeito em equipamentos configurados como
-      // "servidor valida" no menu local (PDF secao 1.2) - na maioria das
-      // instalacoes (validacao offline no proprio equipamento) o
-      // equipamento simplesmente ignora estes dois campos.
-      access: 1,
-      message: 'Ponto registrado',
-    })
-  );
+  enviarMensagem(ws, numeroSerie, {
+    ret: 'sendlog',
+    result: true,
+    count: registrosBrutos.length,
+    logindex: msg.logindex,
+    cloudtime: formatarCloudTime(new Date(), timeZone),
+    // access/message so tem efeito em equipamentos configurados como
+    // "servidor valida" no menu local (PDF secao 1.2) - na maioria das
+    // instalacoes (validacao offline no proprio equipamento) o
+    // equipamento simplesmente ignora estes dois campos.
+    access: 1,
+    message: 'Ponto registrado',
+  });
 
   console.log(
     `[evo-facial] "${dispositivoAtual.descricao}": ${resumo.totalNovos} nova(s) batida(s), ${resumo.totalNaoResolvidos} sem vinculo`
@@ -333,17 +399,23 @@ async function processarMensagem(ws, raw) {
   }
 }
 
-function iniciarServidorEvoFacial(alvo) {
-  const compartilhado = typeof alvo === 'object';
-  const wss = new WebSocketServer(compartilhado ? { noServer: true } : { port: alvo });
+function iniciarServidorEvoFacial(servidorHttp) {
+  // noServer: true -> o WebSocketServer nao abre porta nenhuma sozinho;
+  // ele so processa upgrades que ns mesmos repassamos a ele manualmente
+  // (ver servidorHttp.on('upgrade', ...) abaixo). E assim que se
+  // compartilha uma porta HTTP entre trafego normal (Express) e WebSocket.
+  const wss = new WebSocketServer({ noServer: true });
 
-  if (compartilhado) {
-    alvo.on('upgrade', (request, socket, head) => {
-      const url = new URL(request.url, `http://${request.headers.host}`);
-      if (url.pathname !== '/evo') return;
-      wss.handleUpgrade(request, socket, head, (ws) => wss.emit('connection', ws, request));
+  servidorHttp.on('upgrade', (req, socket, head) => {
+    // Qualquer pedido de upgrade que chega aqui e, por definicao, alguem
+    // pedindo pra virar WebSocket - trafego HTTP normal (GET/POST da API)
+    // nunca dispara este evento, entao nao ha necessidade de checar path
+    // ou cabecalhos extras pra saber se "e" o equipamento: so o firmware
+    // do Evo Facial fala WebSocket com este servidor.
+    wss.handleUpgrade(req, socket, head, (ws) => {
+      wss.emit('connection', ws, req);
     });
-  }
+  });
 
   wss.on('connection', (ws, req) => {
     // Fila sequencial por conexao: garante que duas mensagens da MESMA
@@ -376,11 +448,7 @@ function iniciarServidorEvoFacial(alvo) {
     console.error('[evo-facial] erro no servidor WebSocket:', err.message);
   });
 
-  console.log(
-    compartilhado
-      ? '[evo-facial] WebSocket compartilhado em /evo'
-      : `[evo-facial] servidor WebSocket (protocolo Evo Facial) ouvindo na porta ${alvo}`
-  );
+  console.log('[evo-facial] servidor WebSocket (protocolo Evo Facial) pronto, compartilhando a porta HTTP principal');
   return wss;
 }
 

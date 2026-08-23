@@ -46,13 +46,4 @@ async function atualizar(req, res, next) {
   }
 }
 
-async function excluir(req, res, next) {
-  try {
-    await empresasService.excluir(req.params.id);
-    res.status(204).send();
-  } catch (err) {
-    next(err);
-  }
-}
-
-module.exports = { listar, buscar, criar, atualizar, excluir };
+module.exports = { listar, buscar, criar, atualizar };

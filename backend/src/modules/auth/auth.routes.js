@@ -8,7 +8,6 @@ const router = express.Router();
 router.post('/login', authController.login);
 
 router.get('/usuarios', autenticar, exigirTipo('staff'), resolverTenant, authController.listarUsuarios);
-
 router.post(
   '/usuarios',
   autenticar,
@@ -18,24 +17,4 @@ router.post(
   authController.criarUsuario
 );
 
-router.put(
-  '/usuarios/:id',
-  autenticar,
-  exigirTipo('staff'),
-  resolverTenant,
-  exigirPapel('super_admin', 'admin'),
-  authController.atualizarUsuario
-);
-
-router.delete(
-  '/usuarios/:id',
-  autenticar,
-  exigirTipo('staff'),
-  resolverTenant,
-  exigirPapel('super_admin', 'admin'),
-  authController.excluirUsuario
-);
-
 module.exports = router;
-
-//comentario novo pra 

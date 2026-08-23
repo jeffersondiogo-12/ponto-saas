@@ -6,17 +6,13 @@ import { AuthProvider, useAuth } from './src/context/AuthContext';
 import LoginScreen from './src/screens/LoginScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import AlunoDetalheScreen from './src/screens/AlunoDetalheScreen';
-import AdicionarFilhoScreen from './src/screens/AdicionarFilhoScreen';
-import ProfessorScreen from './src/screens/ProfessorScreen';
 import { registrarParaNotificacoes } from './src/notifications';
-import { conectarRealtime } from './src/realtime';
-import { sincronizarPendencias } from './src/api';
 import { cores } from './src/theme';
 
 const Stack = createNativeStackNavigator();
 
 function Navegacao() {
-  const { responsavel, sessao, carregandoSessao } = useAuth();
+  const { responsavel, carregandoSessao } = useAuth();
 
   // So registra push DEPOIS de logado - o token do Expo sozinho nao serve
   // pra nada sem saber a QUAL responsavel ele pertence no backend.
@@ -26,34 +22,15 @@ function Navegacao() {
     }
   }, [responsavel]);
 
-  useEffect(() => {
-    let desconectar = () => {};
-    if (sessao) {
-      conectarRealtime(() => {}).then((parar) => {
-        desconectar = parar;
-      });
-      sincronizarPendencias();
-      const sincronizador = setInterval(sincronizarPendencias, 30000);
-      return () => {
-        clearInterval(sincronizador);
-        desconectar();
-      };
-    }
-    return () => desconectar();
-  }, [sessao, responsavel]);
-
   if (carregandoSessao) return null;
 
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerStyle: { backgroundColor: cores.ink }, headerTintColor: '#fff' }}>
-        {sessao?.tipo === 'professor' ? (
-          <Stack.Screen name="Professor" component={ProfessorScreen} options={{ headerShown: false }} />
-        ) : responsavel ? (
+        {responsavel ? (
           <>
             <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
             <Stack.Screen name="AlunoDetalhe" component={AlunoDetalheScreen} options={{ title: '' }} />
-            <Stack.Screen name="AdicionarFilho" component={AdicionarFilhoScreen} options={{ title: 'Adicionar filho' }} />
           </>
         ) : (
           <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />

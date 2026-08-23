@@ -41,11 +41,6 @@ async function buscarPorId(empresaId, dispositivoId) {
 }
 
 async function criar(empresaId, dados) {
-  const ip = dados.ip && String(dados.ip).trim() ? String(dados.ip).trim() : null;
-  if (dados.modo_conexao !== 'server' && !ip) {
-    throw new AppError('IP e obrigatorio no modo Client.', 400);
-  }
-
   const serieExistente = await db('dispositivos')
     .where({ empresa_id: empresaId, numero_serie: dados.numero_serie })
     .first();
@@ -64,7 +59,7 @@ async function criar(empresaId, dados) {
       fuso_horario: dados.fuso_horario || 'America/Sao_Paulo',
       enviar_comprovante_email: Boolean(dados.enviar_comprovante_email),
       modo_conexao: dados.modo_conexao || 'client',
-      ip,
+      ip: dados.ip,
       porta: dados.porta || 4370,
       nao_validar_empresa: Boolean(dados.nao_validar_empresa),
       numero_serie: dados.numero_serie,
@@ -81,10 +76,6 @@ async function criar(empresaId, dados) {
 
 async function atualizar(empresaId, dispositivoId, dados) {
   await buscarPorId(empresaId, dispositivoId);
-  const ip = dados.ip && String(dados.ip).trim() ? String(dados.ip).trim() : null;
-  if (dados.modo_conexao !== 'server' && !ip) {
-    throw new AppError('IP e obrigatorio no modo Client.', 400);
-  }
 
   const patch = {
     filial_id: dados.filial_id || null,
@@ -95,7 +86,7 @@ async function atualizar(empresaId, dispositivoId, dados) {
     fuso_horario: dados.fuso_horario,
     enviar_comprovante_email: Boolean(dados.enviar_comprovante_email),
     modo_conexao: dados.modo_conexao,
-    ip,
+    ip: dados.ip,
     porta: dados.porta,
     nao_validar_empresa: Boolean(dados.nao_validar_empresa),
     mac_address: dados.mac_address || null,

@@ -8,8 +8,8 @@
  *   node scripts/simular-evo-facial.js [opcoes]
  *
  * Opcoes:
- *   --host=localhost          Host do servidor WebSocket (padrao: localhost)
- *   --porta=9998              Porta (padrao: EVO_FACIAL_WS_PORT do .env, ou 9998)
+ *   --host=localhost          Host do backend (padrao: localhost)
+ *   --porta=3000              Porta do backend - a MESMA da API, nao uma porta separada (padrao: PORT do .env, ou 3000)
  *   --sn=EVOFACIAL0001        Numero de serie a simular (precisa existir em `dispositivos`, protocolo=evo_ws)
  *   --enrollid=1              enrollid a usar na batida simulada
  *   --bater-ponto             Envia um sendlog com uma marcacao (inout=0) 2s apos o registro
@@ -30,7 +30,10 @@ const args = Object.fromEntries(
 );
 
 const HOST = args.host || 'localhost';
-const PORTA = Number(args.porta) || Number(process.env.EVO_FACIAL_WS_PORT) || 9998;
+// O WebSocket compartilha a MESMA porta HTTP da API (nao uma porta
+// separada) - ver server.js/evoFacialServidor.js. Por padrao usa PORT
+// (a mesma que "npm run dev" sobe a API), nao mais EVO_FACIAL_WS_PORT.
+const PORTA = Number(args.porta) || Number(process.env.PORT) || 3000;
 const SN = args.sn || 'EVOFACIAL0001';
 const ENROLLID = Number(args.enrollid) || 1;
 

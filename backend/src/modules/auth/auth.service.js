@@ -11,39 +11,6 @@ function normalizarCnpj(texto) {
   return String(texto || '').replace(/\D/g, '');
 }
 
-function normalizarEmail(email) {
-  return String(email || '').trim().toLowerCase();
-}
-
-function sanitizarUsuario(usuario) {
-  if (!usuario) return null;
-
-  return {
-    id: usuario.id,
-    nome: usuario.nome,
-    email: usuario.email,
-    papel: usuario.papel,
-    empresa_id: usuario.empresa_id,
-    filial_id: usuario.filial_id || null,
-    ativo: usuario.ativo,
-  };
-}
-
-async function buscarUsuarioPorId(empresaId, usuarioId) {
-  const usuario = await db('usuarios').where({ id: usuarioId, empresa_id: empresaId }).first();
-  if (!usuario) throw new AppError('Usuario nao encontrado.', 404);
-  return usuario;
-}
-
-async function validarFilialDaEmpresa(empresaId, filialId) {
-  if (!filialId) return null;
-
-  const filial = await db('filiais').where({ id: filialId, empresa_id: empresaId }).first();
-  if (!filial) throw new AppError('Unidade nao encontrada.', 404);
-
-  return filialId;
-}
-
 async function localizarUnidade(unidade, empresaId = null) {
   const termo = normalizarTexto(unidade);
   if (!termo) {
@@ -183,7 +150,7 @@ async function login(email, senha, unidade) {
     throw new AppError('Email ou senha invalidos.', 401);
   }
 
-  // Login deve selecionar um AMBIENTE (empresa) � nao uma filial. Procuramos
+  // Login deve selecionar um AMBIENTE (empresa) — nao uma filial. Procuramos
   // explicitamente pela empresa correspondente ao termo fornecido.
   const unidadeEncontrada = await localizarEmpresa(unidade);
 
@@ -223,13 +190,7 @@ async function login(email, senha, unidade) {
 }
 
 async function criarUsuario({ empresa_id, filial_id, nome, email, senha, papel = 'admin' }) {
-  if (!['admin', 'rh', 'gestor', 'professor'].includes(papel)) {
-    throw new AppError('Papel de usuario invalido.', 400);
-  }
-  const emailNormalizado = normalizarEmail(email);
-  const filialId = await validarFilialDaEmpresa(empresa_id, filial_id);
-
-  const existente = await db('usuarios').where({ email: emailNormalizado }).first();
+  const existente = await db('usuarios').where({ email: email.toLowerCase().trim() }).first();
   if (existente) {
     throw new AppError('Ja existe um usuario com este email.', 409);
   }
@@ -239,16 +200,17 @@ async function criarUsuario({ empresa_id, filial_id, nome, email, senha, papel =
   const [usuario] = await db('usuarios')
     .insert({
       empresa_id,
-      filial_id: filialId,
+      filial_id: filial_id || null,
       nome,
-      email: emailNormalizado,
+      email: email.toLowerCase().trim(),
       senha_hash,
       papel,
     })
-    .returning(['id', 'nome', 'email', 'papel', 'empresa_id', 'filial_id', 'ativo']);
+    .returning(['id', 'nome', 'email', 'papel', 'empresa_id', 'filial_id']);
 
   return usuario;
 }
+
 async function listarUsuarios(empresaId) {
   return db('usuarios as u')
     .select('u.id', 'u.nome', 'u.email', 'u.papel', 'u.filial_id', 'u.ativo', 'f.nome as filial_nome')
@@ -257,71 +219,4 @@ async function listarUsuarios(empresaId) {
     .orderBy('u.nome');
 }
 
-async function atualizarUsuarios(empresaId, usuarioId, dados) {
-  const usuarioAtual = await buscarUsuarioPorId(empresaId, usuarioId);
-  const dadosAtualizados = {};
-
-  if (dados.nome !== undefined) {
-    const nome = normalizarTexto(dados.nome);
-    if (!nome) throw new AppError('Nome do usuario e obrigatorio.', 400);
-    dadosAtualizados.nome = nome;
-  }
-
-  if (dados.email !== undefined) {
-    const email = normalizarEmail(dados.email);
-    if (!email) throw new AppError('Email do usuario e obrigatorio.', 400);
-
-    const existente = await db('usuarios')
-      .where({ email })
-      .whereNot({ id: usuarioId })
-      .first();
-
-    if (existente) {
-      throw new AppError('Ja existe um usuario com este email.', 409);
-    }
-
-    dadosAtualizados.email = email;
-  }
-
-  if (dados.senha !== undefined && normalizarTexto(dados.senha)) {
-    dadosAtualizados.senha_hash = await bcrypt.hash(dados.senha, 12);
-  }
-
-  if (dados.papel !== undefined) {
-    const papeisPermitidos = ['admin', 'rh', 'gestor', 'professor'];
-    if (!papeisPermitidos.includes(dados.papel)) {
-      throw new AppError('Papel de usuario invalido.', 400);
-    }
-    dadosAtualizados.papel = dados.papel;
-  }
-
-  if (dados.filial_id !== undefined) {
-    dadosAtualizados.filial_id = await validarFilialDaEmpresa(empresaId, dados.filial_id);
-  }
-
-  if (dados.ativo !== undefined) {
-    dadosAtualizados.ativo = Boolean(dados.ativo);
-  }
-
-  if (Object.keys(dadosAtualizados).length === 0) {
-    return sanitizarUsuario(usuarioAtual);
-  }
-
-  const [usuario] = await db('usuarios')
-    .where({ id: usuarioId, empresa_id: empresaId })
-    .update(dadosAtualizados)
-    .returning(['id', 'nome', 'email', 'papel', 'empresa_id', 'filial_id', 'ativo']);
-
-  return usuario;
-}
-
-async function excluirUsuarios(empresaId, usuarioId) {
-  const usuario = await buscarUsuarioPorId(empresaId, usuarioId);
-
-  await db('usuarios').where({ id: usuarioId, empresa_id: empresaId }).del();
-
-  return sanitizarUsuario(usuario);
-}
-
-module.exports = { login, criarUsuario, listarUsuarios, atualizarUsuarios, excluirUsuarios };
-
+module.exports = { login, criarUsuario, listarUsuarios };

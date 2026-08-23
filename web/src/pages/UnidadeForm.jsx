@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import Layout from '../components/Layout';
-import Selecao from '../components/Selecao';
 import { api } from '../api';
 
 const PADRAO = { tipo: 'empresa', nome: '', cnpj: '', fuso_horario: 'America/Sao_Paulo', endereco: '', ativo: true };
@@ -48,16 +47,10 @@ export default function UnidadeForm() {
             <div className="grid-form">
               <div className="campo">
                 <label>Tipo</label>
-                <Selecao
-                  rotuloAria="Tipo de unidade"
-                  valor={dados.tipo}
-                  aoMudar={(v) => set('tipo', v)}
-                  desabilitado={Boolean(id)}
-                  opcoes={[
-                    { valor: 'empresa', rotulo: 'Empresa' },
-                    { valor: 'escola', rotulo: 'Escola' },
-                  ]}
-                />
+                <select value={dados.tipo} onChange={(e) => set('tipo', e.target.value)} disabled={Boolean(id)}>
+                  <option value="empresa">Empresa</option>
+                  <option value="escola">Escola</option>
+                </select>
               </div>
             </div>
           </div>
@@ -91,15 +84,10 @@ export default function UnidadeForm() {
               {id && (
                 <div className="campo">
                   <label>Situação</label>
-                  <Selecao
-                    rotuloAria="Situação"
-                    valor={dados.ativo ? 'ativa' : 'inativa'}
-                    aoMudar={(v) => set('ativo', v === 'ativa')}
-                    opcoes={[
-                      { valor: 'ativa', rotulo: 'Ativa' },
-                      { valor: 'inativa', rotulo: 'Inativa' },
-                    ]}
-                  />
+                  <select value={dados.ativo ? 'ativa' : 'inativa'} onChange={(e) => set('ativo', e.target.value === 'ativa')}>
+                    <option value="ativa">Ativa</option>
+                    <option value="inativa">Inativa</option>
+                  </select>
                 </div>
               )}
             </div>

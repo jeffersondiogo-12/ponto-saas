@@ -22,9 +22,6 @@ async function buscarPorId(empresaId, alunoId) {
 }
 
 async function criar(empresaId, dados) {
-  const cpf = String(dados.cpf || '').replace(/\D/g, '');
-  if (cpf.length !== 11) throw new AppError('CPF do aluno deve ter 11 digitos.', 400);
-
   const filial = await db('filiais').where({ id: dados.filial_id, empresa_id: empresaId }).first();
   if (!filial) throw new AppError('Unidade nao encontrada.', 404);
   if (filial.tipo !== 'escola') {
@@ -43,7 +40,6 @@ async function criar(empresaId, dados) {
       turma_id: dados.turma_id || null,
       matricula: dados.matricula,
       nome: dados.nome,
-      cpf,
       data_nascimento: dados.data_nascimento || null,
       nome_responsavel: dados.nome_responsavel || null,
       contato_responsavel: dados.contato_responsavel || null,
@@ -55,15 +51,12 @@ async function criar(empresaId, dados) {
 
 async function atualizar(empresaId, alunoId, dados) {
   await buscarPorId(empresaId, alunoId);
-  const cpf = String(dados.cpf || '').replace(/\D/g, '');
-  if (cpf.length !== 11) throw new AppError('CPF do aluno deve ter 11 digitos.', 400);
 
   const [aluno] = await db('alunos')
     .where({ id: alunoId, empresa_id: empresaId })
     .update({
       turma_id: dados.turma_id || null,
       nome: dados.nome,
-      cpf,
       data_nascimento: dados.data_nascimento || null,
       nome_responsavel: dados.nome_responsavel || null,
       contato_responsavel: dados.contato_responsavel || null,
@@ -123,12 +116,4 @@ async function frequencia(empresaId, alunoId, { de, ate } = {}) {
   return query;
 }
 
-async function excluir(empresaId, alunoId) {
-  const aluno = await buscarPorId(empresaId, alunoId);
-
-  await db('alunos').where({ id: alunoId, empresa_id: empresaId }).del();
-
-  return aluno;
-}
-
-module.exports = { listar, buscarPorId, criar, atualizar, vincularDispositivo, frequencia, excluir };
+module.exports = { listar, buscarPorId, criar, atualizar, vincularDispositivo, frequencia };

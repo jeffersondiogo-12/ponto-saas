@@ -56,12 +56,4 @@ async function atualizar(empresaId, turmaId, dados) {
   return turma;
 }
 
-async function excluir(empresaId, turmaId) {
-  const turma = await buscarPorId(empresaId, turmaId);
-
-  await db('turmas').where({ id: turmaId, empresa_id: empresaId }).del();
-
-  return turma;
-}
-
-module.exports = { listar, buscarPorId, criar, atualizar, excluir };
+module.exports = { listar, buscarPorId, criar, atualizar };

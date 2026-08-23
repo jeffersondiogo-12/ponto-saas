@@ -13,6 +13,5 @@ router.post('/', exigirPapel('super_admin'), empresasController.criar);
 // Ver/editar a propria empresa e permitido para admin/rh tambem.
 router.get('/:id', empresasController.buscar);
 router.put('/:id', exigirPapel('super_admin', 'admin'), empresasController.atualizar);
-router.delete('/:id', exigirPapel('super_admin'), empresasController.excluir);
 
 module.exports = router;

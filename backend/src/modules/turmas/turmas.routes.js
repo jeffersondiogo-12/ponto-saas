@@ -11,6 +11,5 @@ router.get('/', turmasController.listar);
 router.get('/:id', turmasController.buscar);
 router.post('/', exigirPapel('super_admin', 'admin', 'rh'), turmasController.criar);
 router.put('/:id', exigirPapel('super_admin', 'admin', 'rh'), turmasController.atualizar);
-router.delete('/:id', exigirPapel('super_admin', 'admin', 'rh'), turmasController.excluir);
 
 module.exports = router;

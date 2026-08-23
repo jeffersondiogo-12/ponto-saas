@@ -3,5 +3,3 @@ node_modules/
 storage/
 npm-debug.log*
 *.log
-API_TESTES.md
-/src/generated/prisma

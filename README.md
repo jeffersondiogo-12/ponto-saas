@@ -61,20 +61,10 @@ cp .env.example .env
 # edite .env: credenciais do Postgres, JWT_SECRET, DEVICE_CREDENTIALS_KEY
 #   (gere as duas com: openssl rand -hex 32)
 # CORS_ORIGINS já vem com http://localhost:5173 (Vite) e :19006 (Expo web)
-# EVO_FACIAL_WS_PORT já vem com um padrão (9998) - só mude se essa porta colidir com algo
 npm install
 npm run seed      # opcional: empresa "Weld Inox" + os dois dispositivos de exemplo (ZK e Evo Facial)
-npm run dev       # http://localhost:3000 (API REST + WebSocket de eventos em /ws)
+npm run dev       # http://localhost:3000 (o servidor WebSocket do Evo Facial sobe junto, ver seção 6)
 ```
-
-O backend também mantém o WebSocket de eventos em `ws://localhost:3000/ws`.
-Ele usa o mesmo JWT da API, por exemplo: `ws://localhost:3000/ws?token=SEU_JWT`.
-Eventos de presença de aluno, notas, observações e avisos são enviados somente
-para a empresa e os alunos autorizados daquele token.
-O WebSocket do equipamento Evo Facial usa `ws://host:3000/evo` localmente ou
-`wss://dominio-publico/evo` quando o equipamento suporta TLS. O PDF informa
-WebSocket sem TLS; nesse caso, o Render nao pode ser o destino direto e sera
-necessaria uma ponte/VPS que aceite `ws` e encaminhe para o backend.
 
 Teste rápido: `curl -X POST http://localhost:3000/api/auth/login -H "Content-Type: application/json" -d '{"email":"admin@weldinox.example.com","senha":"admin123"}'`
 deve devolver um token JSON.
@@ -106,11 +96,6 @@ Aponte `EXPO_PUBLIC_API_URL` (num `.env` na pasta `mobile/`) para o IP da
 máquina rodando o backend na rede local — **nunca** `localhost`, porque no
 celular/emulador isso resolveria para o próprio dispositivo, não para o seu
 computador.
-
-O app usa o REST para sincronizar e mantém alunos, presença, notas,
-observações e avisos em cache local. Sem rede, as últimas leituras continuam
-disponíveis e vínculos feitos offline ficam em fila para sincronização. Ao
-voltar a rede, o WebSocket reconecta e as telas abertas são atualizadas.
 
 **Antes de gerar uma build de verdade**, rode `npx eas init` dentro de
 `mobile/` e copie o `projectId` gerado para `extra.eas.projectId` no
@@ -180,9 +165,13 @@ este backend, não o contrário. Isso muda a arquitetura de coleta:
   o equipamento abre a conexão contra este backend (`reg` a cada 20s até
   ser confirmado; `sendlog` a cada nova marcação). O servidor WebSocket que
   aceita essas conexões (`backend/src/modules/dispositivos/evoFacialServidor.js`)
-  roda **dentro do mesmo processo do backend** (não precisa de um worker
-  separado) — configure no menu do próprio equipamento o IP deste servidor
-  e a porta de `EVO_FACIAL_WS_PORT` (`.env`, padrão `9998`).
+  roda **dentro do mesmo processo do backend, na MESMA porta HTTP da API**
+  (não uma porta separada, e não um worker à parte) — a maioria dos PaaS
+  (Render incluído) só expõe uma porta pública por serviço, então uma porta
+  dedicada ao WebSocket simplesmente não seria alcançável de fora nesse
+  tipo de ambiente. No próprio menu do equipamento, aponte para o mesmo
+  host/porta que a API já usa (em produção, o domínio público do serviço,
+  porta 443; localmente, o IP da máquina na rede + `PORT`, padrão `3000`).
 
 **Para testar sem o equipamento físico**, há um simulador que fala o
 protocolo real:

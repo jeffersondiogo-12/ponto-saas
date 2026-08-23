@@ -28,23 +28,4 @@ async function criarUsuario(req, res, next) {
   }
 }
 
-async function atualizarUsuario(req, res, next) {
-  try {
-    const usuario = await authService.atualizarUsuarios(req.empresaId, req.params.id, req.body);
-    res.json({ usuario });
-  } catch (err) {
-    next(err);
-  }
-}
-
-
-async function excluirUsuario(req, res, next) {
-  try {
-    await authService.excluirUsuarios(req.empresaId, req.params.id);
-    res.status(204).send();
-  } catch (err) {
-    next(err);
-  }
-}
-
-module.exports = { login, listarUsuarios, criarUsuario, atualizarUsuario, excluirUsuario };
+module.exports = { login, listarUsuarios, criarUsuario };

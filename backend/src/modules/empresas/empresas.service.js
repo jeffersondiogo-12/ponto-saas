@@ -51,12 +51,4 @@ async function atualizar(empresaId, dados) {
   return empresa;
 }
 
-async function excluir(empresaId) {
-  const empresa = await buscarPorId(empresaId);
-
-  await db('empresas').where({ id: empresaId }).del();
-
-  return empresa;
-}
-
-module.exports = { listar, buscarPorId, criar, atualizar, excluir };
+module.exports = { listar, buscarPorId, criar, atualizar };

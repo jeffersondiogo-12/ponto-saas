@@ -85,12 +85,4 @@ async function obterTiposDisponiveis(empresaId, filialIdDoUsuario) {
   return [...new Set(filiais.map((f) => f.tipo))];
 }
 
-async function excluir(empresaId, filialId) {
-  const filial = await buscarPorId(empresaId, filialId);
-
-  await db('filiais').where({ id: filialId, empresa_id: empresaId }).del();
-
-  return filial;
-}
-
-module.exports = { listar, buscarPorId, criar, atualizar, obterTiposDisponiveis, excluir };
+module.exports = { listar, buscarPorId, criar, atualizar, obterTiposDisponiveis };
