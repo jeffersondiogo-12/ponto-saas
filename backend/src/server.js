@@ -4,7 +4,6 @@ const { iniciarServidorEvoFacial } = require('./modules/dispositivos/evoFacialSe
 const { iniciarRealtime } = require('./realtime');
 
 const PORT = process.env.PORT || 3000;
-const EVO_FACIAL_WS_PORT = Number(process.env.EVO_FACIAL_WS_PORT) || 9998;
 
 const server = http.createServer(app);
 
@@ -16,11 +15,8 @@ server.listen(PORT, () => {
 iniciarRealtime(server);
 
 /**
- * Servidor WebSocket do protocolo Evo Facial, na MESMA instancia do
- * processo web (nao um worker separado - ver o comentario extenso no topo
- * de evoFacialServidor.js sobre o porque). Equipamentos com
- * modo_conexao='server' e protocolo='evo_ws' devem ser configurados (no
- * proprio menu do equipamento) para apontar para o IP deste servidor,
- * nesta porta.
+ * Servidor WebSocket do protocolo Evo Facial, na MESMA instancia e porta
+ * publica do processo web. O Render encaminha wss://dominio/evo para esta
+ * porta; o equipamento deve apontar para esse dominio e caminho.
  */
-iniciarServidorEvoFacial(EVO_FACIAL_WS_PORT);
+iniciarServidorEvoFacial(server);

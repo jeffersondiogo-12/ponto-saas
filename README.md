@@ -70,8 +70,11 @@ npm run dev       # http://localhost:3000 (API REST + WebSocket de eventos em /w
 O backend também mantém o WebSocket de eventos em `ws://localhost:3000/ws`.
 Ele usa o mesmo JWT da API, por exemplo: `ws://localhost:3000/ws?token=SEU_JWT`.
 Eventos de presença de aluno, notas, observações e avisos são enviados somente
-para a empresa e os alunos autorizados daquele token. O WebSocket do
-equipamento Evo Facial continua na porta definida por `EVO_FACIAL_WS_PORT`.
+para a empresa e os alunos autorizados daquele token.
+O WebSocket do equipamento Evo Facial usa `ws://host:3000/evo` localmente ou
+`wss://dominio-publico/evo` quando o equipamento suporta TLS. O PDF informa
+WebSocket sem TLS; nesse caso, o Render nao pode ser o destino direto e sera
+necessaria uma ponte/VPS que aceite `ws` e encaminhe para o backend.
 
 Teste rápido: `curl -X POST http://localhost:3000/api/auth/login -H "Content-Type: application/json" -d '{"email":"admin@weldinox.example.com","senha":"admin123"}'`
 deve devolver um token JSON.

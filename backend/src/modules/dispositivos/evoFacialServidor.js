@@ -333,8 +333,17 @@ async function processarMensagem(ws, raw) {
   }
 }
 
-function iniciarServidorEvoFacial(porta) {
-  const wss = new WebSocketServer({ port: porta });
+function iniciarServidorEvoFacial(alvo) {
+  const compartilhado = typeof alvo === 'object';
+  const wss = new WebSocketServer(compartilhado ? { noServer: true } : { port: alvo });
+
+  if (compartilhado) {
+    alvo.on('upgrade', (request, socket, head) => {
+      const url = new URL(request.url, `http://${request.headers.host}`);
+      if (url.pathname !== '/evo') return;
+      wss.handleUpgrade(request, socket, head, (ws) => wss.emit('connection', ws, request));
+    });
+  }
 
   wss.on('connection', (ws, req) => {
     // Fila sequencial por conexao: garante que duas mensagens da MESMA
@@ -367,7 +376,11 @@ function iniciarServidorEvoFacial(porta) {
     console.error('[evo-facial] erro no servidor WebSocket:', err.message);
   });
 
-  console.log(`[evo-facial] servidor WebSocket (protocolo Evo Facial) ouvindo na porta ${porta}`);
+  console.log(
+    compartilhado
+      ? '[evo-facial] WebSocket compartilhado em /evo'
+      : `[evo-facial] servidor WebSocket (protocolo Evo Facial) ouvindo na porta ${alvo}`
+  );
   return wss;
 }
 
