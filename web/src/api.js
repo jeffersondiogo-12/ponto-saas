@@ -102,11 +102,32 @@ export const api = {
   criarUnidade: (dados) => requisitar('/api/filiais', { method: 'POST', body: dados }),
   atualizarUnidade: (id, dados) => requisitar(`/api/filiais/${id}`, { method: 'PUT', body: dados }),
   listarTurmas: () => requisitar('/api/turmas'),
+  buscarTurma: (id) => requisitar(`/api/turmas/${id}`),
+  criarTurma: (dados) => requisitar('/api/turmas', { method: 'POST', body: dados }),
+  atualizarTurma: (id, dados) => requisitar(`/api/turmas/${id}`, { method: 'PUT', body: dados }),
+  excluirTurma: (id) => requisitar(`/api/turmas/${id}`, { method: 'DELETE' }),
+  listarMinhasTurmas: () => requisitar('/api/professores/minhas-turmas'),
+  listarAlunosDaTurma: (turmaId) => requisitar(`/api/professores/turmas/${turmaId}/alunos`),
+  registrarPresencasSala: (turmaId, dados) => requisitar(`/api/professores/turmas/${turmaId}/presencas`, { method: 'POST', body: dados }),
+  criarNotaProfessor: (turmaId, dados) => requisitar(`/api/professores/turmas/${turmaId}/notas`, { method: 'POST', body: dados }),
+  criarObservacaoProfessor: (turmaId, dados) => requisitar(`/api/professores/turmas/${turmaId}/observacoes`, { method: 'POST', body: dados }),
+  listarProfessoresTurma: (turmaId) => requisitar(`/api/professores/turmas/${turmaId}/professores`),
+  atribuirProfessor: (turmaId, dados) => requisitar(`/api/professores/turmas/${turmaId}/professores`, { method: 'POST', body: dados }),
 
   listarFuncionarios: () => requisitar('/api/funcionarios'),
-  listarAlunos: () => requisitar('/api/alunos'),
+  listarAlunos: (params = {}) => {
+    const q = new URLSearchParams(
+      Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== ''),
+    ).toString();
+    return requisitar(`/api/alunos${q ? `?${q}` : ''}`);
+  },
+  buscarAluno: (id) => requisitar(`/api/alunos/${id}`),
   criarAluno: (dados) => requisitar('/api/alunos', { method: 'POST', body: dados }),
+  atualizarAluno: (id, dados) => requisitar(`/api/alunos/${id}`, { method: 'PUT', body: dados }),
+  excluirAluno: (id) => requisitar(`/api/alunos/${id}`, { method: 'DELETE' }),
   listarUsuarios: () => requisitar('/api/auth/usuarios'),
   criarUsuario: (dados) => requisitar('/api/auth/usuarios', { method: 'POST', body: dados }),
   listarRegistrosNaoResolvidos: () => requisitar('/api/ponto/registros/nao-resolvidos'),
+
+  resumoPeriodo: (de, ate) => requisitar(`/api/relatorios/resumo-periodo?de=${de}&ate=${ate}`),
 };
