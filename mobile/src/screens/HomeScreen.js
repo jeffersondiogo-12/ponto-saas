@@ -1,5 +1,5 @@
-import { useCallback, useState } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, RefreshControl } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { DeviceEventEmitter, View, Text, FlatList, TouchableOpacity, StyleSheet, RefreshControl } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
@@ -26,14 +26,26 @@ export default function HomeScreen({ navigation }) {
     }, [carregar])
   );
 
+  useEffect(() => {
+    const assinatura = DeviceEventEmitter.addListener('ponto-saas:atualizado', carregar);
+    return () => assinatura.remove();
+  }, [carregar]);
+
   return (
     <View style={estilos.container}>
       <View style={estilos.topo}>
-        <Text style={estilos.titulo}>Seus filhos</Text>
+        <View>
+          <Text style={estilos.titulo}>Seus filhos</Text>
+          <Text style={estilos.subtitulo}>Acompanhe a rotina escolar em um só lugar</Text>
+        </View>
         <TouchableOpacity onPress={logout}>
           <Text style={estilos.sair}>Sair</Text>
         </TouchableOpacity>
       </View>
+
+      <TouchableOpacity style={estilos.adicionar} onPress={() => navigation.navigate('AdicionarFilho')}>
+        <Text style={estilos.adicionarTexto}>+ Adicionar filho</Text>
+      </TouchableOpacity>
 
       <FlatList
         data={alunos}
@@ -72,6 +84,7 @@ const estilos = StyleSheet.create({
     paddingBottom: 16,
   },
   titulo: { fontSize: 22, fontWeight: '700', color: cores.ink },
+  subtitulo: { fontSize: 13, color: cores.inkSoft, marginTop: 4 },
   sair: { color: cores.inkSoft, fontSize: 13, textDecorationLine: 'underline' },
   cartao: {
     backgroundColor: cores.surface,
@@ -84,4 +97,6 @@ const estilos = StyleSheet.create({
   nomeAluno: { fontSize: 16, fontWeight: '600', color: cores.ink },
   detalheAluno: { fontSize: 13, color: cores.inkSoft, marginTop: 4 },
   vazio: { textAlign: 'center', color: cores.inkSoft, marginTop: 40, fontSize: 14 },
+  adicionar: { marginHorizontal: 16, marginBottom: 4, borderWidth: 1, borderColor: cores.brass, borderRadius: 10, padding: 12, alignItems: 'center' },
+  adicionarTexto: { color: cores.brass, fontWeight: '700' },
 });

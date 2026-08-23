@@ -6,6 +6,8 @@ import { cores } from '../theme';
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
+  const [tipo, setTipo] = useState('responsavel');
+  const [unidade, setUnidade] = useState('');
   const [erro, setErro] = useState(null);
   const [carregando, setCarregando] = useState(false);
   const { login } = useAuth();
@@ -14,7 +16,7 @@ export default function LoginScreen() {
     setErro(null);
     setCarregando(true);
     try {
-      await login(email, senha);
+      await login(email, senha, tipo, unidade);
     } catch (err) {
       setErro(err.message || 'Não foi possível entrar.');
     } finally {
@@ -28,6 +30,11 @@ export default function LoginScreen() {
         Ponto<Text style={{ color: cores.brass }}>·</Text>SaaS
       </Text>
       <Text style={estilos.subtitulo}>Acompanhe a chegada e saída do seu filho</Text>
+
+      <View style={estilos.perfis}>
+        <TouchableOpacity style={[estilos.perfil, tipo === 'responsavel' && estilos.perfilAtivo]} onPress={() => setTipo('responsavel')}><Text>Responsável</Text></TouchableOpacity>
+        <TouchableOpacity style={[estilos.perfil, tipo === 'professor' && estilos.perfilAtivo]} onPress={() => setTipo('professor')}><Text>Professor</Text></TouchableOpacity>
+      </View>
 
       {erro && (
         <View style={estilos.erroCaixa}>
@@ -44,6 +51,7 @@ export default function LoginScreen() {
         value={email}
         onChangeText={setEmail}
       />
+      {tipo === 'professor' && <TextInput style={estilos.input} placeholder="Nome da empresa ou escola" value={unidade} onChangeText={setUnidade} />}
       <TextInput
         style={estilos.input}
         placeholder="Senha"
@@ -76,4 +84,7 @@ const estilos = StyleSheet.create({
   botaoTexto: { color: '#fff', fontWeight: '600', fontSize: 15 },
   erroCaixa: { backgroundColor: '#3a2323', borderRadius: 8, padding: 12, marginBottom: 16 },
   erroTexto: { color: '#f0b4b4', fontSize: 13 },
+  perfis: { flexDirection: 'row', marginBottom: 16, gap: 8 },
+  perfil: { flex: 1, backgroundColor: '#e8ebe8', padding: 12, borderRadius: 10, alignItems: 'center' },
+  perfilAtivo: { backgroundColor: cores.brassSoft },
 });

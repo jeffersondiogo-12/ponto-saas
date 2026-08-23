@@ -1,10 +1,11 @@
 import { createContext, useContext, useEffect, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { api, salvarToken, limparToken, obterToken } from '../api';
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [responsavel, setResponsavel] = useState(null);
+  const [sessao, setSessao] = useState(null);
   const [carregandoSessao, setCarregandoSessao] = useState(true);
 
   // Ao abrir o app, so sabemos que ha uma sessao salva pelo token existir -
@@ -12,29 +13,33 @@ export function AuthProvider({ children }) {
   // login; para simplificar, aqui so verificamos se HA token e, se houver,
   // deixamos a tela inicial pedir login de novo caso as chamadas falhem com 401.
   useEffect(() => {
-    obterToken().then((token) => {
+    Promise.all([obterToken(), AsyncStorage.getItem('@ponto_saas_tipo_sessao')]).then(([token, tipo]) => {
       setCarregandoSessao(false);
       // Sem um endpoint "/me", nao recuperamos os dados do responsavel aqui -
       // isso fica para uma proxima iteracao (ver README). Por ora, token
       // presente so evita jogar direto pra tela de login antes de tentar.
-      if (token) setResponsavel({ tokenPresente: true });
+      if (token) setSessao({ tokenPresente: true, tipo: tipo || 'responsavel' });
     });
   }, []);
 
-  async function login(email, senha) {
-    const { token, responsavel: dados } = await api.login(email, senha);
+  async function login(email, senha, tipo, unidade) {
+    const resposta = tipo === 'professor' ? await api.loginProfessor(email, senha, unidade) : await api.login(email, senha);
+    const dados = tipo === 'professor' ? resposta.usuario : resposta.responsavel;
+    const token = resposta.token;
     await salvarToken(token);
-    setResponsavel(dados);
+    await AsyncStorage.setItem('@ponto_saas_tipo_sessao', tipo);
+    setSessao({ ...dados, tipo });
     return dados;
   }
 
   async function logout() {
     await limparToken();
-    setResponsavel(null);
+    await AsyncStorage.removeItem('@ponto_saas_tipo_sessao');
+    setSessao(null);
   }
 
   return (
-    <AuthContext.Provider value={{ responsavel, login, logout, carregandoSessao }}>
+    <AuthContext.Provider value={{ sessao, responsavel: sessao?.tipo === 'responsavel' ? sessao : null, login, logout, carregandoSessao }}>
       {children}
     </AuthContext.Provider>
   );

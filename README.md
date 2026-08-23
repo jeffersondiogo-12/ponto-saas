@@ -64,8 +64,14 @@ cp .env.example .env
 # EVO_FACIAL_WS_PORT já vem com um padrão (9998) - só mude se essa porta colidir com algo
 npm install
 npm run seed      # opcional: empresa "Weld Inox" + os dois dispositivos de exemplo (ZK e Evo Facial)
-npm run dev       # http://localhost:3000 (o servidor WebSocket do Evo Facial sobe junto, ver seção 6)
+npm run dev       # http://localhost:3000 (API REST + WebSocket de eventos em /ws)
 ```
+
+O backend também mantém o WebSocket de eventos em `ws://localhost:3000/ws`.
+Ele usa o mesmo JWT da API, por exemplo: `ws://localhost:3000/ws?token=SEU_JWT`.
+Eventos de presença de aluno, notas, observações e avisos são enviados somente
+para a empresa e os alunos autorizados daquele token. O WebSocket do
+equipamento Evo Facial continua na porta definida por `EVO_FACIAL_WS_PORT`.
 
 Teste rápido: `curl -X POST http://localhost:3000/api/auth/login -H "Content-Type: application/json" -d '{"email":"admin@weldinox.example.com","senha":"admin123"}'`
 deve devolver um token JSON.
@@ -97,6 +103,11 @@ Aponte `EXPO_PUBLIC_API_URL` (num `.env` na pasta `mobile/`) para o IP da
 máquina rodando o backend na rede local — **nunca** `localhost`, porque no
 celular/emulador isso resolveria para o próprio dispositivo, não para o seu
 computador.
+
+O app usa o REST para sincronizar e mantém alunos, presença, notas,
+observações e avisos em cache local. Sem rede, as últimas leituras continuam
+disponíveis e vínculos feitos offline ficam em fila para sincronização. Ao
+voltar a rede, o WebSocket reconecta e as telas abertas são atualizadas.
 
 **Antes de gerar uma build de verdade**, rode `npx eas init` dentro de
 `mobile/` e copie o `projectId` gerado para `extra.eas.projectId` no
