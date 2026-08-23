@@ -18,6 +18,7 @@ const filiaisRoutes = require('./modules/filiais/filiais.routes');
 const turmasRoutes = require('./modules/turmas/turmas.routes');
 const alunosRoutes = require('./modules/alunos/alunos.routes');
 const responsaveisRoutes = require('./modules/responsaveis/responsaveis.routes');
+const auditoriaRoutes = require('./modules/auditoria/auditoria.routes');
 
 const app = express();
 
@@ -54,6 +55,7 @@ app.use('/api/filiais', filiaisRoutes);
 app.use('/api/turmas', turmasRoutes);
 app.use('/api/alunos', alunosRoutes);
 app.use('/api/responsaveis', responsaveisRoutes);
+app.use('/api/auditoria', auditoriaRoutes);
 
 app.get('/', (req, res) => res.json({ ok: true, servico: 'ponto-saas-api' }));
 
