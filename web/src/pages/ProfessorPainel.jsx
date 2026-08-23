@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import Layout from '../components/Layout';
+import Selecao from '../components/Selecao';
 import { api } from '../api';
 
 const hoje = new Date().toISOString().slice(0, 10);
@@ -59,13 +60,40 @@ export default function ProfessorPainel() {
     {erro && <div className="erro">{erro}</div>}
     {mensagem && <div className="sucesso">{mensagem}</div>}
     <div className="card"><div className="card-corpo">
-      <label className="campo"><span>Turma e matéria</span><select value={turma?.turma_id || ''} onChange={(e) => selecionarTurma(turmas.find((item) => item.turma_id === e.target.value))}>{turmas.map((item) => <option key={item.atribuicao_id} value={item.turma_id}>{item.nome} · {item.materia} · {item.hora_inicio}-{item.hora_fim}</option>)}</select></label>
+      <div className="campo">
+        <label htmlFor="pp-turma">Turma e matéria</label>
+        <Selecao
+          id="pp-turma"
+          rotuloAria="Turma e matéria"
+          valor={turma?.turma_id || ''}
+          aoMudar={(v) => selecionarTurma(turmas.find((item) => item.turma_id === v))}
+          vazio="Selecione a turma"
+          opcoes={turmas.map((item) => ({
+            valor: item.turma_id,
+            rotulo: `${item.nome} · ${item.materia} · ${item.hora_inicio}-${item.hora_fim}`,
+          }))}
+        />
+      </div>
       {turma && <>
         <form onSubmit={salvarPresencas}>
           <div className="linha-form"><label>Data <input type="date" value={data} onChange={(e) => setData(e.target.value)} /></label><button className="btn btn-primario">Salvar chamada</button></div>
           <table className="tabela"><thead><tr><th>Aluno</th><th>Presença em sala</th></tr></thead><tbody>{alunos.map((aluno) => <tr key={aluno.id}><td>{aluno.nome}</td><td><input type="checkbox" checked={Boolean(presencas[aluno.id])} onChange={(e) => setPresencas({ ...presencas, [aluno.id]: e.target.checked })} /> Presente</td></tr>)}</tbody></table>
         </form>
-        <div className="linha-form"><label>Aluno <select value={alunoId} onChange={(e) => setAlunoId(e.target.value)}>{alunos.map((aluno) => <option key={aluno.id} value={aluno.id}>{aluno.nome}</option>)}</select></label><label>Nota <input type="number" min="0" max="10" step="0.01" value={nota} onChange={(e) => setNota(e.target.value)} /></label><button className="btn btn-primario" onClick={salvarNota}>Lançar nota</button></div>
+        <div className="linha-form">
+          <div className="campo">
+            <label htmlFor="pp-aluno">Aluno</label>
+            <Selecao
+              id="pp-aluno"
+              rotuloAria="Aluno"
+              valor={alunoId}
+              aoMudar={setAlunoId}
+              vazio="Selecione o aluno"
+              opcoes={alunos.map((aluno) => ({ valor: aluno.id, rotulo: aluno.nome }))}
+            />
+          </div>
+          <label>Nota <input type="number" min="0" max="10" step="0.01" value={nota} onChange={(e) => setNota(e.target.value)} /></label>
+          <button className="btn btn-primario" onClick={salvarNota}>Lançar nota</button>
+        </div>
         <div className="linha-form"><textarea placeholder="Observação para o responsável" value={observacao} onChange={(e) => setObservacao(e.target.value)} /><button className="btn btn-primario" onClick={salvarObservacao}>Enviar observação</button></div>
       </>}
     </div></div>
