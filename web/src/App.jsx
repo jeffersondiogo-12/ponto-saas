@@ -13,6 +13,7 @@ import AlunoForm from './pages/AlunoForm';
 import UsuariosLista from './pages/UsuariosLista';
 import UsuarioForm from './pages/UsuarioForm';
 import TurmasLista from './pages/TurmasLista';
+import TurmaForm from './pages/TurmaForm';
 import TurmaDetalhe from './pages/TurmaDetalhe';
 import Relatorios from './pages/Relatorios';
 import ProfessorPainel from './pages/ProfessorPainel';
@@ -49,7 +50,9 @@ export default function App() {
           <Route path="/usuarios" element={<RotaProtegida><UsuariosLista /></RotaProtegida>} />
           <Route path="/usuarios/novo" element={<RotaProtegida><UsuarioForm /></RotaProtegida>} />
           <Route path="/turmas" element={<RotaProtegida><TurmasLista /></RotaProtegida>} />
+          <Route path="/turmas/nova" element={<RotaProtegida><TurmaForm /></RotaProtegida>} />
           <Route path="/turmas/:id" element={<RotaProtegida><TurmaDetalhe /></RotaProtegida>} />
+          <Route path="/turmas/:id/editar" element={<RotaProtegida><TurmaForm /></RotaProtegida>} />
           <Route path="/relatorios" element={<RotaProtegida><Relatorios /></RotaProtegida>} />
           <Route path="/professor" element={<RotaProtegida><ProfessorPainel /></RotaProtegida>} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />

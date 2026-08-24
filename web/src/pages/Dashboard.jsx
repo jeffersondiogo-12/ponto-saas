@@ -3,29 +3,10 @@ import { Link } from 'react-router-dom';
 import Layout from '../components/Layout';
 import Selecao from '../components/Selecao';
 import { api } from '../api';
-
-const MESES = [
-  'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
-];
-
-/** Primeiro e ultimo dia do mes em 'YYYY-MM-DD'. O dia 0 do mes seguinte e o
- *  ultimo do mes atual — resolve ano bissexto sem tabela de dias. */
-function limitesDoMes(ano, mes) {
-  const dois = (n) => String(n).padStart(2, '0');
-  const ultimo = new Date(ano, mes + 1, 0).getDate();
-  return { de: `${ano}-${dois(mes + 1)}-01`, ate: `${ano}-${dois(mes + 1)}-${dois(ultimo)}` };
-}
+import { MESES, baixarCsv, exportarPdf, limitesDoMes, minutosParaHoras } from '../utils/exportar';
 
 /** Plural de verdade: "1 turma", "8 turmas" — nada de "turma(s)". */
 const plural = (n, singular, pluralForma) => `${n} ${n === 1 ? singular : pluralForma}`;
-
-function minutosParaHoras(min) {
-  const m = Number(min) || 0;
-  const sinal = m < 0 ? '-' : '';
-  const abs = Math.abs(m);
-  return `${sinal}${Math.floor(abs / 60)}h${String(abs % 60).padStart(2, '0')}`;
-}
 
 /**
  * Barras horizontais em HTML/CSS, nao SVG. Em SVG o texto escala junto com o
@@ -58,20 +39,6 @@ function GraficoBarras({ dados, cor = 'azul' }) {
     </div>
   );
 }
-
-function baixarArquivo(nome, conteudo, tipo) {
-  const url = URL.createObjectURL(new Blob([conteudo], { type: tipo }));
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = nome;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
-
-const celulaCsv = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
-const linhasParaCsv = (linhas) => linhas.map((l) => l.map(celulaCsv).join(';')).join('\r\n');
 
 /** Botao unico de exportacao: abre um menu para escolher o formato. */
 function MenuExportar({ aoExportar }) {
@@ -218,7 +185,9 @@ export default function Dashboard() {
     return [
       { chave: 'turma', texto: 'Alunos sem turma vinculada', total: alunosFiltrados.filter((a) => !a.turma_id).length, link: '/alunos' },
       { chave: 'nasc', texto: 'Alunos sem data de nascimento', total: alunosFiltrados.filter((a) => !a.data_nascimento).length, link: '/alunos' },
-      { chave: 'matricula', texto: 'Alunos sem matrícula', total: alunosFiltrados.filter((a) => !a.matricula).length, link: '/alunos' },
+      // A matricula deixou de ser obrigatoria no cadastro, entao este item e o
+      // unico lembrete de que ela ainda falta. Nao remova.
+      { chave: 'matricula', texto: 'Alunos sem matrícula — regularizar', total: alunosFiltrados.filter((a) => !a.matricula).length, link: '/alunos' },
       { chave: 'vazia', texto: 'Turmas ativas sem nenhum aluno', total: turmasFiltradas.filter((t) => t.ativo && !comAluno.has(t.id)).length, link: '/turmas' },
       { chave: 'batidas', texto: 'Batidas sem funcionário ou aluno vinculado', total: naoResolvidos.length, link: '/relatorios' },
     ].filter((p) => p.total > 0);
@@ -234,7 +203,7 @@ export default function Dashboard() {
   }, [resumo]);
 
   function exportar(formato) {
-    if (formato === 'pdf') { window.print(); return; }
+    if (formato === 'pdf') { exportarPdf(); return; }
 
     const linhas = [
       ['Visão geral'],
@@ -274,12 +243,7 @@ export default function Dashboard() {
       );
     }
 
-    // BOM no inicio: sem ele o Excel em pt-BR abre a acentuacao trocada.
-    baixarArquivo(
-      `visao-geral-${ano}-${String(mes + 1).padStart(2, '0')}.csv`,
-      `﻿${linhasParaCsv(linhas)}`,
-      'text/csv;charset=utf-8',
-    );
+    baixarCsv(`visao-geral-${ano}-${String(mes + 1).padStart(2, '0')}.csv`, linhas);
   }
 
   if (carregando) return <Layout><p className="texto-apoio">Carregando...</p></Layout>;
@@ -418,6 +382,26 @@ export default function Dashboard() {
             </>
           )}
         </div></div>
+      </section>
+
+      <section className="secao nao-imprimir">
+        <h2>
+          Relatórios
+          <Link to="/relatorios" className="nota" style={{ color: 'var(--azul)' }}>ver todos →</Link>
+        </h2>
+        <div className="atalhos">
+          {[
+            { para: '/relatorios', titulo: 'Presença de aluno', desc: 'Batidas de entrada e saída por aluno e período.' },
+            { para: '/relatorios', titulo: 'Resumo de ponto', desc: 'Horas, saldo, extras, faltas e atrasos por funcionário.' },
+            { para: '/relatorios', titulo: 'Cadastros', desc: 'Alunos, turmas, funcionários e dispositivos, com filtros.' },
+            { para: '/relatorios', titulo: 'Auditoria', desc: 'Quem alterou o quê e quando, no período escolhido.' },
+          ].map((a) => (
+            <Link key={a.titulo} to={a.para} className="atalho">
+              <span className="atalho-titulo">{a.titulo}</span>
+              <span className="atalho-desc">{a.desc}</span>
+            </Link>
+          ))}
+        </div>
       </section>
 
       <section className="secao">

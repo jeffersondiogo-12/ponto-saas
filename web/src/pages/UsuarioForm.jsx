@@ -94,6 +94,7 @@ export default function UsuarioForm() {
                 aoMudar={setPapel}
                 opcoes={[
                   { valor: 'professor', rotulo: 'Professor' },
+                  { valor: 'gestor', rotulo: 'Gestor' },
                   { valor: 'rh', rotulo: 'RH' },
                   { valor: 'admin', rotulo: 'Admin' },
                 ]}

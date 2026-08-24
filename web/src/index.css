@@ -214,16 +214,38 @@ h1.titulo-pagina {
 .grid-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 16px 20px; }
 .campo { display: flex; flex-direction: column; gap: 6px; }
 .campo label { font-size: 12px; font-weight: 600; color: var(--tinta-fraca); letter-spacing: 0; text-transform: none; }
-.campo input {
+/* `.entrada` e para input solto, fora de um `.campo` — dentro de tabela, por
+   exemplo. Sem ela o input herdava o visual cru do navegador e destoava. */
+.campo input, .campo textarea, .entrada {
   font-family: var(--fonte); font-size: 13.5px; padding: 9px 11px;
   border: 1px solid var(--borda-forte); border-radius: var(--raio-p);
   background: var(--branco); color: var(--tinta); transition: border-color 0.12s, box-shadow 0.12s;
+  width: 100%;
 }
-.campo input:hover { border-color: var(--tinta-tenue); }
-.campo input:focus {
+.campo input:hover, .campo textarea:hover, .entrada:hover { border-color: var(--tinta-tenue); }
+.campo input:focus, .campo textarea:focus, .entrada:focus {
   outline: none; border-color: var(--azul); box-shadow: 0 0 0 3px var(--azul-fraco);
 }
-.campo input:disabled { background: var(--fundo); color: var(--tinta-fraca); cursor: not-allowed; }
+.campo input:disabled, .entrada:disabled { background: var(--fundo); color: var(--tinta-fraca); cursor: not-allowed; }
+.entrada.erro-campo { border-color: var(--vermelho); background: var(--vermelho-fraco); }
+
+/* Tabela usada como formulario (cadastro em massa) */
+table.tabela-form td { padding: 8px 10px; vertical-align: top; }
+table.tabela-form th { background: var(--azul-fraco); }
+table.tabela-form .aviso-linha { display: block; margin-top: 5px; font-size: 12px; color: var(--vermelho); }
+
+/* Atalhos de relatorio no Dashboard */
+.atalhos { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; }
+.atalho {
+  display: flex; flex-direction: column; gap: 4px; text-decoration: none;
+  background: var(--branco); border: 1px solid var(--borda);
+  border-left: 3px solid var(--azul); border-radius: var(--raio);
+  padding: 14px 16px; box-shadow: var(--sombra);
+  transition: border-color 0.12s, transform 0.12s;
+}
+.atalho:hover { border-color: var(--azul); color: inherit; transform: translateY(-1px); }
+.atalho-titulo { font-weight: 600; font-size: 13.5px; color: var(--azul-forte); }
+.atalho-desc { font-size: 12.5px; color: var(--tinta-fraca); line-height: 1.45; }
 .campo-checkbox { flex-direction: row; align-items: center; gap: 8px; }
 .campo-checkbox label { font-weight: 500; font-size: 13px; }
 .campo .ajuda { font-size: 12px; color: var(--tinta-tenue); }
@@ -468,6 +490,11 @@ table.tabela tbody tr:hover td { background: var(--azul-fraco); }
 /* ---------- Diversos ---------- */
 
 .texto-apoio { color: var(--tinta-fraca); font-size: 13px; }
+.link-troca {
+  background: none; border: none; padding: 0; cursor: pointer;
+  font: inherit; color: var(--azul); text-decoration: underline;
+}
+.link-troca:hover { color: var(--azul-forte); }
 .link-topo { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--tinta-fraca); text-decoration: none; margin-bottom: 16px; cursor: pointer; }
 .link-topo:hover { color: var(--azul); }
 .vazio { margin: 0; padding: 10px 0; text-align: center; color: var(--tinta-tenue); font-size: 13.5px; }

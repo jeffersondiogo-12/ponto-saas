@@ -81,7 +81,8 @@ export default function Layout({ children, empresaNome }) {
           {naoEhProfessor && ehEscola && (
             <ItemDock para="/usuarios" icone="usuarios" rotulo="Usuários" ativo={ehAtivo('/usuarios')} />
           )}
-          <ItemDock para="/relatorios" icone="relatorios" rotulo="Relatórios" ativo={ehAtivo('/relatorios')} />
+          {/* Relatorios saiu da dock: a porta de entrada agora e a secao
+              "Relatorios" do Dashboard. A rota /relatorios continua valendo. */}
         </nav>
 
         <button type="button" className="dock-item dock-sair" onClick={sair} data-rotulo="Sair" aria-label="Sair">

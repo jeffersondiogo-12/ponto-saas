@@ -83,6 +83,13 @@ async function requisitar(caminho, { method = 'GET', body } = {}) {
   return dados;
 }
 
+/** Monta a query string ignorando filtro vazio, que a API trataria como valor. */
+function consulta(params) {
+  return new URLSearchParams(
+    Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== ''),
+  ).toString();
+}
+
 export const api = {
   login: (email, senha, unidade) => requisitar('/api/auth/login', { method: 'POST', body: { email, senha, unidade } }),
   listarEmpresas: () => requisitar('/api/empresas'),
@@ -116,9 +123,7 @@ export const api = {
 
   listarFuncionarios: () => requisitar('/api/funcionarios'),
   listarAlunos: (params = {}) => {
-    const q = new URLSearchParams(
-      Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== ''),
-    ).toString();
+    const q = consulta(params);
     return requisitar(`/api/alunos${q ? `?${q}` : ''}`);
   },
   buscarAluno: (id) => requisitar(`/api/alunos/${id}`),
@@ -130,4 +135,9 @@ export const api = {
   listarRegistrosNaoResolvidos: () => requisitar('/api/ponto/registros/nao-resolvidos'),
 
   resumoPeriodo: (de, ate) => requisitar(`/api/relatorios/resumo-periodo?de=${de}&ate=${ate}`),
+  espelhoPonto: (funcionarioId, de, ate) =>
+    requisitar(`/api/relatorios/espelho-ponto/${funcionarioId}?${consulta({ de, ate })}`),
+  frequenciaAluno: (alunoId, de, ate) =>
+    requisitar(`/api/alunos/${alunoId}/frequencia?${consulta({ de, ate })}`),
+  listarAuditoria: (params = {}) => requisitar(`/api/auditoria?${consulta(params)}`),
 };

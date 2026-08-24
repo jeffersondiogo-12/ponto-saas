@@ -3,18 +3,31 @@ import { useNavigate, useParams, Link } from 'react-router-dom';
 import Layout from '../components/Layout';
 import Selecao from '../components/Selecao';
 import { api } from '../api';
+import { useAuth } from '../context/AuthContext';
 
 const PADRAO = { tipo: 'empresa', nome: '', cnpj: '', fuso_horario: 'America/Sao_Paulo', endereco: '', ativo: true };
 
 export default function UnidadeForm() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { usuario } = useAuth();
   const [dados, setDados] = useState(PADRAO);
 
+  /**
+   * Só o super_admin escolhe o tipo. O admin cria apenas escolas, dentro da
+   * própria empresa — a empresa em si já existe e vem do token, então abrir
+   * "empresa" para ele só levaria a cadastro duplicado.
+   */
+  const ehSuperAdmin = usuario?.papel === 'super_admin';
+  const tipoTravado = !ehSuperAdmin;
+
   useEffect(() => {
-    if (!id) return;
+    if (!id) {
+      if (tipoTravado) setDados((d) => ({ ...d, tipo: 'escola' }));
+      return;
+    }
     api.buscarUnidade(id).then((r) => setDados({ ...PADRAO, ...r.filial }));
-  }, [id]);
+  }, [id, tipoTravado]);
 
   function set(campo, valor) {
     setDados((d) => ({ ...d, [campo]: valor }));
@@ -52,12 +65,19 @@ export default function UnidadeForm() {
                   rotuloAria="Tipo de unidade"
                   valor={dados.tipo}
                   aoMudar={(v) => set('tipo', v)}
-                  desabilitado={Boolean(id)}
-                  opcoes={[
-                    { valor: 'empresa', rotulo: 'Empresa' },
-                    { valor: 'escola', rotulo: 'Escola' },
-                  ]}
+                  desabilitado={Boolean(id) || tipoTravado}
+                  opcoes={
+                    tipoTravado
+                      ? [{ valor: 'escola', rotulo: 'Escola' }]
+                      : [
+                        { valor: 'empresa', rotulo: 'Empresa' },
+                        { valor: 'escola', rotulo: 'Escola' },
+                      ]
+                  }
                 />
+                {tipoTravado && !id && (
+                  <span className="ajuda">Seu perfil cria escolas dentro da empresa atual.</span>
+                )}
               </div>
             </div>
           </div>
@@ -82,7 +102,11 @@ export default function UnidadeForm() {
               </div>
               <div className="campo">
                 <label>Fuso horário</label>
-                <input value={dados.fuso_horario} onChange={(e) => set('fuso_horario', e.target.value)} />
+                {/* Exposicao, nao edicao: o fuso entra no calculo de jornada e
+                    de virada de dia. Mudar aqui reinterpretaria batidas ja
+                    gravadas, entao fica travado. */}
+                <input value={dados.fuso_horario} readOnly disabled />
+                <span className="ajuda">Definido pelo sistema — afeta o cálculo das batidas já registradas.</span>
               </div>
               <div className="campo">
                 <label>Endereço</label>
