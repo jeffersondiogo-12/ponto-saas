@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
+import Selecao from '../components/Selecao';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
 
@@ -10,7 +11,7 @@ export default function UsuarioForm() {
   const [nome, setNome] = useState('');
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
-  const [papel, setPapel] = useState('staff');
+  const [papel, setPapel] = useState('professor');
   const [filialId, setFilialId] = useState('');
   const [filiais, setFiliais] = useState([]);
   const [carregando, setCarregando] = useState(false);
@@ -87,21 +88,28 @@ export default function UsuarioForm() {
             </div>
             <div className="campo">
               <label>Papel</label>
-              <select value={papel} onChange={(e) => setPapel(e.target.value)}>
-                <option value="staff">Staff</option>
-                <option value="rh">RH</option>
-                <option value="admin">Admin</option>
-              </select>
+              <Selecao
+                rotuloAria="Papel"
+                valor={papel}
+                aoMudar={setPapel}
+                opcoes={[
+                  { valor: 'professor', rotulo: 'Professor' },
+                  { valor: 'gestor', rotulo: 'Gestor' },
+                  { valor: 'rh', rotulo: 'RH' },
+                  { valor: 'admin', rotulo: 'Admin' },
+                ]}
+              />
             </div>
             {(usuario?.papel === 'admin' || usuario?.papel === 'super_admin') && (
               <div className="campo">
                 <label>Filial (escola)</label>
-                <select value={filialId} onChange={(e) => setFilialId(e.target.value)} required>
-                  <option value="">-- selecione --</option>
-                  {filiais.map((f) => (
-                    <option key={f.id} value={f.id}>{f.nome || f.cnpj}</option>
-                  ))}
-                </select>
+                <Selecao
+                  rotuloAria="Filial (escola)"
+                  valor={filialId}
+                  aoMudar={setFilialId}
+                  vazio="Selecione a escola"
+                  opcoes={filiais.map((f) => ({ valor: f.id, rotulo: f.nome || f.cnpj }))}
+                />
               </div>
             )}
             <button type="submit" className="btn btn-primario" disabled={carregando}>

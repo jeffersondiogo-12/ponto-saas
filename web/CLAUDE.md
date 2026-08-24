@@ -280,6 +280,29 @@ Como ficou (`src/pages/Dashboard.jsx`):
   por seção em vez de morrer inteiro. Com `/api/funcionarios` em 500, o card de
   funcionários mostra "indisponível" e o resto continua funcionando.
 
+### 4.7 Relatórios — **concluído**
+
+Tela própria em `/relatorios`, **fora da dock**: a porta de entrada é a seção
+"Relatórios" do Dashboard.
+
+O coração é o array `RELATORIOS` em `src/pages/Relatorios.jsx`. Cada entrada
+declara `filtros`, `buscar()` e `colunas` — **acrescentar relatório novo é
+acrescentar um objeto ali; a tela não muda.** Os filtros aparecem sozinhos
+conforme o que a entrada declara.
+
+Hoje são 9, em 5 grupos: Cadastros (alunos, turmas, dispositivos), Presença
+(presença de aluno), Funcionários (resumo de ponto, espelho de ponto,
+funcionários), Ponto (batidas sem vínculo) e Sistema (auditoria).
+
+Trocar de relatório limpa o resultado anterior de propósito: mostrar a tabela
+de um relatório sob o título de outro é pior do que não mostrar nada.
+
+Exportação csv/pdf vive em `src/utils/exportar.js`, compartilhada com o
+Dashboard. **`celulaCsv` neutraliza CSV Injection** — célula começando com
+`= + - @` é fórmula para Excel/Sheets, e os dados vêm do cadastro; um aluno
+chamado `=HYPERLINK(...)` executaria na máquina de quem abrisse a planilha.
+Não remova o prefixo de apóstrofo.
+
 ### 4.2 Turmas — **concluído**
 
 - [x] Tela de **gestão de turmas** com CRUD completo (criar, editar, excluir)
@@ -289,10 +312,14 @@ Como ficou (`src/pages/Dashboard.jsx`):
 
 Como ficou:
 
-- **`src/pages/TurmasLista.jsx`** — listagem com contagem de alunos por turma,
-  formulário inline de criar/editar e exclusão com **confirmação inline**
-  (dois cliques na própria linha, sem `window.confirm`). Bloqueia a criação e
-  explica o motivo quando não há nenhuma unidade do tipo escola.
+- **`src/pages/TurmasLista.jsx`** — só listagem: contagem de alunos por turma e
+  exclusão com **confirmação inline** (dois cliques na própria linha, sem
+  `window.confirm`).
+- **`src/pages/TurmaForm.jsx`** — criar e editar turma em **tela própria**
+  (`/turmas/nova` e `/turmas/:id/editar`). Ficavam como formulário inline
+  dentro da listagem, o que confundia: a mesma tela era lista e formulário.
+  Ao criar, leva direto para a gestão da turma nova — o passo seguinte natural
+  é pôr alunos e professores nela.
 - **`src/pages/TurmaDetalhe.jsx`** (rota `/turmas/:id`) — alunos da turma,
   vínculo de aluno já cadastrado, remoção da turma, adição em massa e
   atribuição de professores.
@@ -321,6 +348,31 @@ Campos do cadastro:
 - [ ] **Obrigatórios:** nome completo, filial (escola), data de nascimento, CPF
 - [ ] **Não obrigatório, porém essencial:** matrícula
 
+**Feito:** `AlunoForm` foi reescrito com nome, CPF (com máscara e validação de
+11 dígitos), data de nascimento, escola, matrícula, turma opcional e dados do
+responsável. Antes ele enviava só nome/matrícula/filial — **sem CPF** — e por
+isso o cadastro estava quebrado desde que o backend passou a exigi-lo.
+
+**Matrícula agora é opcional** — o `NOT NULL` saiu do banco em produção
+(2026-08-23). O campo aceita vazio e o aluno passa a aparecer em **"Precisa de
+atenção" → "Alunos sem matrícula — regularizar"** no Dashboard. Esse item é o
+único lembrete de que ela falta; **não o remova.**
+
+> **Limitação do servidor, ainda aberta.** `alunos.service.criar` confere
+> duplicidade com `where({ matricula })`, que em SQL vira `matricula is null`
+> quando ela vem vazia. Resultado: o **segundo** aluno sem matrícula "colide"
+> com o primeiro e recebe 409 *"Já existe um aluno com esta matrícula"*.
+> O `AlunoForm` detecta esse caso e troca a mensagem por uma que explica o que
+> houve, mas o conserto de verdade é no backend — pular a checagem quando a
+> matrícula for vazia. Enviar `undefined` não resolve: o Knex estoura
+> "Undefined binding(s)" e vira 500. Por isso o front manda `null`.
+
+> **CPF parou de ser gravado.** O commit `70aac60` removeu a validação e a
+> escrita de `cpf` de `alunos.service.js`. A coluna continua no banco, mas o
+> insert não a inclui — então o CPF digitado no formulário **é descartado em
+> silêncio**. O campo segue na tela porque foi pedido e a coluna existe; quando
+> o backend voltar a gravá-lo, nada muda no front.
+
 > **CPF deixou de ser bloqueio.** A migration `20260822000001_create_portal_responsaveis.js`
 > (chegou no pull de 2026-08-22) adicionou `cpf` a `alunos`, e
 > `alunos.service.js` passou a **exigir 11 dígitos**, devolvendo 400 se não
@@ -337,23 +389,35 @@ Campos do cadastro:
 > Sugestão de UX para "não obrigatório mas essencial": permitir salvar sem, com
 > pendência visível — o Dashboard já conta "Alunos sem matrícula" (4.1).
 
-### 4.4 Unidades (filiais)
+### 4.4 Unidades (filiais) — **concluído**
 
-- [ ] `admin` só pode criar escolas (filiais) **dentro da própria empresa**
-- [ ] `super_admin` pode criar em qualquer empresa
-- [ ] Para `super_admin`: mostrar primeiro um **filtro/lista de empresas**; ao
-      clicar numa empresa, listar todas as filiais dela
-- [ ] **Fuso horário vira somente leitura** — exibido, nunca editável
+- [x] `admin` só cria escolas, dentro da própria empresa
+- [x] `super_admin` escolhe a empresa
+- [x] Para `super_admin`: lista de empresas primeiro; ao escolher uma, aparecem
+      as filiais dela, com "trocar de empresa" para voltar
+- [x] **Fuso horário somente leitura** — exibido, nunca editável
+- [x] Filtro **Exibir**: todas as unidades, somente empresa ou somente escolas,
+      com a contagem de cada opção no próprio rótulo
 
-> O campo `fuso_horario` existe em `filiais` (padrão `America/Sao_Paulo`).
-> Tornar somente leitura no front é o combinado; o backend continua aceitando
-> o campo, então a trava é de interface.
+O `super_admin` opera via header `X-Empresa-Id`, lido do `localStorage` a cada
+chamada. Trocar de empresa é `selecionarEmpresa()` / `limparEmpresa()` do
+`AuthContext` — sem empresa escolhida a API recusa com 400, por isso a tela
+força a escolha antes de listar.
 
-### 4.5 Usuários
+A trava do fuso é de interface: o backend continua aceitando o campo. O motivo
+de travar não é estético — o fuso entra no cálculo de jornada e de virada de
+dia, então mudá-lo reinterpretaria batidas já gravadas.
 
-- [ ] Tela de **gestor**
-- [ ] Tela de **professor**
-- [ ] Expor nas duas os dados que o banco já disponibiliza para esses papéis
+### 4.5 Usuários — **concluído**
+
+- [x] Contagem por papel, filtro por papel e busca por nome/e-mail/unidade
+- [x] Tabela expondo o que `/api/auth/usuarios` devolve: nome, e-mail, papel,
+      unidade e situação
+- [x] Quadro "O que cada perfil enxerga", incluindo **gestor** e **professor**
+
+`gestor` entrou nas opções do `UsuarioForm` (faltava). Os papéis vivem em
+`src/utils/dominio.js` (`PAPEIS`, `rotuloPapel`), espelhando o enum
+`usuario_papel` — não redeclare a lista dentro de tela.
 
 > `professor` já existe no enum `usuario_papel` (adicionado na migration de
 > 2026-08-22) e já há um `src/pages/ProfessorPainel.jsx` na rota `/professor`,
@@ -362,9 +426,16 @@ Campos do cadastro:
 > `/turmas/:turmaId/alunos`, `/presencas`, `/notas`, `/observacoes`.
 > Para `gestor` não há endpoint dedicado — ele usa as rotas de staff.
 
-### 4.6 Auditoria
+### 4.6 Auditoria — **concluído**
 
-- [ ] Tela expondo os dados de `auditoria_logs`
+- [x] Exposta como um dos relatórios em `/relatorios`, com filtros de período,
+      ação e entidade
+
+A rota chegou no pull de 2026-08-23 (`GET /api/auditoria`, somente leitura,
+restrita a `super_admin`/`admin`/`rh`). Não virou tela separada de propósito:
+auditoria é consulta filtrada com exportação, exatamente o que a tela de
+relatórios já faz. `api.listarAuditoria()` aceita `usuario_id`, `acao`,
+`entidade`, `entidade_id`, `de`, `ate`, `pagina`, `limite` (máx. 200).
 
 > **Em andamento do lado do servidor.** A auditoria está sendo construída por
 > quem cuida do backend; quando ficar pronta, ela chega por **`git pull`**.

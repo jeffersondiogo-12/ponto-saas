@@ -302,13 +302,13 @@ export default function TurmaDetalhe() {
             Os alunos são criados já vinculados a <strong>{turma.nome}</strong> e à unidade da turma.
           </p>
           <form onSubmit={salvarLote}>
-            <table className="tabela">
+            <table className="tabela tabela-form">
               <thead>
                 <tr>
                   <th>Nome completo <span className="obrigatorio">*</span></th>
-                  <th>CPF <span className="obrigatorio">*</span></th>
-                  <th>Nascimento <span className="obrigatorio">*</span></th>
-                  <th>Matrícula</th>
+                  <th style={{ width: 170 }}>CPF <span className="obrigatorio">*</span></th>
+                  <th style={{ width: 165 }}>Nascimento <span className="obrigatorio">*</span></th>
+                  <th style={{ width: 150 }}>Matrícula</th>
                   <th style={{ width: 1 }} />
                 </tr>
               </thead>
@@ -317,17 +317,37 @@ export default function TurmaDetalhe() {
                   // eslint-disable-next-line react/no-array-index-key
                   <tr key={i}>
                     <td>
-                      <input value={l.nome} onChange={(e) => alterarLinha(i, 'nome', e.target.value)} style={{ width: '100%' }} />
-                      {l.estado && <div className="texto-apoio" style={{ color: 'var(--vermelho)' }}>{l.estado}</div>}
+                      <input
+                        className={`entrada ${l.estado ? 'erro-campo' : ''}`}
+                        value={l.nome}
+                        onChange={(e) => alterarLinha(i, 'nome', e.target.value)}
+                        placeholder="Nome do aluno"
+                      />
+                      {l.estado && <span className="aviso-linha">{l.estado}</span>}
                     </td>
                     <td>
-                      <input value={l.cpf} onChange={(e) => alterarLinha(i, 'cpf', e.target.value)} placeholder="000.000.000-00" style={{ width: 150 }} />
+                      <input
+                        className="entrada mono"
+                        value={l.cpf}
+                        onChange={(e) => alterarLinha(i, 'cpf', e.target.value)}
+                        placeholder="000.000.000-00"
+                      />
                     </td>
                     <td>
-                      <input type="date" value={l.data_nascimento} onChange={(e) => alterarLinha(i, 'data_nascimento', e.target.value)} />
+                      <input
+                        className="entrada mono"
+                        type="date"
+                        value={l.data_nascimento}
+                        onChange={(e) => alterarLinha(i, 'data_nascimento', e.target.value)}
+                      />
                     </td>
                     <td>
-                      <input value={l.matricula} onChange={(e) => alterarLinha(i, 'matricula', e.target.value)} style={{ width: 130 }} />
+                      <input
+                        className="entrada mono"
+                        value={l.matricula}
+                        onChange={(e) => alterarLinha(i, 'matricula', e.target.value)}
+                        placeholder="opcional"
+                      />
                     </td>
                     <td>
                       <button

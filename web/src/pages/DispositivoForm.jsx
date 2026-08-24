@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import Layout from '../components/Layout';
+import Selecao from '../components/Selecao';
 import { api } from '../api';
 
 const PADRAO = {
@@ -112,10 +113,15 @@ export default function DispositivoForm() {
               </div>
               <div className="campo">
                 <label>Situação do cadastro</label>
-                <select value={dados.situacao} onChange={(e) => set('situacao', e.target.value)}>
-                  <option value="ativo">Ativo</option>
-                  <option value="inativo">Inativo</option>
-                </select>
+                <Selecao
+                  rotuloAria="Situação do cadastro"
+                  valor={dados.situacao}
+                  aoMudar={(v) => set('situacao', v)}
+                  opcoes={[
+                    { valor: 'ativo', rotulo: 'Ativo' },
+                    { valor: 'inativo', rotulo: 'Inativo' },
+                  ]}
+                />
               </div>
               <div className="campo">
                 <label>Modelo do equipamento</label>
@@ -123,11 +129,14 @@ export default function DispositivoForm() {
               </div>
               <div className="campo">
                 <label>Tipo de biometria</label>
-                <select value={dados.tipo_biometria} onChange={(e) => set('tipo_biometria', e.target.value)}>
-                  {['facial', 'digital', 'cartao', 'senha', 'misto'].map((t) => (
-                    <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
-                  ))}
-                </select>
+                <Selecao
+                  rotuloAria="Tipo de biometria"
+                  valor={dados.tipo_biometria}
+                  aoMudar={(v) => set('tipo_biometria', v)}
+                  opcoes={['facial', 'digital', 'cartao', 'senha', 'misto'].map((t) => ({
+                    valor: t, rotulo: t.charAt(0).toUpperCase() + t.slice(1),
+                  }))}
+                />
               </div>
               <div className="campo">
                 <label>Fuso horário</label>
@@ -152,10 +161,15 @@ export default function DispositivoForm() {
             <div className="grid-form">
               <div className="campo">
                 <label>Modo de conexão do relógio</label>
-                <select value={dados.modo_conexao} onChange={(e) => set('modo_conexao', e.target.value)}>
-                  <option value="client">Client</option>
-                  <option value="server">Server</option>
-                </select>
+                <Selecao
+                  rotuloAria="Modo de conexão do relógio"
+                  valor={dados.modo_conexao}
+                  aoMudar={(v) => set('modo_conexao', v)}
+                  opcoes={[
+                    { valor: 'client', rotulo: 'Client' },
+                    { valor: 'server', rotulo: 'Server' },
+                  ]}
+                />
               </div>
               <div className="campo">
                 <label>IP{dados.modo_conexao === 'server' ? ' (opcional)' : ''}</label>
@@ -195,16 +209,32 @@ export default function DispositivoForm() {
               </div>
               <div className="campo">
                 <label>Protocolo de comunicação</label>
-                <select value={dados.protocolo} onChange={(e) => set('protocolo', e.target.value)}>
-                  <option value="desconhecido">A confirmar</option>
-                  <option value="zk_tcp">Protocolo ZK (TCP) — não confirmado</option>
-                  <option value="evo_ws">Evo Facial (WebSocket) — protocolo oficial do fabricante</option>
-                  <option value="http_rest">HTTP/REST</option>
-                </select>
+                <Selecao
+                  rotuloAria="Protocolo de comunicação"
+                  valor={dados.protocolo}
+                  aoMudar={(v) =>
+                    setDados((d) => ({
+                      ...d,
+                      protocolo: v,
+                      // evo_ws so funciona em modo 'server' (backend rejeita a combinacao
+                      // contraria com 400) - troca sozinho pra nao depender do admin lembrar
+                      // de mexer nos dois campos. Ao sair de evo_ws, volta pra 'client' se
+                      // estava em 'server', ja que nenhum outro protocolo hoje suporta isso.
+                      modo_conexao: v === 'evo_ws' ? 'server' : d.modo_conexao === 'server' ? 'client' : d.modo_conexao,
+                    }))
+                  }
+                  opcoes={[
+                    { valor: 'desconhecido', rotulo: 'A confirmar' },
+                    { valor: 'zk_tcp', rotulo: 'Protocolo ZK (TCP) — não confirmado' },
+                    { valor: 'evo_ws', rotulo: 'Evo Facial (WebSocket) — protocolo oficial do fabricante' },
+                    { valor: 'http_rest', rotulo: 'HTTP/REST' },
+                  ]}
+                />
                 {dados.protocolo === 'evo_ws' && (
                   <span className="texto-apoio">
-                    Requer modo de conexão "Server". No equipamento, configure o mesmo host/porta que a API usa —
-                    não existe uma porta separada (Render e a maioria dos PaaS só expõem uma porta pública por serviço).
+                    Modo "Server" (selecionado automaticamente). Em produção, aponte o equipamento para o domínio
+                    público deste servidor + <code>/evo</code>, porta 443/HTTPS — não use IP nem a porta
+                    EVO_FACIAL_WS_PORT, que só se aplica rodando o backend standalone na sua própria rede.
                   </span>
                 )}
               </div>

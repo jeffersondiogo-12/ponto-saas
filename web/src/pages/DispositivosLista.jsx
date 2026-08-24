@@ -18,7 +18,7 @@ export default function DispositivosLista() {
     <Layout>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 22 }}>
         <h1 className="titulo-pagina" style={{ marginBottom: 0 }}>Dispositivos</h1>
-        <Link to="/dispositivos/novo" className="btn btn-brass">+ Novo dispositivo</Link>
+        <Link to="/dispositivos/novo" className="btn btn-azul">+ Novo dispositivo</Link>
       </div>
 
       <div className="card">
