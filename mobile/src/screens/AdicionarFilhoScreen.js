@@ -41,7 +41,7 @@ export default function AdicionarFilhoScreen({ navigation }) {
       <TextInput style={estilos.input} placeholder="Matrícula" value={matricula} onChangeText={setMatricula} />
       <TextInput style={estilos.input} placeholder="Parentesco (opcional)" value={parentesco} onChangeText={setParentesco} />
       <TouchableOpacity style={estilos.botao} onPress={adicionar} disabled={carregando}>
-        {carregando ? <ActivityIndicator color="#fff" /> : <Text style={estilos.botaoTexto}>Adicionar filho</Text>}
+        {carregando ? <ActivityIndicator color="#eeb7b7" /> : <Text style={estilos.botaoTexto}>Adicionar filho</Text>}
       </TouchableOpacity>
     </ScrollView>
   );
