@@ -1,5 +1,4 @@
 const db = require('../../config/db');
-const net = require('net');
 const { AppError } = require('../../middlewares/errorHandler');
 const { encrypt, decrypt } = require('../../utils/crypto');
 const { criarAdapter } = require('./adapters');
@@ -33,37 +32,6 @@ async function listar(empresaId) {
   return dispositivos.map(sanitizar);
 }
 
-function validarConfiguracaoConexao({ modoConexao, protocolo, ip, porta }) {
-  if (!['client', 'server'].includes(modoConexao)) {
-    throw new AppError('Modo de conexao invalido. Use client ou server.', 400);
-  }
-  if (!['zk_tcp', 'evo_ws', 'desconhecido'].includes(protocolo)) {
-    throw new AppError('Protocolo de comunicacao nao suportado.', 400);
-  }
-  if (protocolo === 'evo_ws' && modoConexao !== 'server') {
-    throw new AppError('O protocolo Evo Facial WebSocket exige modo Server.', 400);
-  }
-  if (protocolo === 'zk_tcp' && modoConexao !== 'client') {
-    throw new AppError('O protocolo ZK TCP exige modo Client.', 400);
-  }
-  if (protocolo === 'desconhecido') {
-    throw new AppError('Selecione um protocolo de comunicacao antes de salvar.', 400);
-  }
-  if (modoConexao === 'client' && (!ip || net.isIP(ip) === 0)) {
-    throw new AppError('Informe um IP valido no modo Client.', 400);
-  }
-  // Defesa extra: ip e coluna tipo inet no Postgres. Se por algum motivo
-  // chegar aqui fora do modo Client com algo que nao seja um IP valido
-  // (dominio, texto solto), e melhor um 400 claro do que o UPDATE/INSERT
-  // quebrar la na frente com erro nao tratado (500).
-  if (ip && net.isIP(ip) === 0) {
-    throw new AppError('IP informado nao e valido.', 400);
-  }
-  if (porta !== undefined && (!Number.isInteger(Number(porta)) || Number(porta) < 1 || Number(porta) > 65535)) {
-    throw new AppError('A porta deve estar entre 1 e 65535.', 400);
-  }
-}
-
 async function buscarPorId(empresaId, dispositivoId) {
   const dispositivo = await db('dispositivos')
     .where({ id: dispositivoId, empresa_id: empresaId })
@@ -73,18 +41,6 @@ async function buscarPorId(empresaId, dispositivoId) {
 }
 
 async function criar(empresaId, dados) {
-  const modoConexao = dados.modo_conexao || 'client';
-  const protocolo = dados.protocolo || 'desconhecido';
-  const ip = modoConexao === 'server' ? null : dados.ip && String(dados.ip).trim() ? String(dados.ip).trim() : null;
-  validarConfiguracaoConexao({ modoConexao, protocolo, ip, porta: dados.porta });
-  if (!dados.numero_serie || !dados.descricao) {
-    throw new AppError('Descricao e numero de serie sao obrigatorios.', 400);
-  }
-
-  if (modoConexao !== 'server' && !ip) {
-    throw new AppError('IP e obrigatorio no modo Client.', 400);
-  }
-
   const serieExistente = await db('dispositivos')
     .where({ empresa_id: empresaId, numero_serie: dados.numero_serie })
     .first();
@@ -102,8 +58,8 @@ async function criar(empresaId, dados) {
       situacao: dados.situacao || 'ativo',
       fuso_horario: dados.fuso_horario || 'America/Sao_Paulo',
       enviar_comprovante_email: Boolean(dados.enviar_comprovante_email),
-      modo_conexao: modoConexao,
-      ip,
+      modo_conexao: dados.modo_conexao || 'client',
+      ip: dados.ip,
       porta: dados.porta || 4370,
       nao_validar_empresa: Boolean(dados.nao_validar_empresa),
       numero_serie: dados.numero_serie,
@@ -111,7 +67,7 @@ async function criar(empresaId, dados) {
       usuario_dispositivo: dados.usuario_dispositivo || null,
       senha_dispositivo_cifrada: encrypt(dados.senha_dispositivo),
       identificador_equipamento: dados.identificador_equipamento || null,
-      protocolo,
+      protocolo: dados.protocolo || 'desconhecido',
     })
     .returning('*');
 
@@ -119,19 +75,7 @@ async function criar(empresaId, dados) {
 }
 
 async function atualizar(empresaId, dispositivoId, dados) {
-  const atual = await buscarPorId(empresaId, dispositivoId);
-  const modoConexao = dados.modo_conexao || atual.modo_conexao;
-  const protocolo = dados.protocolo || atual.protocolo;
-  // No modo 'server' quem conecta e o equipamento - ip nao faz sentido, e a
-  // coluna e tipo inet no Postgres. Zera sempre, nao interessa o que veio no
-  // campo (ex: sobra de um teste anterior em modo Client com outro protocolo,
-  // como um dominio digitado ali - isso quebra o UPDATE com erro 500 nao
-  // tratado em vez de air limpo).
-  const ip = modoConexao === 'server' ? null : dados.ip && String(dados.ip).trim() ? String(dados.ip).trim() : null;
-  validarConfiguracaoConexao({ modoConexao, protocolo, ip, porta: dados.porta });
-  if (modoConexao !== 'server' && !ip) {
-    throw new AppError('IP e obrigatorio no modo Client.', 400);
-  }
+  await buscarPorId(empresaId, dispositivoId);
 
   const patch = {
     filial_id: dados.filial_id || null,
@@ -141,14 +85,14 @@ async function atualizar(empresaId, dispositivoId, dados) {
     situacao: dados.situacao,
     fuso_horario: dados.fuso_horario,
     enviar_comprovante_email: Boolean(dados.enviar_comprovante_email),
-    modo_conexao: modoConexao,
-    ip,
+    modo_conexao: dados.modo_conexao,
+    ip: dados.ip,
     porta: dados.porta,
     nao_validar_empresa: Boolean(dados.nao_validar_empresa),
     mac_address: dados.mac_address || null,
     usuario_dispositivo: dados.usuario_dispositivo || null,
     identificador_equipamento: dados.identificador_equipamento || null,
-    protocolo,
+    protocolo: dados.protocolo,
   };
 
   // Só reescreve a senha se uma nova foi enviada (campo em branco = manter a atual).

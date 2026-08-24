@@ -29,7 +29,7 @@ export default function Login() {
     <div className="tela-login">
       <div className="caixa-login">
         <div className="marca">
-          Ponto<span className="ponto-azul">·</span>SaaS
+          Ponto<span className="ponto-brass">·</span>SaaS
         </div>
         {erro && <div className="erro">{erro}</div>}
         <form onSubmit={aoEnviar}>
@@ -48,10 +48,12 @@ export default function Login() {
               type="text"
               value={unidade}
               onChange={(e) => setUnidade(e.target.value)}
-              placeholder="Nome ou CNPJ"
+              placeholder="Digite o nome ou CNPJ da empresa (ambiente)"
               required
             />
-            <span className="ajuda">A empresa onde você trabalha. As escolas e filiais ficam dentro dela.</span>
+            <p className="texto-apoio" style={{ marginTop: 8 }}>
+              Faça login no ambiente (empresa). Dentro deste ambiente você poderá criar unidades (escola ou filial) que liberarão as telas correspondentes.
+            </p>
           </div>
           <button className="btn btn-primario" type="submit" disabled={carregando}>
             {carregando ? 'Entrando...' : 'Entrar'}

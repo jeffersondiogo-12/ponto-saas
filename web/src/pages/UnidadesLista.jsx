@@ -18,7 +18,7 @@ export default function UnidadesLista() {
     <Layout>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 22 }}>
         <h1 className="titulo-pagina" style={{ marginBottom: 0 }}>Unidades</h1>
-        <Link to="/unidades/nova" className="btn btn-azul">+ Nova unidade</Link>
+        <Link to="/unidades/nova" className="btn btn-brass">+ Nova unidade</Link>
       </div>
 
       <div className="card">

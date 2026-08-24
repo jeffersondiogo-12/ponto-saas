@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
-import Selecao from '../components/Selecao';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
 
@@ -83,13 +82,12 @@ export default function AlunoForm() {
             {(usuario?.papel === 'admin' || usuario?.papel === 'super_admin') && (
               <div className="campo">
                 <label>Filial (escola)</label>
-                <Selecao
-                  rotuloAria="Filial (escola)"
-                  valor={filialId}
-                  aoMudar={setFilialId}
-                  vazio="Selecione a escola"
-                  opcoes={filiais.map((f) => ({ valor: f.id, rotulo: f.nome || f.cnpj }))}
-                />
+                <select value={filialId} onChange={(e) => setFilialId(e.target.value)} required>
+                  <option value="">-- selecione --</option>
+                  {filiais.map((f) => (
+                    <option key={f.id} value={f.id}>{f.nome || f.cnpj}</option>
+                  ))}
+                </select>
               </div>
             )}
             <button type="submit" className="btn btn-primario" disabled={carregando}>
