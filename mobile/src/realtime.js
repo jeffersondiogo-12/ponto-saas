@@ -1,4 +1,4 @@
-import { obterToken, limparCache } from './api';
+import { obterToken } from './api';
 import { DeviceEventEmitter } from 'react-native';
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.0.10:3000';
@@ -19,10 +19,9 @@ export async function conectarRealtime(onEvento) {
       socket.send('ping');
       timer = setInterval(() => socket.readyState === WebSocket.OPEN && socket.send('ping'), 25000);
     };
-    socket.onmessage = async (evento) => {
+    socket.onmessage = (evento) => {
       const mensagem = JSON.parse(evento.data);
       if (mensagem.tipo !== 'pong' && mensagem.tipo !== 'conectado') {
-        await limparCache();
         DeviceEventEmitter.emit('ponto-saas:atualizado', mensagem);
         onEvento?.(mensagem);
       }

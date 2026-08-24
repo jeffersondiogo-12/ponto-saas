@@ -4,17 +4,23 @@ import { useAuth } from '../context/AuthContext';
 import { cores } from '../theme';
 
 export default function LoginScreen() {
+  const [papel, setPapel] = useState('responsavel'); // 'responsavel' | 'professor'
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
+  const [unidade, setUnidade] = useState('');
   const [erro, setErro] = useState(null);
   const [carregando, setCarregando] = useState(false);
-  const { login } = useAuth();
+  const { loginResponsavel, loginProfessor } = useAuth();
 
   async function entrar() {
     setErro(null);
     setCarregando(true);
     try {
-      await login(email, senha);
+      if (papel === 'professor') {
+        await loginProfessor(email, senha, unidade);
+      } else {
+        await loginResponsavel(email, senha);
+      }
     } catch (err) {
       setErro(err.message || 'Não foi possível entrar.');
     } finally {
@@ -27,7 +33,30 @@ export default function LoginScreen() {
       <Text style={estilos.marca}>
         Ponto<Text style={{ color: cores.brass }}>·</Text>SaaS
       </Text>
-      <Text style={estilos.subtitulo}>Acompanhe a chegada e saída do seu filho</Text>
+      <Text style={estilos.subtitulo}>
+        {papel === 'professor'
+          ? 'Chamada, notas e observações da sua turma'
+          : 'Acompanhe a chegada e saída do seu filho'}
+      </Text>
+
+      <View style={estilos.seletor}>
+        <TouchableOpacity
+          style={[estilos.opcao, papel === 'responsavel' && estilos.opcaoAtiva]}
+          onPress={() => setPapel('responsavel')}
+        >
+          <Text style={[estilos.opcaoTexto, papel === 'responsavel' && estilos.opcaoTextoAtivo]}>
+            Responsável
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[estilos.opcao, papel === 'professor' && estilos.opcaoAtiva]}
+          onPress={() => setPapel('professor')}
+        >
+          <Text style={[estilos.opcaoTexto, papel === 'professor' && estilos.opcaoTextoAtivo]}>
+            Professor
+          </Text>
+        </TouchableOpacity>
+      </View>
 
       {erro && (
         <View style={estilos.erroCaixa}>
@@ -49,9 +78,21 @@ export default function LoginScreen() {
         placeholder="Senha"
         placeholderTextColor="#9aa39c"
         secureTextEntry
+        autoCapitalize="none"
+        autoCorrect={false}
         value={senha}
         onChangeText={setSenha}
       />
+      {papel === 'professor' && (
+        <TextInput
+          style={estilos.input}
+          placeholder="Nome ou CNPJ da empresa (ambiente)"
+          placeholderTextColor="#9aa39c"
+          autoCapitalize="none"
+          value={unidade}
+          onChangeText={setUnidade}
+        />
+      )}
 
       <TouchableOpacity style={estilos.botao} onPress={entrar} disabled={carregando}>
         {carregando ? <ActivityIndicator color="#fff" /> : <Text style={estilos.botaoTexto}>Entrar</Text>}
@@ -63,7 +104,18 @@ export default function LoginScreen() {
 const estilos = StyleSheet.create({
   container: { flex: 1, backgroundColor: cores.ink, justifyContent: 'center', padding: 28 },
   marca: { fontSize: 26, fontWeight: '700', color: '#fff', marginBottom: 6 },
-  subtitulo: { fontSize: 14, color: '#c9d0cb', marginBottom: 28 },
+  subtitulo: { fontSize: 14, color: '#c9d0cb', marginBottom: 24 },
+  seletor: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 10,
+    padding: 4,
+    marginBottom: 20,
+  },
+  opcao: { flex: 1, paddingVertical: 10, borderRadius: 8, alignItems: 'center' },
+  opcaoAtiva: { backgroundColor: cores.brass },
+  opcaoTexto: { color: '#c9d0cb', fontWeight: '600', fontSize: 13.5 },
+  opcaoTextoAtivo: { color: '#fff' },
   input: {
     backgroundColor: '#fff',
     borderRadius: 10,

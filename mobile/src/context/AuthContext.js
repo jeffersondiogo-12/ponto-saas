@@ -1,40 +1,50 @@
 import { createContext, useContext, useEffect, useState } from 'react';
-import { api, salvarToken, limparToken, obterToken } from '../api';
+import { api, salvarToken, limparToken, obterToken, salvarSessao, obterSessao, limparSessao } from '../api';
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [responsavel, setResponsavel] = useState(null);
+  // usuario.tipo === 'responsavel' -> pai/mae (login fixo por email+senha)
+  // usuario.tipo === 'staff' com usuario.papel === 'professor' -> professor
+  // (login por email+senha+unidade, igual ao gestor no web)
+  const [usuario, setUsuario] = useState(null);
   const [carregandoSessao, setCarregandoSessao] = useState(true);
 
-  // Ao abrir o app, so sabemos que ha uma sessao salva pelo token existir -
-  // os dados do responsavel (nome, alunoIds) sao recarregados no proximo
-  // login; para simplificar, aqui so verificamos se HA token e, se houver,
-  // deixamos a tela inicial pedir login de novo caso as chamadas falhem com 401.
+  // Nao existe endpoint "/me" no backend, entao ao reabrir o app o unico
+  // jeito de saber QUEM esta logado e com qual papel e reler o que o login
+  // guardou da ultima vez (ver salvarSessao em api.js). Se o token tiver
+  // expirado, as chamadas seguintes falham com 401 e a tela cai pro login.
   useEffect(() => {
-    obterToken().then((token) => {
+    Promise.all([obterToken(), obterSessao()]).then(([token, sessao]) => {
+      if (token && sessao) setUsuario(sessao);
       setCarregandoSessao(false);
-      // Sem um endpoint "/me", nao recuperamos os dados do responsavel aqui -
-      // isso fica para uma proxima iteracao (ver README). Por ora, token
-      // presente so evita jogar direto pra tela de login antes de tentar.
-      if (token) setResponsavel({ tokenPresente: true });
     });
   }, []);
 
-  async function login(email, senha) {
-    const { token, responsavel: dados } = await api.login(email, senha);
+  async function loginResponsavel(email, senha) {
+    const { token, responsavel } = await api.login(email, senha);
     await salvarToken(token);
-    setResponsavel(dados);
+    await salvarSessao(responsavel);
+    setUsuario(responsavel);
+    return responsavel;
+  }
+
+  async function loginProfessor(email, senha, unidade) {
+    const { token, usuario: dados } = await api.loginProfessor(email, senha, unidade);
+    await salvarToken(token);
+    await salvarSessao(dados);
+    setUsuario(dados);
     return dados;
   }
 
   async function logout() {
     await limparToken();
-    setResponsavel(null);
+    await limparSessao();
+    setUsuario(null);
   }
 
   return (
-    <AuthContext.Provider value={{ responsavel, login, logout, carregandoSessao }}>
+    <AuthContext.Provider value={{ usuario, loginResponsavel, loginProfessor, logout, carregandoSessao }}>
       {children}
     </AuthContext.Provider>
   );

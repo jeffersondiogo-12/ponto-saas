@@ -1,5 +1,6 @@
 const app = require('./app');
 const { iniciarServidorEvoFacial } = require('./modules/dispositivos/evoFacialServidor');
+const { iniciarRealtime } = require('./realtime');
 
 const PORT = process.env.PORT || 3000;
 
@@ -30,3 +31,4 @@ const servidorHttp = app.listen(PORT, () => {
  * 3000). Ver README secao 6.
  */
 iniciarServidorEvoFacial(servidorHttp);
+iniciarRealtime(servidorHttp);

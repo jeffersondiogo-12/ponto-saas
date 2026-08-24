@@ -6,8 +6,8 @@ import { api } from './api';
 
 /**
  * IMPORTANTE: os campos deste handler foram conferidos direto no pacote
- * expo-notifications instalado (57.0.7) - `shouldShowAlert` está
- * depreciado nesta versão, substituído por `shouldShowBanner`/
+ * expo-notifications instalado (0.32.17, via Expo SDK 54) - `shouldShowAlert`
+ * está depreciado nesta versão, substituído por `shouldShowBanner`/
  * `shouldShowList` (os dois obrigatórios). Se você atualizar o SDK do Expo
  * no futuro, vale conferir de novo (`node_modules/expo-notifications/
  * build/Notifications.types.d.ts`) antes de assumir que isto continua igual.

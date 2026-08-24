@@ -108,6 +108,28 @@ async function frequenciaDoAluno(alunoIdsPermitidos, alunoId, { de, ate } = {}) 
   return query;
 }
 
+async function notasDoAluno(alunoIdsPermitidos, alunoId) {
+  if (!alunoIdsPermitidos.includes(alunoId)) {
+    throw new AppError('Voce nao tem acesso a este aluno.', 403);
+  }
+
+  return db('notas_alunos')
+    .select('id', 'disciplina', 'etapa', 'nota', 'observacao', 'created_at')
+    .where({ aluno_id: alunoId })
+    .orderBy('created_at', 'desc');
+}
+
+async function observacoesDoAluno(alunoIdsPermitidos, alunoId) {
+  if (!alunoIdsPermitidos.includes(alunoId)) {
+    throw new AppError('Voce nao tem acesso a este aluno.', 403);
+  }
+
+  return db('observacoes_alunos')
+    .select('id', 'titulo', 'texto', 'autor_nome', 'created_at')
+    .where({ aluno_id: alunoId })
+    .orderBy('created_at', 'desc');
+}
+
 async function registrarPushToken(responsavelId, token, plataforma) {
   const [registro] = await db('push_tokens')
     .insert({ responsavel_id: responsavelId, token, plataforma })
@@ -124,6 +146,8 @@ module.exports = {
   vincularAluno,
   listarAlunosVinculados,
   frequenciaDoAluno,
+  notasDoAluno,
+  observacoesDoAluno,
   registrarPushToken,
   obterAlunoIdsVinculados,
 };

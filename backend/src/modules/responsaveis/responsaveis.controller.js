@@ -41,6 +41,24 @@ async function frequenciaDoAluno(req, res, next) {
   }
 }
 
+async function notasDoAluno(req, res, next) {
+  try {
+    const notas = await responsaveisService.notasDoAluno(req.usuario.alunoIds, req.params.alunoId);
+    res.json({ notas });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function observacoesDoAluno(req, res, next) {
+  try {
+    const observacoes = await responsaveisService.observacoesDoAluno(req.usuario.alunoIds, req.params.alunoId);
+    res.json({ observacoes });
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function registrarPushToken(req, res, next) {
   try {
     const { token, plataforma } = req.body;
@@ -61,4 +79,13 @@ async function vincularAluno(req, res, next) {
   }
 }
 
-module.exports = { cadastrar, login, listarAlunos, frequenciaDoAluno, registrarPushToken, vincularAluno };
+module.exports = {
+  cadastrar,
+  login,
+  listarAlunos,
+  frequenciaDoAluno,
+  notasDoAluno,
+  observacoesDoAluno,
+  registrarPushToken,
+  vincularAluno,
+};
