@@ -51,7 +51,9 @@ async function requisitar(caminho, { method = 'GET', body } = {}) {
   const dados = await resposta.json().catch(() => ({}));
 
   if (!resposta.ok) {
-    throw new Error(dados.erro || `Erro ${resposta.status}`);
+    const erro = new Error(dados.erro || `Erro ${resposta.status}`);
+    erro.status = resposta.status;
+    throw erro;
   }
 
   return dados;
@@ -79,4 +81,6 @@ export const api = {
     requisitar(`/api/professores/turmas/${turmaId}/notas`, { method: 'POST', body: dados }),
   criarObservacaoProfessor: (turmaId, dados) =>
     requisitar(`/api/professores/turmas/${turmaId}/observacoes`, { method: 'POST', body: dados }),
+  historicoDoAluno: (turmaId, alunoId) =>
+    requisitar(`/api/professores/turmas/${turmaId}/alunos/${alunoId}/historico`),
 };
