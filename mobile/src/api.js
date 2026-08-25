@@ -67,6 +67,9 @@ export const api = {
   frequenciaDoAluno: (alunoId) => requisitar(`/api/responsaveis/alunos/${alunoId}/frequencia`),
   notasDoAluno: (alunoId) => requisitar(`/api/responsaveis/alunos/${alunoId}/notas`),
   observacoesDoAluno: (alunoId) => requisitar(`/api/responsaveis/alunos/${alunoId}/observacoes`),
+  presencaSalaDoAluno: (alunoId) => requisitar(`/api/responsaveis/alunos/${alunoId}/presenca-sala`),
+  avisosDoAluno: (alunoId) => requisitar(`/api/responsaveis/alunos/${alunoId}/avisos`),
+  vincularFilho: (dados) => requisitar('/api/responsaveis/alunos/vincular', { method: 'POST', body: dados }),
   registrarPushToken: (token, plataforma) =>
     requisitar('/api/responsaveis/push-token', { method: 'POST', body: { token, plataforma } }),
 

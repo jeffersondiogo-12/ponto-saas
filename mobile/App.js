@@ -6,6 +6,7 @@ import { AuthProvider, useAuth } from './src/context/AuthContext';
 import LoginScreen from './src/screens/LoginScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import AlunoDetalheScreen from './src/screens/AlunoDetalheScreen';
+import AdicionarFilhoScreen from './src/screens/AdicionarFilhoScreen';
 import ProfessorScreen from './src/screens/ProfessorScreen';
 import { registrarParaNotificacoes } from './src/notifications';
 import { conectarRealtime } from './src/realtime';
@@ -49,6 +50,11 @@ function Navegacao() {
           <>
             <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
             <Stack.Screen name="AlunoDetalhe" component={AlunoDetalheScreen} options={{ title: '' }} />
+            <Stack.Screen
+              name="AdicionarFilho"
+              component={AdicionarFilhoScreen}
+              options={{ title: 'Adicionar filho' }}
+            />
           </>
         ) : ehProfessor ? (
           <Stack.Screen name="Professor" component={ProfessorScreen} options={{ headerShown: false }} />

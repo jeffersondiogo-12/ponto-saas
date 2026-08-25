@@ -19,28 +19,36 @@ function formatarData(iso) {
 }
 
 const ABAS = [
-  { chave: 'frequencia', rotulo: 'Frequência' },
+  { chave: 'frequencia', rotulo: 'Escola' },
+  { chave: 'sala', rotulo: 'Sala' },
   { chave: 'notas', rotulo: 'Notas' },
-  { chave: 'observacoes', rotulo: 'Observações' },
+  { chave: 'observacoes', rotulo: 'Obs.' },
+  { chave: 'avisos', rotulo: 'Avisos' },
 ];
 
 export default function AlunoDetalheScreen({ route }) {
   const { alunoId, nome } = route.params;
   const [aba, setAba] = useState('frequencia');
   const [registros, setRegistros] = useState([]);
+  const [presencasSala, setPresencasSala] = useState([]);
   const [notas, setNotas] = useState([]);
   const [observacoes, setObservacoes] = useState([]);
+  const [avisos, setAvisos] = useState([]);
   const [carregando, setCarregando] = useState(true);
 
   const carregar = useCallback(async () => {
-    const [frequencia, notasResposta, observacoesResposta] = await Promise.all([
+    const [frequencia, sala, notasResposta, observacoesResposta, avisosResposta] = await Promise.all([
       api.frequenciaDoAluno(alunoId),
+      api.presencaSalaDoAluno(alunoId),
       api.notasDoAluno(alunoId),
       api.observacoesDoAluno(alunoId),
+      api.avisosDoAluno(alunoId),
     ]);
     setRegistros(frequencia.registros);
+    setPresencasSala(sala.registros);
     setNotas(notasResposta.notas);
     setObservacoes(observacoesResposta.observacoes);
+    setAvisos(avisosResposta.avisos);
     setCarregando(false);
   }, [alunoId]);
 
@@ -49,11 +57,14 @@ export default function AlunoDetalheScreen({ route }) {
   }, [carregar]);
 
   // O professor pode lancar presenca/nota/observacao pra este aluno enquanto
-  // a tela esta aberta - o realtime.js emite esse evento local e a gente so
-  // recarrega quando for sobre ESTE aluno (ver conectarRealtime em App.js).
+  // a tela esta aberta, e a escola pode publicar um aviso novo - o
+  // realtime.js emite esse evento local (ver conectarRealtime em App.js).
+  // Avisos nao tem alunoId (sao da empresa/filial toda), entao recarregam em
+  // qualquer 'aviso.criado'; os demais eventos so recarregam se forem deste
+  // aluno especificamente.
   useEffect(() => {
     const assinatura = DeviceEventEmitter.addListener('ponto-saas:atualizado', (mensagem) => {
-      if (mensagem?.dados?.alunoId === alunoId) carregar();
+      if (mensagem?.dados?.alunoId === alunoId || mensagem?.tipo === 'aviso.criado') carregar();
     });
     return () => assinatura.remove();
   }, [alunoId, carregar]);
@@ -77,7 +88,7 @@ export default function AlunoDetalheScreen({ route }) {
       </View>
 
       {carregando ? (
-        <ActivityIndicator color={cores.brass} style={{ marginTop: 30 }} />
+        <ActivityIndicator color={cores.brass} style={estilos.carregando} />
       ) : aba === 'frequencia' ? (
         <FlatList
           data={registros}
@@ -97,6 +108,25 @@ export default function AlunoDetalheScreen({ route }) {
             );
           }}
         />
+      ) : aba === 'sala' ? (
+        <FlatList
+          data={presencasSala}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={estilos.lista}
+          ListEmptyComponent={
+            <Text style={estilos.vazio}>Nenhuma chamada do professor em sala ainda.</Text>
+          }
+          renderItem={({ item }) => (
+            <View style={estilos.linha}>
+              <View style={[estilos.ponto, item.presente ? estilos.pontoVerde : estilos.pontoVermelho]} />
+              <View style={estilos.linhaTexto}>
+                <Text style={estilos.tipoTexto}>{item.presente ? 'Presente' : 'Ausente'} · {item.turma_nome || 'Turma'}</Text>
+                {item.observacao ? <Text style={estilos.linhaSubtexto}>{item.observacao}</Text> : null}
+              </View>
+              <Text style={estilos.dataTexto}>{formatarData(item.data)}</Text>
+            </View>
+          )}
+        />
       ) : aba === 'notas' ? (
         <FlatList
           data={notas}
@@ -114,7 +144,7 @@ export default function AlunoDetalheScreen({ route }) {
             </View>
           )}
         />
-      ) : (
+      ) : aba === 'observacoes' ? (
         <FlatList
           data={observacoes}
           keyExtractor={(item) => item.id}
@@ -131,6 +161,20 @@ export default function AlunoDetalheScreen({ route }) {
             </View>
           )}
         />
+      ) : (
+        <FlatList
+          data={avisos}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={estilos.lista}
+          ListEmptyComponent={<Text style={estilos.vazio}>Nenhum aviso publicado pela escola ainda.</Text>}
+          renderItem={({ item }) => (
+            <View style={estilos.cartao}>
+              <Text style={estilos.cartaoTitulo}>{item.titulo}</Text>
+              <Text style={estilos.cartaoTexto}>{item.mensagem}</Text>
+              <Text style={estilos.cartaoRodape}>{formatarDataHora(item.publicado_em)}</Text>
+            </View>
+          )}
+        />
       )}
     </View>
   );
@@ -139,6 +183,7 @@ export default function AlunoDetalheScreen({ route }) {
 const estilos = StyleSheet.create({
   container: { flex: 1, backgroundColor: cores.paper, paddingTop: 60 },
   titulo: { fontSize: 20, fontWeight: '700', color: cores.ink, paddingHorizontal: 20, marginBottom: 14 },
+  carregando: { marginTop: 30 },
   seletor: {
     flexDirection: 'row',
     backgroundColor: cores.surface,
@@ -151,7 +196,7 @@ const estilos = StyleSheet.create({
   },
   opcao: { flex: 1, paddingVertical: 9, borderRadius: 7, alignItems: 'center' },
   opcaoAtiva: { backgroundColor: cores.brassSoft },
-  opcaoTexto: { color: cores.inkSoft, fontWeight: '600', fontSize: 12.5 },
+  opcaoTexto: { color: cores.inkSoft, fontWeight: '600', fontSize: 11.5 },
   opcaoTextoAtivo: { color: cores.brass },
   lista: { paddingHorizontal: 20, paddingBottom: 20 },
   cartao: {
@@ -176,6 +221,8 @@ const estilos = StyleSheet.create({
     padding: 14,
     marginBottom: 8,
   },
+  linhaTexto: { flex: 1 },
+  linhaSubtexto: { fontSize: 12.5, color: cores.inkSoft, marginTop: 3 },
   ponto: { width: 8, height: 8, borderRadius: 4, marginRight: 10 },
   pontoVerde: { backgroundColor: cores.sinalVerde },
   pontoVermelho: { backgroundColor: cores.sinalVermelho },

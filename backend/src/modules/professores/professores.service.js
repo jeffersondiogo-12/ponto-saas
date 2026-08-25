@@ -67,6 +67,33 @@ async function validarAluno(empresaId, turmaId, alunoId) {
   if (!aluno) throw new AppError('Aluno nao pertence a esta turma.', 403);
 }
 
+/**
+ * Contexto rapido pro professor antes de lancar uma nova nota/observacao:
+ * o que ja foi lancado por ele (mesma materia da atribuicao) pra este aluno
+ * nesta turma. Nao ha coluna turma_id/professor_id em notas_alunos nem
+ * observacoes_alunos (ver migration 20260822000001) - notas sao filtradas
+ * pela materia da atribuicao atual, observacoes vem todas do aluno.
+ */
+async function historicoDoAluno(empresaId, professorId, turmaId, alunoId) {
+  const atribuicao = await buscarAtribuicao(empresaId, professorId, turmaId);
+  await validarAluno(empresaId, turmaId, alunoId);
+
+  const [notas, observacoes] = await Promise.all([
+    db('notas_alunos')
+      .select('id', 'disciplina', 'etapa', 'nota', 'observacao', 'created_at')
+      .where({ aluno_id: alunoId, disciplina: atribuicao.materia })
+      .orderBy('created_at', 'desc')
+      .limit(10),
+    db('observacoes_alunos')
+      .select('id', 'titulo', 'texto', 'autor_nome', 'created_at')
+      .where({ aluno_id: alunoId })
+      .orderBy('created_at', 'desc')
+      .limit(10),
+  ]);
+
+  return { notas, observacoes };
+}
+
 async function atribuirProfessor(empresaId, turmaId, dados) {
   const turma = await db('turmas').where({ id: turmaId, empresa_id: empresaId }).first();
   if (!turma) throw new AppError('Turma nao encontrada.', 404);
@@ -81,4 +108,4 @@ async function listarProfessoresDaTurma(empresaId, turmaId) {
   return db('turma_professores as tp').join('usuarios as u', 'u.id', 'tp.professor_id').where({ 'tp.empresa_id': empresaId, 'tp.turma_id': turmaId, 'tp.ativo': true }).select('tp.*', 'u.nome as professor_nome', 'u.email as professor_email');
 }
 
-module.exports = { listarMinhasTurmas, listarAlunos, registrarPresencas, criarNota, criarObservacao, atribuirProfessor, listarProfessoresDaTurma };
+module.exports = { listarMinhasTurmas, listarAlunos, registrarPresencas, criarNota, criarObservacao, historicoDoAluno, atribuirProfessor, listarProfessoresDaTurma };

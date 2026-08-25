@@ -29,6 +29,14 @@ router.get(
   exigirTipo('responsavel'),
   responsaveisController.observacoesDoAluno
 );
+router.post('/alunos/vincular', autenticar, exigirTipo('responsavel'), responsaveisController.vincularNovoFilho);
+router.get(
+  '/alunos/:alunoId/presenca-sala',
+  autenticar,
+  exigirTipo('responsavel'),
+  responsaveisController.presencaSalaDoAluno
+);
+router.get('/alunos/:alunoId/avisos', autenticar, exigirTipo('responsavel'), responsaveisController.avisosDoAluno);
 router.post('/push-token', autenticar, exigirTipo('responsavel'), responsaveisController.registrarPushToken);
 
 // --- Autenticada como staff (a escola vincula um responsavel a um aluno) ---

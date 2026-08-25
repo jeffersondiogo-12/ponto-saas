@@ -130,6 +130,80 @@ async function observacoesDoAluno(alunoIdsPermitidos, alunoId) {
     .orderBy('created_at', 'desc');
 }
 
+/**
+ * Auto-servico: o responsavel ja logado vincula mais um filho (o primeiro
+ * vinculo acontece no cadastro pela matricula; irmaos/outros filhos entram
+ * por aqui, exigindo nome completo + CPF pra conferencia). Validacao no
+ * mesmo nivel do cadastro publico: so bloqueia se CPF/nome informados
+ * DIVERGIREM do cadastro do aluno - nao exige que o aluno ja tenha CPF
+ * cadastrado, porque isso ainda nao e obrigatorio em todo registro.
+ */
+async function vincularNovoFilho(empresaId, responsavelId, { nome_completo, cpf, matricula_aluno, parentesco }) {
+  const aluno = await db('alunos').where({ empresa_id: empresaId, matricula: matricula_aluno }).first();
+  if (!aluno) throw new AppError('Matricula de aluno nao encontrada nesta escola.', 404);
+
+  if (aluno.cpf && cpf) {
+    const soDigitos = (valor) => String(valor || '').replace(/\D/g, '');
+    if (soDigitos(aluno.cpf) !== soDigitos(cpf)) {
+      throw new AppError('CPF nao confere com o aluno desta matricula.', 409);
+    }
+  }
+  if (nome_completo && aluno.nome && nome_completo.trim().toLowerCase() !== aluno.nome.trim().toLowerCase()) {
+    throw new AppError('Nome nao confere com o aluno desta matricula.', 409);
+  }
+
+  const jaVinculado = await db('responsavel_alunos')
+    .where({ responsavel_id: responsavelId, aluno_id: aluno.id })
+    .first();
+  if (jaVinculado) throw new AppError('Este aluno ja esta vinculado a sua conta.', 409);
+
+  const [vinculo] = await db('responsavel_alunos')
+    .insert({ responsavel_id: responsavelId, aluno_id: aluno.id, parentesco: parentesco || null })
+    .returning('*');
+
+  return vinculo;
+}
+
+/**
+ * Presenca EM SALA (professores.registrarPresencas) - segunda checagem feita
+ * pelo professor, distinta da frequenciaDoAluno (que le registros_ponto, a
+ * catraca/facial na entrada da escola).
+ */
+async function presencaSalaDoAluno(alunoIdsPermitidos, alunoId) {
+  if (!alunoIdsPermitidos.includes(alunoId)) {
+    throw new AppError('Voce nao tem acesso a este aluno.', 403);
+  }
+
+  return db('presencas_sala as p')
+    .select('p.id', 'p.data', 'p.presente', 'p.observacao', 't.nome as turma_nome')
+    .leftJoin('turmas as t', 't.id', 'p.turma_id')
+    .where('p.aluno_id', alunoId)
+    .orderBy('p.data', 'desc')
+    .limit(60);
+}
+
+/**
+ * Avisos da escola relevantes pro aluno: da empresa toda (filial_id nulo) ou
+ * so da filial em que o aluno esta matriculado.
+ */
+async function avisosDoAluno(alunoIdsPermitidos, alunoId) {
+  if (!alunoIdsPermitidos.includes(alunoId)) {
+    throw new AppError('Voce nao tem acesso a este aluno.', 403);
+  }
+
+  const aluno = await db('alunos').where({ id: alunoId }).first();
+  if (!aluno) throw new AppError('Aluno nao encontrado.', 404);
+
+  return db('avisos_escola')
+    .select('id', 'titulo', 'mensagem', 'publicado_em')
+    .where({ empresa_id: aluno.empresa_id, ativo: true })
+    .andWhere(function condicaoFilial() {
+      this.whereNull('filial_id').orWhere('filial_id', aluno.filial_id);
+    })
+    .orderBy('publicado_em', 'desc')
+    .limit(30);
+}
+
 async function registrarPushToken(responsavelId, token, plataforma) {
   const [registro] = await db('push_tokens')
     .insert({ responsavel_id: responsavelId, token, plataforma })
@@ -144,10 +218,13 @@ module.exports = {
   login,
   cadastrar,
   vincularAluno,
+  vincularNovoFilho,
   listarAlunosVinculados,
   frequenciaDoAluno,
   notasDoAluno,
   observacoesDoAluno,
+  presencaSalaDoAluno,
+  avisosDoAluno,
   registrarPushToken,
   obterAlunoIdsVinculados,
 };

@@ -235,7 +235,7 @@ export default function ProfessorScreen() {
               >
                 <Text style={estilos.turmaNome}>{item.nome}</Text>
                 <Text style={estilos.turmaDetalhe}>{item.materia}</Text>
-                <Text style={estilos.turmaDetalhe}>{item.turno}
+                <Text style={estilos.turmaDetalhe}>
                   {formatarDias(item.dias_semana)} · {formatarHora(item.hora_inicio)}-{formatarHora(item.hora_fim)}
                 </Text>
               </TouchableOpacity>
@@ -250,7 +250,7 @@ export default function ProfessorScreen() {
                 <Text style={estilos.secao}>Presença em sala · {hoje}</Text>
                 <View style={estilos.card}>
                   {alunos.length === 0 ? (
-                    <Text style={estilos.vazio}>Nenhum aluno(a) ativo nesta turma.</Text>
+                    <Text style={estilos.vazio}>Nenhum aluno ativo nesta turma.</Text>
                   ) : (
                     <>
                       {alunos.map((aluno) => (

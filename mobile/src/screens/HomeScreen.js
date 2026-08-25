@@ -30,9 +30,14 @@ export default function HomeScreen({ navigation }) {
     <View style={estilos.container}>
       <View style={estilos.topo}>
         <Text style={estilos.titulo}>Seus filhos</Text>
-        <TouchableOpacity onPress={logout}>
-          <Text style={estilos.sair}>Sair</Text>
-        </TouchableOpacity>
+        <View style={estilos.acoesTopo}>
+          <TouchableOpacity onPress={() => navigation.navigate('AdicionarFilho')}>
+            <Text style={estilos.adicionar}>+ Filho</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={logout}>
+            <Text style={estilos.sair}>Sair</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <FlatList
@@ -42,7 +47,15 @@ export default function HomeScreen({ navigation }) {
         contentContainerStyle={{ padding: 16 }}
         ListEmptyComponent={
           !carregando && (
-            <Text style={estilos.vazio}>Nenhum filho vinculado ainda. Fale com a secretaria da escola.</Text>
+            <View>
+              <Text style={estilos.vazio}>Nenhum filho vinculado ainda.</Text>
+              <TouchableOpacity
+                style={estilos.botaoVazio}
+                onPress={() => navigation.navigate('AdicionarFilho')}
+              >
+                <Text style={estilos.botaoVazioTexto}>Adicionar filho</Text>
+              </TouchableOpacity>
+            </View>
           )
         }
         renderItem={({ item }) => (
@@ -72,6 +85,8 @@ const estilos = StyleSheet.create({
     paddingBottom: 16,
   },
   titulo: { fontSize: 22, fontWeight: '700', color: cores.ink },
+  acoesTopo: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  adicionar: { color: cores.brass, fontSize: 13, fontWeight: '700' },
   sair: { color: cores.inkSoft, fontSize: 13, textDecorationLine: 'underline' },
   cartao: {
     backgroundColor: cores.surface,
@@ -84,4 +99,13 @@ const estilos = StyleSheet.create({
   nomeAluno: { fontSize: 16, fontWeight: '600', color: cores.ink },
   detalheAluno: { fontSize: 13, color: cores.inkSoft, marginTop: 4 },
   vazio: { textAlign: 'center', color: cores.inkSoft, marginTop: 40, fontSize: 14 },
+  botaoVazio: {
+    backgroundColor: cores.ink,
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    alignSelf: 'center',
+    marginTop: 16,
+  },
+  botaoVazioTexto: { color: '#fff', fontWeight: '700' },
 });

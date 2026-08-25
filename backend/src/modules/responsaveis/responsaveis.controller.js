@@ -59,6 +59,33 @@ async function observacoesDoAluno(req, res, next) {
   }
 }
 
+async function vincularNovoFilho(req, res, next) {
+  try {
+    const vinculo = await responsaveisService.vincularNovoFilho(req.usuario.empresa_id, req.usuario.responsavelId, req.body);
+    res.status(201).json({ vinculo });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function presencaSalaDoAluno(req, res, next) {
+  try {
+    const registros = await responsaveisService.presencaSalaDoAluno(req.usuario.alunoIds, req.params.alunoId);
+    res.json({ registros });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function avisosDoAluno(req, res, next) {
+  try {
+    const avisos = await responsaveisService.avisosDoAluno(req.usuario.alunoIds, req.params.alunoId);
+    res.json({ avisos });
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function registrarPushToken(req, res, next) {
   try {
     const { token, plataforma } = req.body;
@@ -86,6 +113,9 @@ module.exports = {
   frequenciaDoAluno,
   notasDoAluno,
   observacoesDoAluno,
+  presencaSalaDoAluno,
+  avisosDoAluno,
   registrarPushToken,
   vincularAluno,
+  vincularNovoFilho,
 };
