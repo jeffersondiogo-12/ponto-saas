@@ -407,11 +407,19 @@ function iniciarServidorEvoFacial(servidorHttp) {
   const wss = new WebSocketServer({ noServer: true });
 
   servidorHttp.on('upgrade', (req, socket, head) => {
-    // Qualquer pedido de upgrade que chega aqui e, por definicao, alguem
-    // pedindo pra virar WebSocket - trafego HTTP normal (GET/POST da API)
-    // nunca dispara este evento, entao nao ha necessidade de checar path
-    // ou cabecalhos extras pra saber se "e" o equipamento: so o firmware
-    // do Evo Facial fala WebSocket com este servidor.
+    // O comentario antigo aqui dizia que nao precisava checar path porque
+    // "so o equipamento fala WebSocket com este servidor" - isso deixou de
+    // ser verdade quando o realtime.js passou a expor /ws pro app mobile
+    // na MESMA porta HTTP. Os dois registram listener em 'upgrade'; sem
+    // essa checagem, uma conexao em /ws era promovida aqui E de novo no
+    // realtime.js - o handleUpgrade() da lib 'ws' da throw sincrono
+    // ("called more than once with the same socket") quando isso
+    // acontece, e como nao ha uncaughtException no processo, isso
+    // derrubava o Node inteiro (aparecia como 502/503 na plataforma).
+    // /ws e exclusivo do app mobile - deixa o realtime.js tratar.
+    const { pathname } = new URL(req.url, `http://${req.headers.host}`);
+    if (pathname === '/ws') return;
+
     wss.handleUpgrade(req, socket, head, (ws) => {
       wss.emit('connection', ws, req);
     });

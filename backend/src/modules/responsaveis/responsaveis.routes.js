@@ -43,9 +43,9 @@ router.post('/push-token', autenticar, exigirTipo('responsavel'), responsaveisCo
 router.post(
   '/vincular',
   autenticar,
-  exigirTipo('staff'),
+  exigirTipo('gestor'),
   resolverTenant,
-  exigirPapel('super_admin', 'admin', 'rh'),
+  exigirPapel('super_admin', 'admin', 'gestor'),
   responsaveisController.vincularAluno
 );
 
