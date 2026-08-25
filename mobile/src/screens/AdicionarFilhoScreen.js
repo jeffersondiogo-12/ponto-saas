@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { api } from '../api';
 import { cores } from '../theme';
 
@@ -15,13 +15,21 @@ export default function AdicionarFilhoScreen({ navigation }) {
     setErro(null);
     setCarregando(true);
     try {
-      await api.vincularFilho({
+      const resultado = await api.vincularFilho({
         nome_completo: nome.trim(),
         cpf,
         matricula_aluno: matricula.trim(),
         parentesco: parentesco.trim() || null,
       });
-      navigation.goBack();
+      if (resultado._fila) {
+        Alert.alert(
+          'Salvo no aparelho',
+          'Sem conexão agora — assim que a internet voltar, o vínculo é confirmado automaticamente.',
+          [{ text: 'Entendi', onPress: () => navigation.goBack() }]
+        );
+      } else {
+        navigation.goBack();
+      }
     } catch (err) {
       setErro(err.message || 'Não foi possível adicionar este aluno.');
     } finally {

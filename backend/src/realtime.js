@@ -46,6 +46,7 @@ function publicarEvento(tipo, dados) {
     const usuario = cliente.usuario || {};
     if (usuario.empresa_id !== dados.empresaId) continue;
     if (usuario.tipo === 'responsavel' && dados.alunoId && !usuario.alunoIds?.includes(dados.alunoId)) continue;
+    if (usuario.tipo === 'staff' && dados.professorId && usuario.id !== dados.professorId) continue;
     cliente.send(mensagem);
   }
 }

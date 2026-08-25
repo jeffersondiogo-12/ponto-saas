@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { AppState } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -10,6 +11,7 @@ import AdicionarFilhoScreen from './src/screens/AdicionarFilhoScreen';
 import ProfessorScreen from './src/screens/ProfessorScreen';
 import { registrarParaNotificacoes } from './src/notifications';
 import { conectarRealtime } from './src/realtime';
+import { processarFilaOffline } from './src/api';
 import { cores } from './src/theme';
 
 const Stack = createNativeStackNavigator();
@@ -19,14 +21,16 @@ function Navegacao() {
   const ehResponsavel = usuario?.tipo === 'responsavel';
   const ehProfessor = usuario?.tipo === 'staff' && usuario?.papel === 'professor';
 
-  // Push e o socket em tempo real so fazem sentido pro app dos pais hoje: e
-  // a AlunoDetalheScreen quem escuta os eventos (nota.criada, observacao.criada
-  // etc.) pra atualizar a tela sozinha. O professor ve o resultado das
-  // proprias acoes na hora, sem precisar do socket.
+  // O socket em tempo real agora vale pros dois papeis: o responsavel usa
+  // pra atualizar a tela do filho sozinha (nota/observacao/presenca/aviso
+  // novos), o professor usa pra saber na hora se o gestor atribuiu (ou
+  // tirou) uma turma - sem isso, so veria na proxima vez que abrisse o app.
+  // Push continua so pro responsavel (professor esta com o app aberto,
+  // trabalhando ativamente - nao faz sentido notificar quem ja esta usando).
   useEffect(() => {
-    if (!ehResponsavel) return undefined;
+    if (!ehResponsavel && !ehProfessor) return undefined;
 
-    registrarParaNotificacoes();
+    if (ehResponsavel) registrarParaNotificacoes();
 
     let ativo = true;
     let pararConexao = () => {};
@@ -39,7 +43,19 @@ function Navegacao() {
       ativo = false;
       pararConexao();
     };
-  }, [ehResponsavel]);
+  }, [ehResponsavel, ehProfessor]);
+
+  // Fila offline (chamada, nota, observação, filho adicionado...): tenta
+  // reenviar sempre que o app volta pro primeiro plano, que e o momento mais
+  // provavel da conexão ter voltado (rede.js/api.js tambem tenta depois de
+  // qualquer chamada bem sucedida, mas isso so acontece se alguma tela
+  // pedir dados nesse meio tempo - o AppState cobre quem so reabriu o app).
+  useEffect(() => {
+    const assinatura = AppState.addEventListener('change', (estado) => {
+      if (estado === 'active') processarFilaOffline();
+    });
+    return () => assinatura.remove();
+  }, []);
 
   if (carregandoSessao) return null;
 

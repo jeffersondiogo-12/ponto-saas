@@ -101,6 +101,7 @@ async function atribuirProfessor(empresaId, turmaId, dados) {
   if (!professor) throw new AppError('Usuario professor nao encontrado.', 404);
   if (!dados.materia || !dados.hora_inicio || !dados.hora_fim) throw new AppError('Materia e horario sao obrigatorios.', 400);
   const [atribuicao] = await db('turma_professores').insert({ empresa_id: empresaId, turma_id: turmaId, professor_id: dados.professor_id, materia: dados.materia, dias_semana: JSON.stringify(dados.dias_semana || []), hora_inicio: dados.hora_inicio, hora_fim: dados.hora_fim }).onConflict(['turma_id', 'professor_id', 'materia']).merge().returning('*');
+  publicarEvento('turma.atribuida', { empresaId, professorId: dados.professor_id });
   return atribuicao;
 }
 

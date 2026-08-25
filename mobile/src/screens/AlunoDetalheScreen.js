@@ -35,6 +35,7 @@ export default function AlunoDetalheScreen({ route }) {
   const [observacoes, setObservacoes] = useState([]);
   const [avisos, setAvisos] = useState([]);
   const [carregando, setCarregando] = useState(true);
+  const [offline, setOffline] = useState(false);
 
   const carregar = useCallback(async () => {
     const [frequencia, sala, notasResposta, observacoesResposta, avisosResposta] = await Promise.all([
@@ -49,6 +50,11 @@ export default function AlunoDetalheScreen({ route }) {
     setNotas(notasResposta.notas);
     setObservacoes(observacoesResposta.observacoes);
     setAvisos(avisosResposta.avisos);
+    setOffline(
+      Boolean(
+        frequencia._offline || sala._offline || notasResposta._offline || observacoesResposta._offline || avisosResposta._offline
+      )
+    );
     setCarregando(false);
   }, [alunoId]);
 
@@ -72,6 +78,9 @@ export default function AlunoDetalheScreen({ route }) {
   return (
     <View style={estilos.container}>
       <Text style={estilos.titulo}>{nome}</Text>
+      {offline ? (
+        <Text style={estilos.offline}>Sem conexão — mostrando os últimos dados salvos no aparelho.</Text>
+      ) : null}
 
       <View style={estilos.seletor}>
         {ABAS.map((item) => (
@@ -183,6 +192,16 @@ export default function AlunoDetalheScreen({ route }) {
 const estilos = StyleSheet.create({
   container: { flex: 1, backgroundColor: cores.paper, paddingTop: 60 },
   titulo: { fontSize: 20, fontWeight: '700', color: cores.ink, paddingHorizontal: 20, marginBottom: 14 },
+  offline: {
+    color: cores.inkSoft,
+    backgroundColor: cores.brassSoft,
+    padding: 10,
+    borderRadius: 8,
+    fontSize: 12.5,
+    marginHorizontal: 20,
+    marginTop: -6,
+    marginBottom: 14,
+  },
   carregando: { marginTop: 30 },
   seletor: {
     flexDirection: 'row',

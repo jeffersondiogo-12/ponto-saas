@@ -1,20 +1,29 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, RefreshControl } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { api } from '../api';
+import { obterFila, ouvirFila } from '../filaOffline';
 import { useAuth } from '../context/AuthContext';
 import { cores } from '../theme';
 
 export default function HomeScreen({ navigation }) {
   const [alunos, setAlunos] = useState([]);
   const [carregando, setCarregando] = useState(true);
+  const [offline, setOffline] = useState(false);
+  const [pendentes, setPendentes] = useState([]);
   const { logout } = useAuth();
+
+  useEffect(() => {
+    obterFila().then(setPendentes);
+    return ouvirFila(setPendentes);
+  }, []);
 
   const carregar = useCallback(async () => {
     setCarregando(true);
     try {
-      const { alunos: lista } = await api.listarAlunos();
-      setAlunos(lista);
+      const resposta = await api.listarAlunos();
+      setAlunos(resposta.alunos);
+      setOffline(Boolean(resposta._offline));
     } finally {
       setCarregando(false);
     }
@@ -39,6 +48,17 @@ export default function HomeScreen({ navigation }) {
           </TouchableOpacity>
         </View>
       </View>
+
+      {offline ? (
+        <Text style={estilos.offline}>Sem conexão — mostrando os filhos salvos no aparelho.</Text>
+      ) : null}
+      {pendentes.length > 0 ? (
+        <Text style={estilos.pendente}>
+          {pendentes.length === 1
+            ? '1 ação aguardando conexão para ser enviada.'
+            : `${pendentes.length} ações aguardando conexão para serem enviadas.`}
+        </Text>
+      ) : null}
 
       <FlatList
         data={alunos}
@@ -88,6 +108,25 @@ const estilos = StyleSheet.create({
   acoesTopo: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   adicionar: { color: cores.brass, fontSize: 13, fontWeight: '700' },
   sair: { color: cores.inkSoft, fontSize: 13, textDecorationLine: 'underline' },
+  offline: {
+    color: cores.inkSoft,
+    backgroundColor: cores.brassSoft,
+    padding: 10,
+    borderRadius: 8,
+    fontSize: 12.5,
+    marginHorizontal: 20,
+    marginBottom: 10,
+  },
+  pendente: {
+    color: cores.brass,
+    backgroundColor: cores.brassSoft,
+    padding: 10,
+    borderRadius: 8,
+    fontSize: 12.5,
+    marginHorizontal: 20,
+    marginBottom: 10,
+    fontWeight: '600',
+  },
   cartao: {
     backgroundColor: cores.surface,
     borderRadius: 12,

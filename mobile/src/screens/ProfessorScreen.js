@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  DeviceEventEmitter,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -11,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import { api } from '../api';
+import { obterFila, ouvirFila } from '../filaOffline';
 import { useAuth } from '../context/AuthContext';
 import { cores } from '../theme';
 
@@ -50,6 +52,23 @@ export default function ProfessorScreen() {
   const [enviando, setEnviando] = useState(false);
   const [mensagem, setMensagem] = useState('');
   const [erro, setErro] = useState('');
+  const [offline, setOffline] = useState(false);
+  const [pendentes, setPendentes] = useState([]);
+
+  useEffect(() => {
+    obterFila().then(setPendentes);
+    return ouvirFila(setPendentes);
+  }, []);
+
+  // Se o gestor atribuir (ou tirar) uma turma enquanto o professor esta com
+  // o app aberto, a lista atualiza sozinha - sem isso so veria reabrindo.
+  useEffect(() => {
+    const assinatura = DeviceEventEmitter.addListener('ponto-saas:atualizado', (msg) => {
+      if (msg?.tipo === 'turma.atribuida') carregarTurmas(turma?.atribuicao_id);
+    });
+    return () => assinatura.remove();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [turma?.atribuicao_id]);
 
   // Sessao expirada (401) -> desloga direto em vez de mostrar um erro que o
   // professor nao vai saber resolver sozinho. Qualquer outro erro (403 "nao
@@ -68,6 +87,7 @@ export default function ProfessorScreen() {
       const lista = res.turmas || [];
       setTurmas(lista);
       setErro('');
+      setOffline(Boolean(res._offline));
       if (lista.length === 0) {
         setTurma(null);
         setAlunos([]);
@@ -130,12 +150,16 @@ export default function ProfessorScreen() {
   async function salvarPresencas() {
     setEnviando(true);
     try {
-      await api.registrarPresencasSala(turma.turma_id, {
+      const resultado = await api.registrarPresencasSala(turma.turma_id, {
         data: hoje,
         presencas: alunos.map((aluno) => ({ aluno_id: aluno.id, presente: Boolean(presencas[aluno.id]) })),
       });
       setErro('');
-      setMensagem('Chamada registrada para a turma.');
+      setMensagem(
+        resultado._fila
+          ? 'Sem conexão: chamada salva no aparelho e será enviada assim que a internet voltar.'
+          : 'Chamada registrada para a turma.'
+      );
     } catch (err) {
       tratarErro(err);
     } finally {
@@ -151,7 +175,7 @@ export default function ProfessorScreen() {
     }
     setEnviando(true);
     try {
-      await api.criarNotaProfessor(turma.turma_id, {
+      const resultado = await api.criarNotaProfessor(turma.turma_id, {
         aluno_id: alunoId,
         disciplina: turma.materia,
         etapa: 'Atual',
@@ -159,8 +183,12 @@ export default function ProfessorScreen() {
       });
       setNota('');
       setErro('');
-      setMensagem('Nota enviada ao painel do aluno.');
-      await carregarHistorico(turma.turma_id, alunoId);
+      if (resultado._fila) {
+        setMensagem('Sem conexão: nota salva no aparelho e será enviada assim que a internet voltar.');
+      } else {
+        setMensagem('Nota enviada ao painel do aluno.');
+        await carregarHistorico(turma.turma_id, alunoId);
+      }
     } catch (err) {
       tratarErro(err);
     } finally {
@@ -174,15 +202,19 @@ export default function ProfessorScreen() {
     }
     setEnviando(true);
     try {
-      await api.criarObservacaoProfessor(turma.turma_id, {
+      const resultado = await api.criarObservacaoProfessor(turma.turma_id, {
         aluno_id: alunoId,
         titulo: `Observação de ${turma.materia}`,
         texto: observacao.trim(),
       });
       setObservacao('');
       setErro('');
-      setMensagem('Observação enviada ao responsável.');
-      await carregarHistorico(turma.turma_id, alunoId);
+      if (resultado._fila) {
+        setMensagem('Sem conexão: observação salva no aparelho e será enviada assim que a internet voltar.');
+      } else {
+        setMensagem('Observação enviada ao responsável.');
+        await carregarHistorico(turma.turma_id, alunoId);
+      }
     } catch (err) {
       tratarErro(err);
     } finally {
@@ -216,6 +248,16 @@ export default function ProfessorScreen() {
         </TouchableOpacity>
       </View>
 
+      {offline ? (
+        <Text style={estilos.offline}>Sem conexão — mostrando as turmas salvas no aparelho.</Text>
+      ) : null}
+      {pendentes.length > 0 ? (
+        <Text style={estilos.pendente}>
+          {pendentes.length === 1
+            ? '1 ação aguardando conexão para ser enviada.'
+            : `${pendentes.length} ações aguardando conexão para serem enviadas.`}
+        </Text>
+      ) : null}
       {erro ? <Text style={estilos.erro}>{erro}</Text> : null}
       {mensagem ? <Text style={estilos.sucesso}>{mensagem}</Text> : null}
 
@@ -413,5 +455,22 @@ const estilos = StyleSheet.create({
   botaoSecundarioTexto: { color: cores.brass, fontWeight: '700' },
   erro: { color: cores.sinalVermelho, marginVertical: 12 },
   sucesso: { color: cores.sinalVerde, marginVertical: 12 },
+  offline: {
+    color: cores.inkSoft,
+    backgroundColor: cores.brassSoft,
+    padding: 10,
+    borderRadius: 8,
+    fontSize: 12.5,
+    marginTop: 14,
+  },
+  pendente: {
+    color: cores.brass,
+    backgroundColor: cores.brassSoft,
+    padding: 10,
+    borderRadius: 8,
+    fontSize: 12.5,
+    marginTop: 8,
+    fontWeight: '600',
+  },
   vazio: { color: cores.inkSoft, marginTop: 35, textAlign: 'center', lineHeight: 20 },
 });
