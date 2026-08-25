@@ -1,6 +1,18 @@
-import { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import {
+  Animated,
+  Easing,
+  View,
+  Text,
+  TextInput,
+  StyleSheet,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+} from 'react-native';
 import { useAuth } from '../context/AuthContext';
+import { AparecerEm, PressaoAnimada } from '../components/Animacoes';
 import { cores, raio, sombra } from '../theme';
 
 export default function LoginScreen() {
@@ -11,6 +23,43 @@ export default function LoginScreen() {
   const [erro, setErro] = useState(null);
   const [carregando, setCarregando] = useState(false);
   const { loginResponsavel, loginProfessor } = useAuth();
+
+  // Marcador deslizante do seletor Responsavel/Professor.
+  const seletor = useRef(new Animated.Value(0)).current;
+  // Orbes de fundo em movimento lento.
+  const orbe = useRef(new Animated.Value(0)).current;
+  // Tremida da caixa de erro.
+  const tremor = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.spring(seletor, {
+      toValue: papel === 'responsavel' ? 0 : 1,
+      friction: 8,
+      tension: 120,
+      useNativeDriver: true,
+    }).start();
+  }, [papel, seletor]);
+
+  useEffect(() => {
+    const laco = Animated.loop(
+      Animated.sequence([
+        Animated.timing(orbe, { toValue: 1, duration: 6000, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+        Animated.timing(orbe, { toValue: 0, duration: 6000, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+      ])
+    );
+    laco.start();
+    return () => laco.stop();
+  }, [orbe]);
+
+  function sacudir() {
+    tremor.setValue(0);
+    Animated.sequence([
+      Animated.timing(tremor, { toValue: 1, duration: 60, useNativeDriver: true }),
+      Animated.timing(tremor, { toValue: -1, duration: 60, useNativeDriver: true }),
+      Animated.timing(tremor, { toValue: 0.5, duration: 60, useNativeDriver: true }),
+      Animated.timing(tremor, { toValue: 0, duration: 60, useNativeDriver: true }),
+    ]).start();
+  }
 
   async function entrar() {
     setErro(null);
@@ -23,124 +72,207 @@ export default function LoginScreen() {
       }
     } catch (err) {
       setErro(err.message || 'Não foi possível entrar.');
+      sacudir();
     } finally {
       setCarregando(false);
     }
   }
 
   return (
-    <View style={estilos.container}>
-      <View style={estilos.brilho} />
+    <KeyboardAvoidingView
+      style={estilos.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <Animated.View
+        style={[
+          estilos.orbeAzul,
+          {
+            transform: [
+              { translateY: orbe.interpolate({ inputRange: [0, 1], outputRange: [0, 26] }) },
+              { scale: orbe.interpolate({ inputRange: [0, 1], outputRange: [1, 1.12] }) },
+            ],
+          },
+        ]}
+      />
+      <Animated.View
+        style={[
+          estilos.orbeVerde,
+          {
+            transform: [
+              { translateY: orbe.interpolate({ inputRange: [0, 1], outputRange: [0, -22] }) },
+              { scale: orbe.interpolate({ inputRange: [0, 1], outputRange: [1.08, 1] }) },
+            ],
+          },
+        ]}
+      />
 
-      <View style={estilos.cabecalho}>
-        <Text style={estilos.marca}>
-          Ponte<Text style={{ color: cores.azul }}>·</Text>Escolar
-        </Text>
-        <Text style={estilos.subtitulo}>
-          {papel === 'professor'
-            ? 'Chamada, notas e observações da sua turma'
-            : 'Acompanhe a chegada e a saída do seu filho'}
-        </Text>
-      </View>
-
-      <View style={estilos.cartao}>
-        <View style={estilos.seletor}>
-          <TouchableOpacity
-            style={[estilos.opcao, papel === 'responsavel' && estilos.opcaoAtiva]}
-            onPress={() => setPapel('responsavel')}
-          >
-            <Text style={[estilos.opcaoTexto, papel === 'responsavel' && estilos.opcaoTextoAtivo]}>
-              Responsável
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[estilos.opcao, papel === 'professor' && estilos.opcaoAtiva]}
-            onPress={() => setPapel('professor')}
-          >
-            <Text style={[estilos.opcaoTexto, papel === 'professor' && estilos.opcaoTextoAtivo]}>
-              Professor
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {erro && (
-          <View style={estilos.erroCaixa}>
-            <Text style={estilos.erroTexto}>{erro}</Text>
+      <ScrollView
+        contentContainerStyle={estilos.conteudo}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <AparecerEm style={estilos.cabecalho} deslocamento={20}>
+          <View style={estilos.selo}>
+            <View style={estilos.seloPonto} />
+            <Text style={estilos.seloTexto}>Escola conectada</Text>
           </View>
-        )}
+          <Text style={estilos.marca}>
+            Ponte<Text style={{ color: cores.verde }}>·</Text>Escolar
+          </Text>
+          <Text style={estilos.subtitulo}>
+            {papel === 'professor'
+              ? 'Chamada, notas e observações da sua turma'
+              : 'Acompanhe a chegada e a saída do seu filho'}
+          </Text>
+        </AparecerEm>
 
-        <Text style={estilos.rotulo}>E-mail</Text>
-        <TextInput
-          style={estilos.input}
-          placeholder="voce@escola.com"
-          placeholderTextColor={cores.inkSoft}
-          autoCapitalize="none"
-          keyboardType="email-address"
-          value={email}
-          onChangeText={setEmail}
-        />
-
-        <Text style={estilos.rotulo}>Senha</Text>
-        <TextInput
-          style={estilos.input}
-          placeholder="••••••••"
-          placeholderTextColor={cores.inkSoft}
-          secureTextEntry
-          autoCapitalize="none"
-          autoCorrect={false}
-          value={senha}
-          onChangeText={setSenha}
-        />
-
-        {papel === 'professor' && (
-          <>
-            <Text style={estilos.rotulo}>Ambiente (empresa)</Text>
-            <TextInput
-              style={estilos.input}
-              placeholder="Nome ou CNPJ da empresa"
-              placeholderTextColor={cores.inkSoft}
-              autoCapitalize="none"
-              value={unidade}
-              onChangeText={setUnidade}
+        <AparecerEm style={estilos.cartao} atraso={120}>
+          <View style={estilos.seletor}>
+            <Animated.View
+              style={[
+                estilos.marcador,
+                {
+                  backgroundColor: papel === 'professor' ? cores.verde : cores.azul,
+                  transform: [
+                    {
+                      translateX: seletor.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: ['0%', '100%'],
+                      }),
+                    },
+                  ],
+                },
+              ]}
             />
-            <Text style={estilos.ajuda}>
-              A empresa onde você trabalha. As escolas e filiais ficam dentro dela.
-            </Text>
-          </>
-        )}
+            <PressaoAnimada style={estilos.opcao} onPress={() => setPapel('responsavel')} escala={0.95}>
+              <Text style={[estilos.opcaoTexto, papel === 'responsavel' && estilos.opcaoTextoAtivo]}>
+                Responsável
+              </Text>
+            </PressaoAnimada>
+            <PressaoAnimada style={estilos.opcao} onPress={() => setPapel('professor')} escala={0.95}>
+              <Text style={[estilos.opcaoTexto, papel === 'professor' && estilos.opcaoTextoAtivo]}>
+                Professor
+              </Text>
+            </PressaoAnimada>
+          </View>
 
-        <TouchableOpacity style={estilos.botao} onPress={entrar} disabled={carregando}>
-          {carregando ? (
-            <ActivityIndicator color={cores.claro} />
-          ) : (
-            <Text style={estilos.botaoTexto}>Entrar</Text>
+          {erro && (
+            <Animated.View
+              style={[
+                estilos.erroCaixa,
+                {
+                  transform: [
+                    { translateX: tremor.interpolate({ inputRange: [-1, 1], outputRange: [-8, 8] }) },
+                  ],
+                },
+              ]}
+            >
+              <Text style={estilos.erroTexto}>{erro}</Text>
+            </Animated.View>
           )}
-        </TouchableOpacity>
-      </View>
 
-      <Text style={estilos.rodape}>Dados protegidos · acesso liberado pela escola</Text>
-    </View>
+          <Text style={estilos.rotulo}>E-mail</Text>
+          <TextInput
+            style={estilos.input}
+            placeholder="voce@escola.com"
+            placeholderTextColor={cores.inkSoft}
+            autoCapitalize="none"
+            keyboardType="email-address"
+            value={email}
+            onChangeText={setEmail}
+          />
+
+          <Text style={estilos.rotulo}>Senha</Text>
+          <TextInput
+            style={estilos.input}
+            placeholder="••••••••"
+            placeholderTextColor={cores.inkSoft}
+            secureTextEntry
+            autoCapitalize="none"
+            autoCorrect={false}
+            value={senha}
+            onChangeText={setSenha}
+          />
+
+          {papel === 'professor' && (
+            <AparecerEm deslocamento={10}>
+              <Text style={estilos.rotulo}>Ambiente (empresa)</Text>
+              <TextInput
+                style={estilos.input}
+                placeholder="Nome ou CNPJ da empresa"
+                placeholderTextColor={cores.inkSoft}
+                autoCapitalize="none"
+                value={unidade}
+                onChangeText={setUnidade}
+              />
+              <Text style={estilos.ajuda}>
+                A empresa onde você trabalha. As escolas e filiais ficam dentro dela.
+              </Text>
+            </AparecerEm>
+          )}
+
+          <PressaoAnimada
+            style={[estilos.botao, papel === 'professor' && estilos.botaoVerde]}
+            onPress={entrar}
+            disabled={carregando}
+          >
+            {carregando ? (
+              <ActivityIndicator color={cores.claro} />
+            ) : (
+              <Text style={estilos.botaoTexto}>Entrar</Text>
+            )}
+          </PressaoAnimada>
+        </AparecerEm>
+
+        <AparecerEm atraso={240}>
+          <Text style={estilos.rodape}>Dados protegidos · acesso liberado pela escola</Text>
+        </AparecerEm>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const estilos = StyleSheet.create({
-  container: { flex: 1, backgroundColor: cores.ink, justifyContent: 'center', padding: 24 },
-  brilho: {
+  container: { flex: 1, backgroundColor: cores.ink },
+  conteudo: { flexGrow: 1, justifyContent: 'center', padding: 24 },
+  orbeAzul: {
     position: 'absolute',
-    top: -120,
-    right: -80,
+    top: -130,
+    right: -90,
     width: 320,
     height: 320,
     borderRadius: 160,
-    backgroundColor: 'rgba(15,98,254,0.28)',
+    backgroundColor: 'rgba(15,98,254,0.32)',
+  },
+  orbeVerde: {
+    position: 'absolute',
+    bottom: -140,
+    left: -110,
+    width: 300,
+    height: 300,
+    borderRadius: 150,
+    backgroundColor: 'rgba(18,163,116,0.22)',
   },
   cabecalho: { marginBottom: 22 },
-  marca: { fontSize: 30, fontWeight: '800', color: cores.claro, letterSpacing: -0.5 },
-  subtitulo: { fontSize: 14, color: cores.claroSuave, marginTop: 6, lineHeight: 20 },
+  selo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(255,255,255,0.10)',
+    borderRadius: raio.pill,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    marginBottom: 14,
+    gap: 7,
+  },
+  seloPonto: { width: 7, height: 7, borderRadius: 4, backgroundColor: cores.verde },
+  seloTexto: { color: cores.claroSuave, fontSize: 11.5, fontWeight: '700', letterSpacing: 0.3 },
+  marca: { fontSize: 32, fontWeight: '800', color: cores.claro, letterSpacing: -0.8 },
+  subtitulo: { fontSize: 14, color: cores.claroSuave, marginTop: 8, lineHeight: 20 },
   cartao: {
     backgroundColor: cores.surface,
     borderRadius: raio.lg,
-    padding: 20,
+    padding: 22,
     ...sombra.cartao,
   },
   seletor: {
@@ -149,14 +281,23 @@ const estilos = StyleSheet.create({
     borderRadius: raio.sm,
     padding: 4,
     marginBottom: 20,
+    position: 'relative',
   },
-  opcao: { flex: 1, paddingVertical: 10, borderRadius: raio.sm - 2, alignItems: 'center' },
-  opcaoAtiva: { backgroundColor: cores.azul },
+  marcador: {
+    position: 'absolute',
+    top: 4,
+    left: 4,
+    width: '50%',
+    bottom: 4,
+    borderRadius: raio.sm - 3,
+    marginRight: 4,
+  },
+  opcao: { flex: 1, paddingVertical: 11, alignItems: 'center' },
   opcaoTexto: { color: cores.inkSoft, fontWeight: '700', fontSize: 13.5 },
   opcaoTextoAtivo: { color: cores.claro },
   rotulo: { color: cores.inkSoft, fontSize: 12.5, fontWeight: '700', marginBottom: 6 },
   input: {
-    backgroundColor: cores.paper,
+    backgroundColor: cores.surfaceAlt,
     borderWidth: 1,
     borderColor: cores.linha,
     borderRadius: raio.sm,
@@ -170,10 +311,12 @@ const estilos = StyleSheet.create({
   botao: {
     backgroundColor: cores.azul,
     borderRadius: raio.sm,
-    paddingVertical: 15,
+    paddingVertical: 16,
     alignItems: 'center',
     marginTop: 4,
+    ...sombra.destaque,
   },
+  botaoVerde: { backgroundColor: cores.verde, shadowColor: cores.verde },
   botaoTexto: { color: cores.claro, fontWeight: '800', fontSize: 15 },
   erroCaixa: {
     backgroundColor: cores.vermelhoSoft,
@@ -184,6 +327,5 @@ const estilos = StyleSheet.create({
     marginBottom: 16,
   },
   erroTexto: { color: cores.vermelho, fontSize: 13, fontWeight: '600' },
-  rodape: { color: cores.claroSuave, fontSize: 11.5, textAlign: 'center', marginTop: 18 },
+  rodape: { color: cores.claroSuave, fontSize: 11.5, textAlign: 'center', marginTop: 20 },
 });
-

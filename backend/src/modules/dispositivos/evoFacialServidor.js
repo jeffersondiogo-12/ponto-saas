@@ -417,8 +417,8 @@ function iniciarServidorEvoFacial(servidorHttp) {
     // acontece, e como nao ha uncaughtException no processo, isso
     // derrubava o Node inteiro (aparecia como 502/503 na plataforma).
     // /ws e exclusivo do app mobile - deixa o realtime.js tratar.
-    const { pathname } = new URL(req.url, `http://${req.headers.host}`);
-    if (pathname === '/ws') return;
+    const pathname = String(req.url || '').split('?')[0].replace(/\/+$/, '') || '/';
+    if (pathname === '/ws' || pathname.endsWith('/ws')) return;
 
     wss.handleUpgrade(req, socket, head, (ws) => {
       wss.emit('connection', ws, req);
