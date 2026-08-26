@@ -175,7 +175,7 @@ async function presencaSalaDoAluno(alunoIdsPermitidos, alunoId) {
   }
 
   return db('presencas_sala as p')
-    .select('p.id', 'p.data', 'p.presente', 'p.observacao', 't.nome as turma_nome')
+    .select('p.id', 'p.data', 'p.presente', 'p.falta_justificada', 'p.justificativa', 'p.materia', 'p.observacao', 't.nome as turma_nome')
     .leftJoin('turmas as t', 't.id', 'p.turma_id')
     .where('p.aluno_id', alunoId)
     .orderBy('p.data', 'desc')

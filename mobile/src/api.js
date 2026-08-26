@@ -162,6 +162,7 @@ export const api = {
     requisitar('/api/auth/login', { method: 'POST', body: { email, senha, unidade }, permitirFila: false }),
   listarMinhasTurmas: () => requisitar('/api/professores/minhas-turmas'),
   listarAlunosDaTurma: (turmaId) => requisitar(`/api/professores/turmas/${turmaId}/alunos`),
+  listarHorariosTurma: (turmaId) => requisitar(`/api/turmas/${turmaId}/horarios`),
   registrarPresencasSala: (turmaId, dados) =>
     requisitar(`/api/professores/turmas/${turmaId}/presencas`, {
       method: 'POST',

@@ -25,6 +25,7 @@ async function listarMinhasTurmas(empresaId, professorId) {
   return db('turma_professores as tp')
     .join('turmas as t', 't.id', 'tp.turma_id')
     .select('tp.id as atribuicao_id', 'tp.turma_id', 't.nome', 't.ano_letivo', 't.turno', 'tp.materia', 'tp.dias_semana', 'tp.hora_inicio', 'tp.hora_fim')
+    .select(db.raw(`COALESCE((SELECT json_agg(ht ORDER BY ht.dia_semana) FROM horarios_turmas ht WHERE ht.turma_id = t.id AND ht.ativo = true), '[]'::json) AS horarios_turma`))
     .where({ 'tp.empresa_id': empresaId, 'tp.professor_id': professorId, 'tp.ativo': true, 't.ativo': true })
     .orderBy('t.nome');
 }
@@ -67,14 +68,6 @@ async function registrarPresencas(empresaId, professorId, turmaId, data, presenc
   const alunos = await db('alunos').where({ empresa_id: empresaId, turma_id: turmaId }).whereIn('id', ids).select('id');
   if (alunos.length !== ids.length) throw new AppError('Um ou mais alunos nao pertencem a esta turma.', 400);
 
-  const comBatida = await db('registros_ponto')
-    .where({ empresa_id: empresaId })
-    .whereIn('aluno_id', ids)
-    .whereRaw("(data_hora AT TIME ZONE ?)::date = ?", [timeZone, data])
-    .pluck('aluno_id');
-  const idsComBatida = new Set(comBatida);
-  const semBatida = ids.filter((id) => !idsComBatida.has(id));
-  if (semBatida.length > 0) throw new AppError('Todos os alunos da chamada precisam ter uma batida facial registrada hoje.', 400);
 
   const faltasJustificadasSemTexto = presencas.filter((item) => item.presente === false && item.falta_justificada && !String(item.justificativa || '').trim());
   if (faltasJustificadasSemTexto.length > 0) throw new AppError('Informe a justificativa para cada falta justificada.', 400);
@@ -84,13 +77,15 @@ async function registrarPresencas(empresaId, professorId, turmaId, data, presenc
     turma_id: turmaId,
     aluno_id: item.aluno_id,
     professor_id: professorId,
+    atribuicao_id: atribuicao.id,
+    materia: atribuicao.materia,
     data,
     presente: item.presente !== false,
     falta_justificada: item.presente === false && item.falta_justificada === true,
     justificativa: item.presente === false && item.falta_justificada ? String(item.justificativa).trim() : null,
     observacao: item.observacao || null,
   }));
-  const salvos = await db('presencas_sala').insert(registros).onConflict(['turma_id', 'aluno_id', 'professor_id', 'data']).merge().returning('*');
+  const salvos = await db('presencas_sala').insert(registros).onConflict(['atribuicao_id', 'aluno_id', 'data']).merge().returning('*');
   salvos.forEach((registro) => publicarEvento('presenca.sala', { empresaId, alunoId: registro.aluno_id, turmaId }));
   return salvos;
 }

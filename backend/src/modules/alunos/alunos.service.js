@@ -3,9 +3,13 @@ const { AppError } = require('../../middlewares/errorHandler');
 
 async function listar(empresaId, { turmaId, ativo } = {}) {
   const query = db('alunos as a')
-    .select('a.*', 't.nome as turma_nome', 'f.nome as filial_nome', 'h.nome as horario_nome')
+    .select(
+      'a.*',
+      't.nome as turma_nome',
+      'f.nome as filial_nome',
+      db.raw(`COALESCE((SELECT json_agg(ht ORDER BY ht.dia_semana) FROM horarios_turmas ht WHERE ht.turma_id = t.id AND ht.ativo = true), '[]'::json) AS horarios_turma`),
+    )
     .leftJoin('turmas as t', 't.id', 'a.turma_id')
-    .leftJoin('horarios_alunos as h', 'h.id', 'a.horario_aluno_id')
     .join('filiais as f', 'f.id', 'a.filial_id')
     .where('a.empresa_id', empresaId)
     .orderBy('a.nome');

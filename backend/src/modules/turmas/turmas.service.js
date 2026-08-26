@@ -43,13 +43,6 @@ async function criar(empresaId, dados) {
 async function atualizar(empresaId, turmaId, dados) {
   const turmaAtual = await buscarPorId(empresaId, turmaId);
 
-  if (dados.ativo === false) {
-    const alunosAtivos = await db('alunos').where({ turma_id: turmaId, ativo: true }).count('* as total').first();
-    if (Number(alunosAtivos.total) > 0) {
-      throw new AppError('Nao e possivel inativar uma turma com alunos ativos.', 409);
-    }
-  }
-
   const [turma] = await db('turmas')
     .where({ id: turmaAtual.id, empresa_id: empresaId })
     .update({
@@ -63,4 +56,30 @@ async function atualizar(empresaId, turmaId, dados) {
   return turma;
 }
 
-module.exports = { listar, buscarPorId, criar, atualizar };
+async function listarHorarios(empresaId, turmaId) {
+  await buscarPorId(empresaId, turmaId);
+  return db('horarios_turmas').where({ empresa_id: empresaId, turma_id: turmaId }).orderBy('dia_semana');
+}
+
+async function salvarHorario(empresaId, turmaId, dados) {
+  await buscarPorId(empresaId, turmaId);
+  const diaSemana = Number(dados.dia_semana);
+  if (!Number.isInteger(diaSemana) || diaSemana < 0 || diaSemana > 6) throw new AppError('Dia da semana invalido.', 400);
+  if (!dados.hora_entrada || !dados.hora_saida || dados.hora_saida <= dados.hora_entrada) {
+    throw new AppError('Horario de entrada e saida invalido.', 400);
+  }
+  const [horario] = await db('horarios_turmas')
+    .insert({ empresa_id: empresaId, turma_id: turmaId, dia_semana: diaSemana, hora_entrada: dados.hora_entrada, hora_saida: dados.hora_saida, ativo: dados.ativo !== false })
+    .onConflict(['turma_id', 'dia_semana'])
+    .merge(['hora_entrada', 'hora_saida', 'ativo', 'updated_at'])
+    .returning('*');
+  return horario;
+}
+
+async function removerHorario(empresaId, turmaId, horarioId) {
+  await buscarPorId(empresaId, turmaId);
+  const removidos = await db('horarios_turmas').where({ id: horarioId, empresa_id: empresaId, turma_id: turmaId }).del();
+  if (!removidos) throw new AppError('Horario da turma nao encontrado.', 404);
+}
+
+module.exports = { listar, buscarPorId, criar, atualizar, listarHorarios, salvarHorario, removerHorario };

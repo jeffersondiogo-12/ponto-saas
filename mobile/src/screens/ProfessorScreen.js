@@ -29,6 +29,11 @@ function formatarHora(hora) {
   return typeof hora === 'string' ? hora.slice(0, 5) : '';
 }
 
+function resumoHorarioTurma(horarios) {
+  if (!Array.isArray(horarios) || horarios.length === 0) return 'Sem horario de entrada configurado';
+  return horarios.map((horario) => `${DIAS_LABEL[horario.dia_semana] || horario.dia_semana} ${formatarHora(horario.hora_entrada)}-${formatarHora(horario.hora_saida)}`).join(' · ');
+}
+
 function formatarDataCurta(iso) {
   try {
     return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
@@ -47,8 +52,9 @@ function LinhaAluno({ aluno, presente, faltaJustificada, justificativa, onToggle
 
   return (
     <AparecerEm atraso={atraso} deslocamento={8}>
-      <PressaoAnimada style={[estilos.alunoLinha, !aluno.presenca_facial && estilos.alunoBloqueado]} onPress={onToggle} disabled={!aluno.presenca_facial} escala={0.985}>
+      <PressaoAnimada style={estilos.alunoLinha} onPress={onToggle} escala={0.985}>
         <Text style={estilos.alunoNome}>{aluno.nome}</Text>
+        <Text style={estilos.turmaDetalhe}>{aluno.presenca_facial ? 'Chegou ao colegio' : 'Sem registro de entrada'}</Text>
         <Animated.View
           style={[
             estilos.chave,
@@ -65,11 +71,11 @@ function LinhaAluno({ aluno, presente, faltaJustificada, justificativa, onToggle
           ]}
         >
           <Text style={presente ? estilos.presente : estilos.falta}>
-            {!aluno.presenca_facial ? 'Aguardando facial' : presente ? 'Presente' : faltaJustificada ? 'Falta justificada' : 'Ausente'}
+            {presente ? 'Presente em sala' : faltaJustificada ? 'Falta justificada' : 'Ausente em sala'}
           </Text>
         </Animated.View>
       </PressaoAnimada>
-      {aluno.presenca_facial && faltaJustificada ? (
+      {faltaJustificada ? (
         <TextInput
           style={estilos.justificativa}
           placeholder="Motivo da falta justificada"
@@ -209,7 +215,7 @@ export default function ProfessorScreen() {
           presente: Boolean(presencas[aluno.id]),
           falta_justificada: Boolean(faltasJustificadas[aluno.id]),
           justificativa: justificativas[aluno.id] || '',
-        })).filter((item) => alunos.find((aluno) => aluno.id === item.aluno_id)?.presenca_facial),
+        })),
       });
       setErro('');
       setMensagem(
@@ -225,7 +231,6 @@ export default function ProfessorScreen() {
   }
 
   function alternarPresenca(aluno) {
-    if (!aluno.presenca_facial) return;
     const atualPresente = Boolean(presencas[aluno.id]);
     const atualJustificada = Boolean(faltasJustificadas[aluno.id]);
     if (atualPresente) {
@@ -382,6 +387,9 @@ export default function ProfessorScreen() {
                     <Text style={[estilos.turmaDetalhe, ativa && estilos.turmaDetalheAtiva]}>
                       {formatarDias(item.dias_semana)} · {formatarHora(item.hora_inicio)}-
                       {formatarHora(item.hora_fim)}
+                    </Text>
+                    <Text style={[estilos.turmaDetalhe, ativa && estilos.turmaDetalheAtiva]}>
+                      Colegio: {resumoHorarioTurma(item.horarios_turma)}
                     </Text>
                   </PressaoAnimada>
                 </AparecerEm>

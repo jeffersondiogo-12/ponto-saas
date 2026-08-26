@@ -185,8 +185,9 @@ export default function AlunoDetalheScreen({ route }) {
                 />
                 <View style={estilos.linhaTexto}>
                   <Text style={estilos.tipoTexto}>
-                    {item.presente ? 'Presente' : 'Ausente'} · {item.turma_nome || 'Turma'}
+                    {item.presente ? 'Presente em sala' : item.falta_justificada ? 'Falta justificada' : 'Ausente em sala'} · {item.materia || 'Aula'} · {item.turma_nome || 'Turma'}
                   </Text>
+                  {item.justificativa ? <Text style={estilos.linhaSubtexto}>{item.justificativa}</Text> : null}
                   {item.observacao ? (
                     <Text style={estilos.linhaSubtexto}>{item.observacao}</Text>
                   ) : null}
