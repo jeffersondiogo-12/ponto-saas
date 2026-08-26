@@ -10,7 +10,7 @@ router.use(
   autenticar,
   exigirTipo('staff'),
   resolverTenant,
-  exigirPapel('super_admin', 'admin', 'rh')
+  exigirPapel('super_admin', 'admin', 'gestor')
 );
 
 router.get('/', auditoriaController.listar);

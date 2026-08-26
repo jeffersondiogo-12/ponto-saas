@@ -20,6 +20,7 @@ const alunosRoutes = require('./modules/alunos/alunos.routes');
 const responsaveisRoutes = require('./modules/responsaveis/responsaveis.routes');
 const professoresRoutes = require('./modules/professores/professores.routes');
 const avisosRoutes = require('./modules/avisos/avisos.routes');
+const auditoriaRoutes = require('./modules/auditoria/auditoria.routes');
 const { processarPostPublico } = require('./modules/dispositivos/evoFacialServidor');
 
 const app = express();
@@ -87,6 +88,7 @@ app.use('/api/alunos', alunosRoutes);
 app.use('/api/responsaveis', responsaveisRoutes);
 app.use('/api/professores', professoresRoutes);
 app.use('/api/avisos', avisosRoutes);
+app.use('/api/auditoria', auditoriaRoutes);
 
 app.get('/', (req, res) => res.json({ ok: true, servico: 'ponto-saas-api' }));
 

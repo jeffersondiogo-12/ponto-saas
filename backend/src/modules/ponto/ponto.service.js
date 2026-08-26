@@ -5,6 +5,7 @@ const bancoHorasService = require('./bancoHoras.service');
 const { horaLocalParaUTC } = require('../../utils/tempo');
 const notificacoesService = require('../responsaveis/notificacoes.service');
 const { caminhoAbsoluto } = require('../dispositivos/fotoStorage');
+const { publicarEvento } = require('../../realtime');
 
 const FUSO_PADRAO = 'America/Sao_Paulo';
 
@@ -112,6 +113,14 @@ async function ingerirRegistros(empresaId, dispositivo, registros) {
   if (novasBatidasDeAluno.length > 0) {
     const filial = dispositivo.filial_id ? await db('filiais').where({ id: dispositivo.filial_id }).first() : null;
     const timeZone = (filial && filial.fuso_horario) || dispositivo.fuso_horario || FUSO_PADRAO;
+
+    novasBatidasDeAluno.forEach((batida) => {
+      publicarEvento('ponto.criado', {
+        empresaId,
+        alunoId: batida.alunoId,
+        dataHora: batida.dataHora,
+      });
+    });
 
     // Fire-and-forget deliberado: falha ao notificar (rede instavel, token
     // invalido) nunca deve fazer a coleta em si parecer ter falhado.
