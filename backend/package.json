@@ -4,7 +4,7 @@
   "description": "API pura do sistema de controle de ponto (REP-P / Portaria 671), consumida pelo site (web/) e pelo app (mobile/)",
   "main": "src/server.js",
   "scripts": {
-    "start": "node src/server.js",
+    "start": "knex migrate:latest && node src/server.js",
     "dev": "nodemon src/server.js",
     "migrate": "knex migrate:latest",
     "migrate:rollback": "knex migrate:rollback",
