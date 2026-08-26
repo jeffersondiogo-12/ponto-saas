@@ -45,6 +45,20 @@ app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+app.post('/pub/api', (req, res) => {
+  const payload = req.body && typeof req.body === 'object' ? req.body : {};
+  const campos = Object.keys(payload);
+  const resumo = {
+    cmd: payload.cmd || null,
+    sn: payload.sn || null,
+    ret: payload.ret || null,
+    campos,
+    tamanho: JSON.stringify(req.body || '').length,
+  };
+  console.log('[evo-facial:http] POST /pub/api recebido:', JSON.stringify(resumo));
+  res.status(200).json({ ok: true, recebido: true });
+});
+
 app.use('/api/auth', authRoutes);
 app.use('/api/empresas', empresasRoutes);
 app.use('/api/funcionarios', funcionariosRoutes);
