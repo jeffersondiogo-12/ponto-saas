@@ -106,9 +106,9 @@ export default function AlunoDetalheScreen({ route }) {
           <View style={estilos.avatar}>
             <Text style={estilos.avatarTexto}>{iniciais(nome)}</Text>
           </View>
-          <View style={{ flex: 1 }}>
+          <View style={{ flex: 1, minWidth: 0 }}>
             <Text style={estilos.rotuloTopo}>Acompanhamento</Text>
-            <Text style={estilos.titulo}>{nome}</Text>
+            <Text style={estilos.titulo} numberOfLines={2} ellipsizeMode="tail">{nome}</Text>
           </View>
         </AparecerEm>
       </View>

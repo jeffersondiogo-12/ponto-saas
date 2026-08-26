@@ -17,7 +17,7 @@ import { useAuth } from '../context/AuthContext';
 import { AparecerEm, PressaoAnimada, Pulsar } from '../components/Animacoes';
 import { cores, raio, sombra } from '../theme';
 
-const hoje = new Date().toISOString().slice(0, 10);
+const hoje = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
 const DIAS_LABEL = { 0: 'Dom', 1: 'Seg', 2: 'Ter', 3: 'Qua', 4: 'Qui', 5: 'Sex', 6: 'Sáb' };
 
 function formatarDias(diasSemana) {
@@ -38,7 +38,7 @@ function formatarDataCurta(iso) {
 }
 
 /** Chave de presenca com transicao suave entre verde (presente) e cinza (ausente). */
-function LinhaAluno({ aluno, presente, onToggle, atraso }) {
+function LinhaAluno({ aluno, presente, faltaJustificada, justificativa, onToggle, onJustificativa, atraso }) {
   const valor = useRef(new Animated.Value(presente ? 1 : 0)).current;
 
   useEffect(() => {
@@ -47,7 +47,7 @@ function LinhaAluno({ aluno, presente, onToggle, atraso }) {
 
   return (
     <AparecerEm atraso={atraso} deslocamento={8}>
-      <PressaoAnimada style={estilos.alunoLinha} onPress={onToggle} escala={0.985}>
+      <PressaoAnimada style={[estilos.alunoLinha, !aluno.presenca_facial && estilos.alunoBloqueado]} onPress={onToggle} disabled={!aluno.presenca_facial} escala={0.985}>
         <Text style={estilos.alunoNome}>{aluno.nome}</Text>
         <Animated.View
           style={[
@@ -65,10 +65,19 @@ function LinhaAluno({ aluno, presente, onToggle, atraso }) {
           ]}
         >
           <Text style={presente ? estilos.presente : estilos.falta}>
-            {presente ? 'Presente' : 'Ausente'}
+            {!aluno.presenca_facial ? 'Aguardando facial' : presente ? 'Presente' : faltaJustificada ? 'Falta justificada' : 'Ausente'}
           </Text>
         </Animated.View>
       </PressaoAnimada>
+      {aluno.presenca_facial && faltaJustificada ? (
+        <TextInput
+          style={estilos.justificativa}
+          placeholder="Motivo da falta justificada"
+          placeholderTextColor={cores.inkSoft}
+          value={justificativa}
+          onChangeText={onJustificativa}
+        />
+      ) : null}
     </AparecerEm>
   );
 }
@@ -79,8 +88,13 @@ export default function ProfessorScreen() {
   const [turma, setTurma] = useState(null);
   const [alunos, setAlunos] = useState([]);
   const [presencas, setPresencas] = useState({});
+  const [faltasJustificadas, setFaltasJustificadas] = useState({});
+  const [justificativas, setJustificativas] = useState({});
   const [alunoId, setAlunoId] = useState('');
   const [nota, setNota] = useState('');
+  const [bimestre, setBimestre] = useState('1');
+  const [tipoAvaliacao, setTipoAvaliacao] = useState('atividade');
+  const [atividade, setAtividade] = useState('');
   const [observacao, setObservacao] = useState('');
   const [historico, setHistorico] = useState({ notas: [], observacoes: [] });
   const [carregando, setCarregando] = useState(true);
@@ -158,7 +172,9 @@ export default function ProfessorScreen() {
       setAlunos(listaAlunos);
       const primeiroAlunoId = listaAlunos[0]?.id || '';
       setAlunoId(primeiroAlunoId);
-      setPresencas(Object.fromEntries(listaAlunos.map((aluno) => [aluno.id, true])));
+      setPresencas(Object.fromEntries(listaAlunos.map((aluno) => [aluno.id, Boolean(aluno.presenca_facial)])));
+      setFaltasJustificadas({});
+      setJustificativas({});
       if (primeiroAlunoId) await carregarHistorico(item.turma_id, primeiroAlunoId);
       else setHistorico({ notas: [], observacoes: [] });
     } catch (err) {
@@ -191,7 +207,9 @@ export default function ProfessorScreen() {
         presencas: alunos.map((aluno) => ({
           aluno_id: aluno.id,
           presente: Boolean(presencas[aluno.id]),
-        })),
+          falta_justificada: Boolean(faltasJustificadas[aluno.id]),
+          justificativa: justificativas[aluno.id] || '',
+        })).filter((item) => alunos.find((aluno) => aluno.id === item.aluno_id)?.presenca_facial),
       });
       setErro('');
       setMensagem(
@@ -206,18 +224,34 @@ export default function ProfessorScreen() {
     }
   }
 
+  function alternarPresenca(aluno) {
+    if (!aluno.presenca_facial) return;
+    const atualPresente = Boolean(presencas[aluno.id]);
+    const atualJustificada = Boolean(faltasJustificadas[aluno.id]);
+    if (atualPresente) {
+      setPresencas({ ...presencas, [aluno.id]: false });
+    } else if (!atualJustificada) {
+      setFaltasJustificadas({ ...faltasJustificadas, [aluno.id]: true });
+    } else {
+      setPresencas({ ...presencas, [aluno.id]: true });
+      setFaltasJustificadas({ ...faltasJustificadas, [aluno.id]: false });
+    }
+  }
+
   async function salvarNota() {
     if (!alunoId) return Alert.alert('Nota', 'Selecione o aluno.');
     const valor = Number(String(nota).replace(',', '.'));
-    if (!nota || Number.isNaN(valor) || valor < 0 || valor > 10) {
-      return Alert.alert('Nota', 'Informe uma nota válida entre 0 e 10.');
+    if (!nota || Number.isNaN(valor) || valor < 0 || valor > 10 || !atividade.trim()) {
+      return Alert.alert('Nota', 'Informe bimestre, atividade e uma nota válida entre 0 e 10.');
     }
     setEnviando(true);
     try {
       const resultado = await api.criarNotaProfessor(turma.turma_id, {
         aluno_id: alunoId,
         disciplina: turma.materia,
-        etapa: 'Atual',
+        bimestre: Number(bimestre),
+        tipo_avaliacao: tipoAvaliacao,
+        atividade: atividade.trim(),
         nota: valor,
       });
       setNota('');
@@ -391,9 +425,10 @@ export default function ProfessorScreen() {
                           aluno={aluno}
                           atraso={indice * 45}
                           presente={Boolean(presencas[aluno.id])}
-                          onToggle={() =>
-                            setPresencas({ ...presencas, [aluno.id]: !presencas[aluno.id] })
-                          }
+                          faltaJustificada={Boolean(faltasJustificadas[aluno.id])}
+                          justificativa={justificativas[aluno.id] || ''}
+                          onToggle={() => alternarPresenca(aluno)}
+                          onJustificativa={(valor) => setJustificativas({ ...justificativas, [aluno.id]: valor })}
                         />
                       ))}
 
@@ -450,6 +485,28 @@ export default function ProfessorScreen() {
                         </AparecerEm>
                       )}
 
+                      <TextInput
+                        style={estilos.input}
+                        placeholder="Bimestre (1 a 4)"
+                        placeholderTextColor={cores.inkSoft}
+                        keyboardType="number-pad"
+                        value={bimestre}
+                        onChangeText={setBimestre}
+                      />
+                      <TextInput
+                        style={estilos.input}
+                        placeholder="Tipo: atividade, prova ou média"
+                        placeholderTextColor={cores.inkSoft}
+                        value={tipoAvaliacao}
+                        onChangeText={setTipoAvaliacao}
+                      />
+                      <TextInput
+                        style={estilos.input}
+                        placeholder="Nome da atividade"
+                        placeholderTextColor={cores.inkSoft}
+                        value={atividade}
+                        onChangeText={setAtividade}
+                      />
                       <TextInput
                         style={estilos.input}
                         placeholder="Nota de 0 a 10"
@@ -541,6 +598,7 @@ const estilos = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: cores.linha,
   },
+  alunoBloqueado: { opacity: 0.62 },
   alunoNome: { color: cores.ink, flex: 1, fontSize: 14.5 },
   chave: { borderRadius: raio.pill, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 6 },
   presente: { color: cores.verdeEscuro, fontWeight: '800', fontSize: 12.5 },
@@ -572,6 +630,17 @@ const estilos = StyleSheet.create({
     fontSize: 14.5,
   },
   multilinha: { minHeight: 84, textAlignVertical: 'top' },
+  justificativa: {
+    borderWidth: 1,
+    borderColor: cores.verde,
+    borderRadius: raio.sm,
+    padding: 11,
+    marginTop: 6,
+    marginBottom: 4,
+    backgroundColor: cores.verdeSoft,
+    color: cores.ink,
+    fontSize: 13.5,
+  },
   botao: {
     backgroundColor: cores.azul,
     paddingVertical: 15,

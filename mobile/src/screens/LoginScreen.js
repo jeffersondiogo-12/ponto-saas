@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Dimensions,
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { AparecerEm, PressaoAnimada } from '../components/Animacoes';
@@ -23,6 +24,8 @@ export default function LoginScreen() {
   const [erro, setErro] = useState(null);
   const [carregando, setCarregando] = useState(false);
   const { loginResponsavel, loginProfessor } = useAuth();
+  const larguraTela = Dimensions.get('window').width;
+  const larguraSeletor = Math.max(0, Math.min(larguraTela - 48, 420) - 8);
 
   // Marcador deslizante do seletor Responsavel/Professor.
   const seletor = useRef(new Animated.Value(0)).current;
@@ -81,7 +84,7 @@ export default function LoginScreen() {
   return (
     <KeyboardAvoidingView
       style={estilos.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <Animated.View
         style={[
@@ -108,6 +111,7 @@ export default function LoginScreen() {
 
       <ScrollView
         contentContainerStyle={estilos.conteudo}
+        keyboardDismissMode="on-drag"
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
@@ -137,7 +141,7 @@ export default function LoginScreen() {
                     {
                       translateX: seletor.interpolate({
                         inputRange: [0, 1],
-                        outputRange: ['0%', '100%'],
+                        outputRange: [0, larguraSeletor / 2],
                       }),
                     },
                   ],
@@ -234,7 +238,7 @@ export default function LoginScreen() {
 
 const estilos = StyleSheet.create({
   container: { flex: 1, backgroundColor: cores.ink },
-  conteudo: { flexGrow: 1, justifyContent: 'center', padding: 24 },
+  conteudo: { flexGrow: 1, justifyContent: 'center', padding: 24, paddingVertical: 36 },
   orbeAzul: {
     position: 'absolute',
     top: -130,
@@ -273,6 +277,9 @@ const estilos = StyleSheet.create({
     backgroundColor: cores.surface,
     borderRadius: raio.lg,
     padding: 22,
+    width: '100%',
+    maxWidth: 420,
+    alignSelf: 'center',
     ...sombra.cartao,
   },
   seletor: {
@@ -280,6 +287,7 @@ const estilos = StyleSheet.create({
     backgroundColor: cores.paper,
     borderRadius: raio.sm,
     padding: 4,
+    height: 52,
     marginBottom: 20,
     position: 'relative',
   },
@@ -292,7 +300,7 @@ const estilos = StyleSheet.create({
     borderRadius: raio.sm - 3,
     marginRight: 4,
   },
-  opcao: { flex: 1, paddingVertical: 11, alignItems: 'center' },
+  opcao: { flex: 1, height: 44, alignItems: 'center', justifyContent: 'center', zIndex: 1 },
   opcaoTexto: { color: cores.inkSoft, fontWeight: '700', fontSize: 13.5 },
   opcaoTextoAtivo: { color: cores.claro },
   rotulo: { color: cores.inkSoft, fontSize: 12.5, fontWeight: '700', marginBottom: 6 },
@@ -302,7 +310,8 @@ const estilos = StyleSheet.create({
     borderColor: cores.linha,
     borderRadius: raio.sm,
     paddingHorizontal: 14,
-    paddingVertical: 13,
+    minHeight: 50,
+    paddingVertical: 12,
     fontSize: 15,
     color: cores.ink,
     marginBottom: 14,
@@ -311,7 +320,8 @@ const estilos = StyleSheet.create({
   botao: {
     backgroundColor: cores.azul,
     borderRadius: raio.sm,
-    paddingVertical: 16,
+    minHeight: 54,
+    paddingVertical: 15,
     alignItems: 'center',
     marginTop: 4,
     ...sombra.destaque,
@@ -325,6 +335,7 @@ const estilos = StyleSheet.create({
     borderRadius: raio.sm,
     padding: 12,
     marginBottom: 16,
+    minHeight: 48,
   },
   erroTexto: { color: cores.vermelho, fontSize: 13, fontWeight: '600' },
   rodape: { color: cores.claroSuave, fontSize: 11.5, textAlign: 'center', marginTop: 20 },

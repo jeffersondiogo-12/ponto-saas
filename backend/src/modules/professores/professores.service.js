@@ -2,6 +2,16 @@ const db = require('../../config/db');
 const { AppError } = require('../../middlewares/errorHandler');
 const { publicarEvento } = require('../../realtime');
 
+function horaEmMinutos(valor) {
+  const [hora, minuto] = String(valor || '').split(':').map(Number);
+  return hora * 60 + minuto;
+}
+
+function diaAtualNoFuso(timeZone) {
+  const partes = new Intl.DateTimeFormat('en-US', { timeZone, weekday: 'short' }).format(new Date());
+  return { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }[partes];
+}
+
 async function buscarAtribuicao(empresaId, professorId, turmaId) {
   const atribuicao = await db('turma_professores as tp')
     .join('turmas as t', 't.id', 'tp.turma_id')
@@ -20,17 +30,54 @@ async function listarMinhasTurmas(empresaId, professorId) {
 }
 
 async function listarAlunos(empresaId, professorId, turmaId) {
-  await buscarAtribuicao(empresaId, professorId, turmaId);
-  return db('alunos').where({ empresa_id: empresaId, turma_id: turmaId, ativo: true }).select('id', 'nome', 'matricula').orderBy('nome');
+  const atribuicao = await buscarAtribuicao(empresaId, professorId, turmaId);
+  const filial = await db('filiais').where({ id: atribuicao.filial_id, empresa_id: empresaId }).first();
+  const timeZone = filial?.fuso_horario || 'America/Sao_Paulo';
+  const hoje = new Intl.DateTimeFormat('en-CA', { timeZone }).format(new Date());
+  return db('alunos as a')
+    .where({ 'a.empresa_id': empresaId, 'a.turma_id': turmaId, 'a.ativo': true })
+    .select(
+      'a.id',
+      'a.nome',
+      'a.matricula',
+      db.raw(`EXISTS (
+        SELECT 1 FROM registros_ponto rp
+        WHERE rp.aluno_id = a.id
+          AND (rp.data_hora AT TIME ZONE ?)::date = ?
+      ) AS presenca_facial`, [timeZone, hoje])
+    )
+    .orderBy('a.nome');
 }
 
 async function registrarPresencas(empresaId, professorId, turmaId, data, presencas) {
-  await buscarAtribuicao(empresaId, professorId, turmaId);
+  const atribuicao = await buscarAtribuicao(empresaId, professorId, turmaId);
   if (!Array.isArray(presencas) || presencas.length === 0) throw new AppError('Informe ao menos uma presenca.', 400);
+
+  const filial = await db('filiais').where({ id: atribuicao.filial_id, empresa_id: empresaId }).first();
+  const timeZone = filial?.fuso_horario || 'America/Sao_Paulo';
+  const dia = diaAtualNoFuso(timeZone);
+  const dias = Array.isArray(atribuicao.dias_semana) ? atribuicao.dias_semana : JSON.parse(atribuicao.dias_semana || '[]');
+  const agora = new Intl.DateTimeFormat('en-GB', { timeZone, hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date());
+  const minutoAtual = horaEmMinutos(agora);
+  if (!dias.includes(dia) || minutoAtual < horaEmMinutos(atribuicao.hora_inicio) || minutoAtual > horaEmMinutos(atribuicao.hora_fim)) {
+    throw new AppError('A chamada so pode ser registrada no dia e horario da aula.', 400);
+  }
 
   const ids = presencas.map((item) => item.aluno_id);
   const alunos = await db('alunos').where({ empresa_id: empresaId, turma_id: turmaId }).whereIn('id', ids).select('id');
   if (alunos.length !== ids.length) throw new AppError('Um ou mais alunos nao pertencem a esta turma.', 400);
+
+  const comBatida = await db('registros_ponto')
+    .where({ empresa_id: empresaId })
+    .whereIn('aluno_id', ids)
+    .whereRaw("(data_hora AT TIME ZONE ?)::date = ?", [timeZone, data])
+    .pluck('aluno_id');
+  const idsComBatida = new Set(comBatida);
+  const semBatida = ids.filter((id) => !idsComBatida.has(id));
+  if (semBatida.length > 0) throw new AppError('Todos os alunos da chamada precisam ter uma batida facial registrada hoje.', 400);
+
+  const faltasJustificadasSemTexto = presencas.filter((item) => item.presente === false && item.falta_justificada && !String(item.justificativa || '').trim());
+  if (faltasJustificadasSemTexto.length > 0) throw new AppError('Informe a justificativa para cada falta justificada.', 400);
 
   const registros = presencas.map((item) => ({
     empresa_id: empresaId,
@@ -39,6 +86,8 @@ async function registrarPresencas(empresaId, professorId, turmaId, data, presenc
     professor_id: professorId,
     data,
     presente: item.presente !== false,
+    falta_justificada: item.presente === false && item.falta_justificada === true,
+    justificativa: item.presente === false && item.falta_justificada ? String(item.justificativa).trim() : null,
     observacao: item.observacao || null,
   }));
   const salvos = await db('presencas_sala').insert(registros).onConflict(['turma_id', 'aluno_id', 'professor_id', 'data']).merge().returning('*');
@@ -49,7 +98,22 @@ async function registrarPresencas(empresaId, professorId, turmaId, data, presenc
 async function criarNota(empresaId, professorId, turmaId, dados) {
   await buscarAtribuicao(empresaId, professorId, turmaId);
   await validarAluno(empresaId, turmaId, dados.aluno_id);
-  const [nota] = await db('notas_alunos').insert({ ...dados, empresa_id: empresaId }).returning('*');
+  const bimestre = Number(dados.bimestre);
+  const valor = Number(dados.nota);
+  if (![1, 2, 3, 4].includes(bimestre)) throw new AppError('Bimestre deve ser 1, 2, 3 ou 4.', 400);
+  if (!Number.isFinite(valor) || valor < 0 || valor > 10) throw new AppError('Nota deve estar entre 0 e 10.', 400);
+  if (!String(dados.tipo_avaliacao || '').trim()) throw new AppError('Tipo da avaliacao e obrigatorio.', 400);
+  const [nota] = await db('notas_alunos').insert({
+    empresa_id: empresaId,
+    aluno_id: dados.aluno_id,
+    disciplina: dados.disciplina,
+    etapa: `Bimestre ${bimestre}`,
+    bimestre,
+    tipo_avaliacao: String(dados.tipo_avaliacao).trim(),
+    atividade: String(dados.atividade || '').trim() || null,
+    nota: valor,
+    observacao: dados.observacao || null,
+  }).returning('*');
   publicarEvento('nota.criada', { empresaId, alunoId: dados.aluno_id });
   return nota;
 }

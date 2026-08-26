@@ -98,7 +98,7 @@ async function frequenciaDoAluno(alunoIdsPermitidos, alunoId, { de, ate } = {}) 
   }
 
   const query = db('registros_ponto')
-    .select('data_hora', 'origem')
+    .select('data_hora', 'origem', 'nsr', 'tipo_batida', 'tipo_verificacao_bruto', 'dispositivo_id')
     .where({ aluno_id: alunoId })
     .orderBy('data_hora', 'desc');
 
