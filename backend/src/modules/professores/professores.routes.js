@@ -8,7 +8,8 @@ const staff = [autenticar, exigirTipo('staff'), resolverTenant];
 
 router.get('/minhas-turmas', ...staff, exigirPapel('professor'), controller.minhasTurmas);
 router.get('/turmas/:turmaId/alunos', ...staff, exigirPapel('professor'), controller.alunosDaTurma);
-router.post('/turmas/:turmaId/presencas', ...staff, exigirPapel('professor'), controller.registrarPresencas);
+router.get('/turmas/:turmaId/grade', ...staff, exigirPapel('professor', 'gestor', 'admin', 'super_admin'), controller.listarGrade);
+router.post('/turmas/:turmaId/presencas', ...staff, exigirPapel('professor', 'gestor', 'admin', 'super_admin'), controller.registrarPresencas);
 router.post('/turmas/:turmaId/notas', ...staff, exigirPapel('professor'), controller.criarNota);
 router.post('/turmas/:turmaId/observacoes', ...staff, exigirPapel('professor'), controller.criarObservacao);
 router.get('/turmas/:turmaId/alunos/:alunoId/historico', ...staff, exigirPapel('professor'), controller.historicoDoAluno);

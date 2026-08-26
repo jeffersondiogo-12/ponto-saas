@@ -11,6 +11,7 @@ export async function conectarRealtime(onEvento) {
   let socket;
   let encerrado = false;
   let timer;
+  const eventosRecentes = new Map();
 
   function conectar() {
     if (encerrado) return;
@@ -22,6 +23,14 @@ export async function conectarRealtime(onEvento) {
     socket.onmessage = (evento) => {
       const mensagem = JSON.parse(evento.data);
       if (mensagem.tipo !== 'pong' && mensagem.tipo !== 'conectado') {
+        const dados = mensagem.dados || {};
+        const chave = [mensagem.tipo, dados.alunoId, dados.atribuicaoId, dados.data, dados.dataHora].join(':');
+        const agora = Date.now();
+        if (eventosRecentes.has(chave) && agora - eventosRecentes.get(chave) < 5000) return;
+        eventosRecentes.set(chave, agora);
+        for (const [eventoChave, quando] of eventosRecentes) {
+          if (agora - quando >= 10000) eventosRecentes.delete(eventoChave);
+        }
         DeviceEventEmitter.emit('ponto-saas:atualizado', mensagem);
         onEvento?.(mensagem);
       }

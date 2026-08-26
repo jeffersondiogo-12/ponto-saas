@@ -54,6 +54,7 @@ export default function AlunoDetalheScreen({ route }) {
   const [avisos, setAvisos] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [offline, setOffline] = useState(false);
+  const [atualizandoEvento, setAtualizandoEvento] = useState(false);
 
   const carregar = useCallback(async () => {
     const [frequencia, sala, notasResposta, observacoesResposta, avisosResposta] = await Promise.all([
@@ -80,6 +81,12 @@ export default function AlunoDetalheScreen({ route }) {
     setCarregando(false);
   }, [alunoId]);
 
+  const recarregarPorEvento = useCallback(async () => {
+    if (atualizandoEvento) return;
+    setAtualizandoEvento(true);
+    try { await carregar(); } finally { setAtualizandoEvento(false); }
+  }, [atualizandoEvento, carregar]);
+
   useEffect(() => {
     carregar();
   }, [carregar]);
@@ -89,10 +96,10 @@ export default function AlunoDetalheScreen({ route }) {
   // realtime.js emite esse evento local (ver conectarRealtime em App.js).
   useEffect(() => {
     const assinatura = DeviceEventEmitter.addListener('ponto-saas:atualizado', (mensagem) => {
-      if (mensagem?.dados?.alunoId === alunoId || mensagem?.tipo === 'aviso.criado') carregar();
+      if (mensagem?.dados?.alunoId === alunoId || mensagem?.tipo === 'aviso.criado') recarregarPorEvento();
     });
     return () => assinatura.remove();
-  }, [alunoId, carregar]);
+  }, [alunoId, recarregarPorEvento]);
 
   const listaPadrao = {
     contentContainerStyle: estilos.lista,
@@ -185,7 +192,7 @@ export default function AlunoDetalheScreen({ route }) {
                 />
                 <View style={estilos.linhaTexto}>
                   <Text style={estilos.tipoTexto}>
-                    {item.presente ? 'Presente em sala' : item.falta_justificada ? 'Falta justificada' : 'Ausente em sala'} · {item.materia || 'Aula'} · {item.turma_nome || 'Turma'}
+                    {item.presente ? 'Presente em sala' : item.falta_justificada ? 'Falta justificada' : 'Ausente em sala'} · {item.materia || 'Aula legada'} · {item.turma_nome || 'Turma'}
                   </Text>
                   {item.justificativa ? <Text style={estilos.linhaSubtexto}>{item.justificativa}</Text> : null}
                   {item.observacao ? (

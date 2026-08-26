@@ -2,6 +2,7 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
+import { DeviceEventEmitter } from 'react-native';
 import { api } from './api';
 
 /**
@@ -20,6 +21,23 @@ Notifications.setNotificationHandler({
     shouldSetBadge: false,
   }),
 });
+
+let listenersRegistrados = false;
+
+export function ouvirNotificacoes() {
+  if (listenersRegistrados) return () => {};
+  listenersRegistrados = true;
+  const recebida = Notifications.addNotificationReceivedListener((evento) => {
+    DeviceEventEmitter.emit('ponto-saas:atualizado', {
+      tipo: evento.request.content.data?.tipo || 'notificacao.recebida',
+      dados: evento.request.content.data || {},
+    });
+  });
+  return () => {
+    recebida.remove();
+    listenersRegistrados = false;
+  };
+}
 
 /**
  * Pede permissão, obtém o token de push do Expo e registra no backend.

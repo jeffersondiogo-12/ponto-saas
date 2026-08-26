@@ -48,6 +48,13 @@ function ehFalhaDeRede(erro) {
   return erro instanceof TypeError || /network/i.test(erro?.message || '');
 }
 
+function exigirAtribuicao(dados) {
+  if (dados?.atribuicao_id) return;
+  const erro = new Error('Aula sem atribuicao_id. Atualize as turmas antes de registrar esta acao.');
+  erro.status = 409;
+  throw erro;
+}
+
 async function chamarServidor(caminho, { method, body }) {
   const headers = { 'Content-Type': 'application/json' };
   const token = await obterToken();
@@ -161,26 +168,35 @@ export const api = {
   loginProfessor: (email, senha, unidade) =>
     requisitar('/api/auth/login', { method: 'POST', body: { email, senha, unidade }, permitirFila: false }),
   listarMinhasTurmas: () => requisitar('/api/professores/minhas-turmas'),
-  listarAlunosDaTurma: (turmaId) => requisitar(`/api/professores/turmas/${turmaId}/alunos`),
+  listarAlunosDaTurma: (turmaId, atribuicaoId) => {
+    if (!atribuicaoId) {
+      const erro = new Error('Aula legada sem atribuicao_id. Atualize as turmas antes de registrar a chamada.');
+      erro.status = 409;
+      return Promise.reject(erro);
+    }
+    return requisitar(`/api/professores/turmas/${turmaId}/alunos?atribuicao_id=${encodeURIComponent(atribuicaoId)}`);
+  },
   listarHorariosTurma: (turmaId) => requisitar(`/api/turmas/${turmaId}/horarios`),
   registrarPresencasSala: (turmaId, dados) =>
-    requisitar(`/api/professores/turmas/${turmaId}/presencas`, {
+    (exigirAtribuicao(dados), requisitar(`/api/professores/turmas/${turmaId}/presencas`, {
       method: 'POST',
       body: dados,
       rotulo: 'Chamada da turma',
-    }),
+    })),
   criarNotaProfessor: (turmaId, dados) =>
-    requisitar(`/api/professores/turmas/${turmaId}/notas`, {
+    (exigirAtribuicao(dados), requisitar(`/api/professores/turmas/${turmaId}/notas`, {
       method: 'POST',
       body: dados,
       rotulo: `Nota de ${dados?.disciplina || 'aluno'}`,
-    }),
+    })),
   criarObservacaoProfessor: (turmaId, dados) =>
-    requisitar(`/api/professores/turmas/${turmaId}/observacoes`, {
+    (exigirAtribuicao(dados), requisitar(`/api/professores/turmas/${turmaId}/observacoes`, {
       method: 'POST',
       body: dados,
       rotulo: 'Observação para o responsável',
-    }),
-  historicoDoAluno: (turmaId, alunoId) =>
-    requisitar(`/api/professores/turmas/${turmaId}/alunos/${alunoId}/historico`),
+    })),
+  historicoDoAluno: (turmaId, alunoId, atribuicaoId) =>
+    atribuicaoId
+      ? requisitar(`/api/professores/turmas/${turmaId}/alunos/${alunoId}/historico?atribuicao_id=${encodeURIComponent(atribuicaoId)}`)
+      : Promise.reject(new Error('Historico indisponivel para aula legada sem atribuicao_id.')),
 };

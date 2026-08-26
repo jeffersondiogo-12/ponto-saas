@@ -173,15 +173,15 @@ export default function ProfessorScreen() {
     setCarregandoTurma(true);
     setMensagem('');
     try {
-      const res = await api.listarAlunosDaTurma(item.turma_id);
+      const res = await api.listarAlunosDaTurma(item.turma_id, item.atribuicao_id);
       const listaAlunos = res.alunos || [];
       setAlunos(listaAlunos);
       const primeiroAlunoId = listaAlunos[0]?.id || '';
       setAlunoId(primeiroAlunoId);
-      setPresencas(Object.fromEntries(listaAlunos.map((aluno) => [aluno.id, Boolean(aluno.presenca_facial)])));
+      setPresencas(Object.fromEntries(listaAlunos.map((aluno) => [aluno.id, true])));
       setFaltasJustificadas({});
       setJustificativas({});
-      if (primeiroAlunoId) await carregarHistorico(item.turma_id, primeiroAlunoId);
+      if (primeiroAlunoId) await carregarHistorico(item.turma_id, primeiroAlunoId, item.atribuicao_id);
       else setHistorico({ notas: [], observacoes: [] });
     } catch (err) {
       tratarErro(err);
@@ -190,9 +190,9 @@ export default function ProfessorScreen() {
     }
   }
 
-  async function carregarHistorico(turmaId, alunoIdAlvo) {
+  async function carregarHistorico(turmaId, alunoIdAlvo, atribuicaoId = turma?.atribuicao_id) {
     try {
-      const res = await api.historicoDoAluno(turmaId, alunoIdAlvo);
+      const res = await api.historicoDoAluno(turmaId, alunoIdAlvo, atribuicaoId);
       setHistorico({ notas: res.notas || [], observacoes: res.observacoes || [] });
     } catch {
       // Historico e so contexto extra - se falhar, a tela continua funcionando.
@@ -202,7 +202,7 @@ export default function ProfessorScreen() {
 
   async function selecionarAluno(aluno) {
     setAlunoId(aluno.id);
-    await carregarHistorico(turma.turma_id, aluno.id);
+    await carregarHistorico(turma.turma_id, aluno.id, turma.atribuicao_id);
   }
 
   async function salvarPresencas() {
@@ -210,6 +210,7 @@ export default function ProfessorScreen() {
     try {
       const resultado = await api.registrarPresencasSala(turma.turma_id, {
         data: hoje,
+        atribuicao_id: turma.atribuicao_id,
         presencas: alunos.map((aluno) => ({
           aluno_id: aluno.id,
           presente: Boolean(presencas[aluno.id]),
@@ -253,6 +254,7 @@ export default function ProfessorScreen() {
     try {
       const resultado = await api.criarNotaProfessor(turma.turma_id, {
         aluno_id: alunoId,
+        atribuicao_id: turma.atribuicao_id,
         disciplina: turma.materia,
         bimestre: Number(bimestre),
         tipo_avaliacao: tipoAvaliacao,
@@ -265,7 +267,7 @@ export default function ProfessorScreen() {
         setMensagem('Sem conexão: nota salva no aparelho e será enviada assim que a internet voltar.');
       } else {
         setMensagem('Nota enviada ao painel do aluno.');
-        await carregarHistorico(turma.turma_id, alunoId);
+        await carregarHistorico(turma.turma_id, alunoId, turma.atribuicao_id);
       }
     } catch (err) {
       tratarErro(err);
@@ -282,6 +284,7 @@ export default function ProfessorScreen() {
     try {
       const resultado = await api.criarObservacaoProfessor(turma.turma_id, {
         aluno_id: alunoId,
+        atribuicao_id: turma.atribuicao_id,
         titulo: `Observação de ${turma.materia}`,
         texto: observacao.trim(),
       });
@@ -291,7 +294,7 @@ export default function ProfessorScreen() {
         setMensagem('Sem conexão: observação salva no aparelho e será enviada assim que a internet voltar.');
       } else {
         setMensagem('Observação enviada ao responsável.');
-        await carregarHistorico(turma.turma_id, alunoId);
+        await carregarHistorico(turma.turma_id, alunoId, turma.atribuicao_id);
       }
     } catch (err) {
       tratarErro(err);

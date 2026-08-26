@@ -58,8 +58,23 @@ async function notificarBatidaDeAluno({ alunoId, dataHora, timeZone = FUSO_PADRA
   const aluno = await db('alunos').where({ id: alunoId }).first();
   if (!aluno) return;
 
+
+async function notificarFaltaEmSala({ alunoId, turmaId, atribuicaoId, materia, data, presente }) {
+  if (presente) return;
+  const aluno = await db('alunos').where({ id: alunoId }).first();
+  if (!aluno) return;
   const vinculos = await db('responsavel_alunos').where({ aluno_id: alunoId });
-  if (vinculos.length === 0) return;
+  if (!vinculos.length) return;
+  const tokens = await db('push_tokens').whereIn('responsavel_id', vinculos.map((v) => v.responsavel_id));
+  await Promise.all(tokens.map((token) => enviarPush({
+    to: token.token,
+    title: `Falta em ${materia || 'aula'}`,
+    body: `${aluno.nome} foi marcado como ausente em ${materia || 'aula'} no dia ${data}.`,
+    data: { alunoId, turmaId, atribuicaoId, materia, data, presente: false, tipo: 'falta_sala' },
+  })));
+}
+  const vinculos = await db('responsavel_alunos').where({ aluno_id: alunoId });
+module.exports = { notificarBatidaDeAluno, notificarFaltaEmSala };
 
   const tokens = await db('push_tokens').whereIn(
     'responsavel_id',
@@ -90,4 +105,20 @@ async function notificarBatidaDeAluno({ alunoId, dataHora, timeZone = FUSO_PADRA
   );
 }
 
-module.exports = { notificarBatidaDeAluno };
+async function notificarFaltaEmSala({ alunoId, turmaId, atribuicaoId, materia, data, presente }) {
+  if (presente) return;
+  const aluno = await db('alunos').where({ id: alunoId }).first();
+  if (!aluno) return;
+  const vinculos = await db('responsavel_alunos').where({ aluno_id: alunoId });
+  if (!vinculos.length) return;
+  const tokens = await db('push_tokens').whereIn('responsavel_id', vinculos.map((v) => v.responsavel_id));
+  if (!tokens.length) return;
+  await Promise.all(tokens.map((token) => enviarPush({
+    to: token.token,
+    title: `Falta em ${materia || 'aula'}`,
+    body: `${aluno.nome} foi marcado como ausente em ${materia || 'aula'}${data ? ` no dia ${data}` : ''}.`,
+    data: { alunoId, turmaId, atribuicaoId, materia, data, presente: false, tipo: 'falta_sala' },
+  })));
+}
+
+module.exports = { notificarBatidaDeAluno, notificarFaltaEmSala };

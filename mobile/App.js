@@ -9,7 +9,7 @@ import HomeScreen from './src/screens/HomeScreen';
 import AlunoDetalheScreen from './src/screens/AlunoDetalheScreen';
 import AdicionarFilhoScreen from './src/screens/AdicionarFilhoScreen';
 import ProfessorScreen from './src/screens/ProfessorScreen';
-import { registrarParaNotificacoes } from './src/notifications';
+import { ouvirNotificacoes, registrarParaNotificacoes } from './src/notifications';
 import { conectarRealtime } from './src/realtime';
 import { processarFilaOffline } from './src/api';
 import { cores } from './src/theme';
@@ -30,7 +30,11 @@ function Navegacao() {
   useEffect(() => {
     if (!ehResponsavel && !ehProfessor) return undefined;
 
-    if (ehResponsavel) registrarParaNotificacoes();
+    let pararNotificacoes = () => {};
+    if (ehResponsavel) {
+      registrarParaNotificacoes();
+      pararNotificacoes = ouvirNotificacoes();
+    }
 
     let ativo = true;
     let pararConexao = () => {};
@@ -42,6 +46,7 @@ function Navegacao() {
     return () => {
       ativo = false;
       pararConexao();
+      pararNotificacoes();
     };
   }, [ehResponsavel, ehProfessor]);
 

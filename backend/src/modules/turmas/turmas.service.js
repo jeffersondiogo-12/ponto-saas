@@ -58,19 +58,17 @@ async function atualizar(empresaId, turmaId, dados) {
 
 async function listarHorarios(empresaId, turmaId) {
   await buscarPorId(empresaId, turmaId);
-  return db('horarios_turmas').where({ empresa_id: empresaId, turma_id: turmaId }).orderBy('dia_semana');
+  return db('horarios_turmas').where({ empresa_id: empresaId, turma_id: turmaId }).limit(1);
 }
 
 async function salvarHorario(empresaId, turmaId, dados) {
   await buscarPorId(empresaId, turmaId);
-  const diaSemana = Number(dados.dia_semana);
-  if (!Number.isInteger(diaSemana) || diaSemana < 0 || diaSemana > 6) throw new AppError('Dia da semana invalido.', 400);
   if (!dados.hora_entrada || !dados.hora_saida || dados.hora_saida <= dados.hora_entrada) {
     throw new AppError('Horario de entrada e saida invalido.', 400);
   }
   const [horario] = await db('horarios_turmas')
-    .insert({ empresa_id: empresaId, turma_id: turmaId, dia_semana: diaSemana, hora_entrada: dados.hora_entrada, hora_saida: dados.hora_saida, ativo: dados.ativo !== false })
-    .onConflict(['turma_id', 'dia_semana'])
+    .insert({ empresa_id: empresaId, turma_id: turmaId, dia_semana: null, hora_entrada: dados.hora_entrada, hora_saida: dados.hora_saida, ativo: dados.ativo !== false })
+    .onConflict(['turma_id'])
     .merge(['hora_entrada', 'hora_saida', 'ativo', 'updated_at'])
     .returning('*');
   return horario;
