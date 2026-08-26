@@ -20,6 +20,7 @@ const alunosRoutes = require('./modules/alunos/alunos.routes');
 const responsaveisRoutes = require('./modules/responsaveis/responsaveis.routes');
 const professoresRoutes = require('./modules/professores/professores.routes');
 const avisosRoutes = require('./modules/avisos/avisos.routes');
+const { processarPostPublico } = require('./modules/dispositivos/evoFacialServidor');
 
 const app = express();
 
@@ -45,18 +46,19 @@ app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.post('/pub/api', (req, res) => {
-  const payload = req.body && typeof req.body === 'object' ? req.body : {};
-  const campos = Object.keys(payload);
-  const resumo = {
-    cmd: payload.cmd || null,
-    sn: payload.sn || null,
-    ret: payload.ret || null,
-    campos,
-    tamanho: JSON.stringify(req.body || '').length,
-  };
-  console.log('[evo-facial:http] POST /pub/api recebido:', JSON.stringify(resumo));
-  res.status(200).json({ ok: true, recebido: true });
+app.post('/pub/api', async (req, res) => {
+  try {
+    const payload = req.body && typeof req.body === 'object' ? req.body : {};
+    const resposta = await processarPostPublico(payload);
+    console.log(
+      '[evo-facial:http] POST /pub/api:',
+      JSON.stringify({ cmd: payload.cmd || null, sn: payload.sn || null, resposta: resposta.ret || null })
+    );
+    res.status(200).json(resposta);
+  } catch (err) {
+    console.error('[evo-facial:http] erro processando /pub/api:', err.message);
+    res.status(200).json({ ret: req.body?.cmd || null, result: false, reason: 'erro interno' });
+  }
 });
 
 app.use('/api/auth', authRoutes);

@@ -399,6 +399,27 @@ async function processarMensagem(ws, raw) {
   }
 }
 
+/** Compatibilidade com firmwares que publicam o mesmo protocolo por HTTP. */
+async function processarPostPublico(msg) {
+  if (!msg || typeof msg !== 'object' || !msg.cmd) {
+    return { ret: null, result: false, reason: 'cmd ausente' };
+  }
+
+  if (msg.cmd === 'reg') {
+    let resposta;
+    const wsVirtual = {
+      _numeroSerie: msg.sn,
+      send(payload) {
+        resposta = JSON.parse(payload);
+      },
+    };
+    await tratarReg(wsVirtual, msg);
+    return resposta || { ret: 'reg', result: false, reason: 'registro sem resposta' };
+  }
+
+  return { ret: msg.cmd, result: false, reason: 'comando HTTP nao suportado' };
+}
+
 function iniciarServidorEvoFacial(servidorHttp) {
   // noServer: true -> o WebSocketServer nao abre porta nenhuma sozinho;
   // ele so processa upgrades que ns mesmos repassamos a ele manualmente
@@ -465,4 +486,5 @@ module.exports = {
   enviarComando,
   estaConectado,
   listarNumerosSerieConectados,
+  processarPostPublico,
 };
