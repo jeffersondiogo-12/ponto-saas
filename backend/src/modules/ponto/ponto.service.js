@@ -65,6 +65,7 @@ async function ingerirRegistros(empresaId, dispositivo, registros) {
   let totalNovos = 0;
   let totalNaoResolvidos = 0;
   let maiorNsr = dispositivo.ultimo_nsr || 0;
+  const novasBatidas = [];
   const novasBatidasDeAluno = []; // notificadas DEPOIS do commit, nunca dentro da transacao
 
   await db.transaction(async (trx) => {
@@ -98,6 +99,7 @@ async function ingerirRegistros(empresaId, dispositivo, registros) {
 
       if (inserido) {
         totalNovos += 1;
+        novasBatidas.push({ alunoId, funcionarioId, dataHora: registro.dataHora });
         if (alunoId) novasBatidasDeAluno.push({ alunoId, dataHora: registro.dataHora });
       }
       if (registro.nsr > maiorNsr) maiorNsr = registro.nsr;
@@ -110,14 +112,15 @@ async function ingerirRegistros(empresaId, dispositivo, registros) {
     });
   });
 
-  if (novasBatidasDeAluno.length > 0) {
+  if (novasBatidas.length > 0) {
     const filial = dispositivo.filial_id ? await db('filiais').where({ id: dispositivo.filial_id }).first() : null;
     const timeZone = (filial && filial.fuso_horario) || dispositivo.fuso_horario || FUSO_PADRAO;
 
-    novasBatidasDeAluno.forEach((batida) => {
+    novasBatidas.forEach((batida) => {
       publicarEvento('ponto.criado', {
         empresaId,
         alunoId: batida.alunoId,
+        funcionarioId: batida.funcionarioId,
         dataHora: batida.dataHora,
       });
     });
