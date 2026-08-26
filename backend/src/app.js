@@ -23,6 +23,7 @@ const avisosRoutes = require('./modules/avisos/avisos.routes');
 const { processarPostPublico } = require('./modules/dispositivos/evoFacialServidor');
 
 const app = express();
+const tentativasEvoHttp = new Map();
 
 /**
  * API pura - sem view engine, sem paginas server-rendered. O site (web/) e o
@@ -49,6 +50,18 @@ app.use(express.urlencoded({ extended: true }));
 app.post('/pub/api', async (req, res) => {
   try {
     const payload = req.body && typeof req.body === 'object' ? req.body : {};
+    const chave = typeof payload.sn === 'string' ? payload.sn.trim().toUpperCase() : req.ip;
+    const agora = Date.now();
+    const janela = tentativasEvoHttp.get(chave);
+    if (!janela || agora - janela.inicio >= 60_000) {
+      tentativasEvoHttp.set(chave, { inicio: agora, total: 1 });
+    } else if (janela.total >= 30) {
+      console.warn('[evo-facial:http] limite de requisicoes excedido:', chave);
+      res.status(429).json({ ret: payload.cmd || null, result: false, reason: 'muitas requisicoes' });
+      return;
+    } else {
+      janela.total += 1;
+    }
     const resposta = await processarPostPublico(payload);
     console.log(
       '[evo-facial:http] POST /pub/api:',

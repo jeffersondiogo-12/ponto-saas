@@ -409,6 +409,20 @@ async function processarPostPublico(msg) {
   if (!msg || typeof msg !== 'object' || !msg.cmd) {
     return { ret: null, result: false, reason: 'cmd ausente' };
   }
+  if (!['reg', 'sendlog'].includes(msg.cmd)) {
+    return { ret: msg.cmd, result: false, reason: 'comando HTTP nao permitido' };
+  }
+  if (!msg.sn || typeof msg.sn !== 'string' || msg.sn.trim().length < 4) {
+    return { ret: msg.cmd, result: false, reason: 'sn invalido' };
+  }
+  if (msg.cmd === 'sendlog') {
+    if (!Array.isArray(msg.record) || msg.record.length > 1000) {
+      return { ret: 'sendlog', result: false, reason: 'record invalido' };
+    }
+    if (msg.count != null && Number(msg.count) !== msg.record.length) {
+      return { ret: 'sendlog', result: false, reason: 'count invalido' };
+    }
+  }
 
   if (msg.cmd === 'reg') {
     let resposta;
