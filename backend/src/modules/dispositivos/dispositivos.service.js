@@ -24,7 +24,7 @@ function sanitizar(dispositivo) {
     // conecta) - fica null pros demais, em vez de sempre false, para nao
     // sugerir "desconectado" num protocolo onde essa nocao nem existe.
     conectado_agora:
-      dispositivo.protocolo === 'evo_ws'
+      ['evo_ws', 'http_rest'].includes(dispositivo.protocolo)
         ? evoFacialServidor.estaConectado(dispositivo.numero_serie) || comunicouRecentemente
         : null,
   };

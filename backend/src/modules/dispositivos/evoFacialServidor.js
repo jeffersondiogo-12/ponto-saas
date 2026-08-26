@@ -176,7 +176,7 @@ function tratarRespostaDeComando(ws, msg) {
 }
 
 /** 1.1 Registro (PDF secao 1.1) - handshake inicial, repetido pelo equipamento a cada 20s ate ser confirmado. */
-async function tratarReg(ws, msg) {
+async function tratarReg(ws, msg, { viaHttp = false } = {}) {
   logDebug('<- recebido', ws._numeroSerie || msg.sn, msg);
 
   const numeroSerie = msg.sn;
@@ -210,10 +210,10 @@ async function tratarReg(ws, msg) {
     ws.send(JSON.stringify({ ret: 'reg', result: false, reason: 'dispositivo inativo' }));
     return;
   }
-  if (dispositivo.protocolo !== 'evo_ws') {
-    ws.send(JSON.stringify({ ret: 'reg', result: false, reason: 'protocolo cadastrado nao e evo_ws' }));
+  if (!['evo_ws', 'http_rest'].includes(dispositivo.protocolo)) {
+    ws.send(JSON.stringify({ ret: 'reg', result: false, reason: 'protocolo nao e Evo Facial' }));
     console.warn(
-      `[evo-facial] reg recusado: "${dispositivo.descricao}" esta cadastrado com protocolo "${dispositivo.protocolo}", nao "evo_ws"`
+      `[evo-facial] reg recusado: "${dispositivo.descricao}" esta cadastrado com protocolo "${dispositivo.protocolo}", nao e Evo Facial`
     );
     return;
   }
@@ -231,13 +231,15 @@ async function tratarReg(ws, msg) {
 
   // Reconexao do mesmo equipamento (ex: reiniciou, trocou de rede): fecha a
   // sessao antiga com seguranca antes de assumir a nova.
-  const conexaoAntiga = conexoes.get(chave);
-  if (conexaoAntiga && conexaoAntiga.ws !== ws && conexaoAntiga.ws.readyState === conexaoAntiga.ws.OPEN) {
-    conexaoAntiga.ws.terminate();
-  }
+  if (!viaHttp) {
+    const conexaoAntiga = conexoes.get(chave);
+    if (conexaoAntiga && conexaoAntiga.ws !== ws && conexaoAntiga.ws.readyState === conexaoAntiga.ws.OPEN) {
+      conexaoAntiga.ws.terminate();
+    }
 
-  ws._numeroSerie = chave;
-  conexoes.set(chave, { ws, dispositivo, ultimoDevinfo: msg.devinfo || null, pendente: null });
+    ws._numeroSerie = chave;
+    conexoes.set(chave, { ws, dispositivo, ultimoDevinfo: msg.devinfo || null, pendente: null });
+  }
 
   const patch = {
     ultima_conexao_ws_em: db.fn.now(),
@@ -245,7 +247,7 @@ async function tratarReg(ws, msg) {
     // para dispositivos 'server' ela passa a descrever eventos de conexao
     // em vez de ciclos de coleta (nao existe "ciclo" nesse modelo, o
     // equipamento manda quando tem algo novo).
-    ultima_coleta_status: 'conectado_via_websocket',
+    ultima_coleta_status: viaHttp ? 'conectado_via_http' : 'conectado_via_websocket',
   };
   if (msg.devinfo) patch.ultimo_devinfo = JSON.stringify(msg.devinfo);
   if (msg.devinfo?.mac && !dispositivo.mac_address) patch.mac_address = msg.devinfo.mac;
@@ -276,13 +278,16 @@ async function tratarSendlog(ws, msg) {
   const numeroSerie = ws._numeroSerie;
   logDebug('<- recebido', numeroSerie, msg);
   const conexao = numeroSerie && conexoes.get(numeroSerie);
+  const dispositivoHttp = !conexao && numeroSerie
+    ? await db('dispositivos').whereRaw('UPPER(numero_serie) = UPPER(?)', [numeroSerie.trim()]).first()
+    : null;
 
-  if (!conexao) {
+  if (!conexao && !dispositivoHttp) {
     ws.send(JSON.stringify({ ret: 'sendlog', result: false, reason: 'registre-se (reg) antes de enviar logs' }));
     return;
   }
 
-  const dispositivoAtual = await db('dispositivos').where({ id: conexao.dispositivo.id }).first();
+  const dispositivoAtual = await db('dispositivos').where({ id: conexao?.dispositivo.id || dispositivoHttp.id }).first();
   const timeZone = dispositivoAtual.fuso_horario || 'America/Sao_Paulo';
   const registrosBrutos = Array.isArray(msg.record) ? msg.record : [];
 
@@ -350,7 +355,7 @@ async function tratarSendlog(ws, msg) {
     return;
   }
 
-  conexao.dispositivo = dispositivoAtual;
+  if (conexao) conexao.dispositivo = dispositivoAtual;
 
   enviarMensagem(ws, numeroSerie, {
     ret: 'sendlog',
@@ -413,7 +418,7 @@ async function processarPostPublico(msg) {
         resposta = JSON.parse(payload);
       },
     };
-    await tratarReg(wsVirtual, msg);
+    await tratarReg(wsVirtual, msg, { viaHttp: true });
     return resposta || { ret: 'reg', result: false, reason: 'registro sem resposta' };
   }
 
