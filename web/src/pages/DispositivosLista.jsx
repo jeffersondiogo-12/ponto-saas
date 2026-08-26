@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { api } from '../api';
+import { estadoConexao } from '../utils/conexao';
 
 export default function DispositivosLista() {
   const [dispositivos, setDispositivos] = useState([]);
@@ -50,11 +51,15 @@ export default function DispositivosLista() {
                     <td><span className="chip-dado">{d.protocolo === 'desconhecido' ? 'a confirmar' : d.protocolo}</span></td>
                     <td><span className={`badge badge-${d.situacao}`}>{d.situacao === 'ativo' ? 'Ativo' : 'Inativo'}</span></td>
                     <td>
-                      {d.conectado_agora !== null && (
-                        <span className={`badge badge-${d.conectado_agora ? 'ativo' : 'inativo'}`}>
-                          {d.conectado_agora ? 'Conectado' : 'Offline'}
-                        </span>
-                      )}
+                      {(() => {
+                        const c = estadoConexao(d);
+                        return (
+                          <span className="estado-conexao" title={c.titulo}>
+                            <span className={`badge badge-${c.classe}`}>{c.rotulo}</span>
+                            {c.detalhe && <span className="estado-detalhe">{c.detalhe}</span>}
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td>
                       <Link to={`/dispositivos/${d.id}/editar`} className="btn btn-secundario" style={{ padding: '6px 12px', fontSize: 12.5 }}>

@@ -426,10 +426,62 @@ dia, então mudá-lo reinterpretaria batidas já gravadas.
 > `/turmas/:turmaId/alunos`, `/presencas`, `/notas`, `/observacoes`.
 > Para `gestor` não há endpoint dedicado — ele usa as rotas de staff.
 
+### 4.9 Excluir turma: fallback para desativar — **concluído**
+
+O backend **não expõe `DELETE /api/turmas/:id`** — o módulo tem só get/post/put.
+Em vez de deixar o botão sempre errando, `TurmasLista` tenta o DELETE e, ao
+receber **404 ou 405**, cai para `PUT` com `ativo: false`.
+
+Não fizemos remoção só na tela: a linha sumiria e voltaria no F5, dando a
+entender que algo foi apagado quando nada mudou no servidor. Desativar
+**persiste**, e é mais seguro num sistema onde a turma é referenciada por alunos
+e por registros de ponto já gravados.
+
+O botão passou a se chamar **Desativar**, e turma inativa ganha **Reativar** —
+desativar sem poder desfazer seria pior do que apagar.
+
+Dois detalhes que sustentam isso:
+
+- `requisitar()` agora carrega `erro.status` com o código HTTP. Sem isso o
+  fallback teria de comparar o **texto** da mensagem para saber se a rota existe.
+- O `PUT` reescreve todos os campos: mandar só `ativo` deixaria `nome` e `turno`
+  como `undefined` e o Knex do backend estouraria. Por isso reenviamos o
+  registro inteiro — mesma armadilha do `payloadAluno()`.
+
+### 4.8 Estado de conexão do dispositivo — **concluído**
+
+O selo "Conectado" sozinho **mentia** em equipamento HTTP: como ele não mantém
+conexão aberta, aparecia offline entre um envio e outro mesmo funcionando.
+
+`src/utils/conexao.js` lê os três campos juntos — `conectado_agora`,
+`ultima_conexao_ws_em` e `ultima_coleta_status` — e o badge **sempre** vem
+acompanhado da última comunicação. É esse horário, não o selo, que diz se o
+relógio está vivo. Cinco estados: Conectado, Sem comunicação, Nunca comunicou,
+Sob demanda (protocolo em que o servidor é quem liga) e vazio.
+
+Na tela do dispositivo o bloco deixou de ser restrito a `evo_ws`: em
+`http_rest` o equipamento também se registra, e era justamente ali que o estado
+nunca aparecia.
+
 ### 4.6 Auditoria — **concluído**
 
 - [x] Exposta como um dos relatórios em `/relatorios`, com filtros de período,
       ação e entidade
+- [x] **Tela dedicada em `/auditoria`, restrita a `super_admin`** — item próprio
+      na dock, visível só para esse papel
+
+A tela lista todas as ações e **expande a linha** ao clicar, mostrando o log
+inteiro: metadados, os dois estados em JSON e o log bruto.
+
+O que dá valor de depuração é o bloco **"O que mudou nesta ação"**: `camposAlterados()`
+compara `dados_antes` com `dados_depois` e mostra **só os campos que mudaram**,
+com antes em vermelho e depois em verde. Num log de 30 campos, dois JSON lado a
+lado não revelam nada — a lista de diferenças revela. Não troque isso por um
+dump simples.
+
+> **Depende do backend.** `GET /api/auditoria` **não está montado no `app.js`**
+> (o `auditoria.routes.js` existe, mas ninguém o registra). Até isso ser
+> corrigido a tela carrega e mostra o erro, com uma dica explicando a causa.
 
 A rota chegou no pull de 2026-08-23 (`GET /api/auditoria`, somente leitura,
 restrita a `super_admin`/`admin`/`rh`). Não virou tela separada de propósito:

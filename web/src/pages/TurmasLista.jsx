@@ -9,6 +9,7 @@ export default function TurmasLista() {
   const [alunos, setAlunos] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState(null);
+  const [aviso, setAviso] = useState(null);
   const [confirmandoExclusao, setConfirmandoExclusao] = useState(null);
 
   const carregar = useCallback(async () => {
@@ -31,15 +32,67 @@ export default function TurmasLista() {
     return mapa;
   }, [alunos]);
 
-  async function excluir(id) {
+  /**
+   * Excluir com fallback para desativar.
+   *
+   * O backend nao expoe DELETE /api/turmas/:id — o modulo tem so get/post/put.
+   * Em vez de deixar o botao sempre errando, caimos para `ativo: false` pelo
+   * PUT, que existe. A turma sai da operacao e continua no historico, o que e
+   * mais seguro num sistema onde ela e referenciada por alunos e por registros
+   * de ponto ja gravados.
+   *
+   * Nao fazemos remocao so na tela: a linha sumiria e voltaria no F5, dando a
+   * entender que algo foi apagado quando nada mudou no servidor.
+   */
+  async function excluir(turma) {
     setErro(null);
+    setAviso(null);
     try {
-      await api.excluirTurma(id);
+      await api.excluirTurma(turma.id);
       setConfirmandoExclusao(null);
       await carregar();
+      return;
     } catch (err) {
-      setErro(err.message || 'Erro ao excluir a turma.');
+      if (err.status !== 404 && err.status !== 405) {
+        setErro(err.message || 'Erro ao excluir a turma.');
+        setConfirmandoExclusao(null);
+        return;
+      }
+    }
+
+    try {
+      // O PUT reescreve todos os campos: mandar so `ativo` deixaria nome e
+      // turno como undefined e o Knex do backend estouraria.
+      await api.atualizarTurma(turma.id, {
+        nome: turma.nome,
+        turno: turma.turno,
+        ano_letivo: turma.ano_letivo,
+        ativo: false,
+      });
+      setAviso(`“${turma.nome}” foi desativada. Ela sai da operação, mas continua no histórico — o servidor não permite apagar turmas.`);
+      await carregar();
+    } catch (err) {
+      setErro(err.message || 'Não foi possível desativar a turma.');
+    } finally {
       setConfirmandoExclusao(null);
+    }
+  }
+
+  /** Desativar sem poder desfazer seria pior do que apagar. */
+  async function reativar(turma) {
+    setErro(null);
+    setAviso(null);
+    try {
+      await api.atualizarTurma(turma.id, {
+        nome: turma.nome,
+        turno: turma.turno,
+        ano_letivo: turma.ano_letivo,
+        ativo: true,
+      });
+      setAviso(`“${turma.nome}” voltou a ficar ativa.`);
+      await carregar();
+    } catch (err) {
+      setErro(err.message || 'Não foi possível reativar a turma.');
     }
   }
 
@@ -58,6 +111,7 @@ export default function TurmasLista() {
       </div>
 
       {erro && <div className="erro">{erro}</div>}
+      {aviso && <div className="aviso">{aviso}</div>}
 
       <div className="painel">
         <table className="tabela">
@@ -89,9 +143,13 @@ export default function TurmasLista() {
                   <div style={{ display: 'flex', gap: 6, whiteSpace: 'nowrap' }}>
                     <Link to={`/turmas/${t.id}`} className="btn btn-secundario btn-pequeno">Gerenciar</Link>
                     <Link to={`/turmas/${t.id}/editar`} className="btn btn-secundario btn-pequeno">Editar</Link>
-                    {confirmandoExclusao === t.id ? (
+                    {!t.ativo ? (
+                      <button type="button" className="btn btn-secundario btn-pequeno" onClick={() => reativar(t)}>
+                        Reativar
+                      </button>
+                    ) : confirmandoExclusao === t.id ? (
                       <>
-                        <button type="button" className="btn btn-perigo btn-pequeno" onClick={() => excluir(t.id)}>
+                        <button type="button" className="btn btn-perigo btn-pequeno" onClick={() => excluir(t)}>
                           Confirmar
                         </button>
                         <button type="button" className="btn btn-secundario btn-pequeno" onClick={() => setConfirmandoExclusao(null)}>
@@ -100,7 +158,7 @@ export default function TurmasLista() {
                       </>
                     ) : (
                       <button type="button" className="btn btn-perigo btn-pequeno" onClick={() => setConfirmandoExclusao(t.id)}>
-                        Excluir
+                        Desativar
                       </button>
                     )}
                   </div>

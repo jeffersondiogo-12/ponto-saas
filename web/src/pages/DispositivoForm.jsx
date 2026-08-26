@@ -3,6 +3,7 @@ import { useNavigate, useParams, Link } from 'react-router-dom';
 import Layout from '../components/Layout';
 import Selecao from '../components/Selecao';
 import { api } from '../api';
+import { dataHoraCompleta, estadoConexao } from '../utils/conexao';
 
 const PADRAO = {
   descricao: '',
@@ -29,7 +30,7 @@ export default function DispositivoForm() {
   const navigate = useNavigate();
   const [dados, setDados] = useState(PADRAO);
   const [ultimoNsr, setUltimoNsr] = useState(null);
-  const [conectadoAgora, setConectadoAgora] = useState(null);
+  const [conexaoBruta, setConexaoBruta] = useState(null);
   const [statusAcao, setStatusAcao] = useState('');
 
   useEffect(() => {
@@ -37,9 +38,12 @@ export default function DispositivoForm() {
     api.buscarDispositivo(id).then((r) => {
       setDados({ ...PADRAO, ...r.dispositivo, senha_dispositivo: '' });
       setUltimoNsr(r.dispositivo.ultimo_nsr);
-      setConectadoAgora(r.dispositivo.conectado_agora);
+      setConexaoBruta(r.dispositivo);
     });
   }, [id]);
+
+  const conexao = estadoConexao(conexaoBruta);
+  const ultimaComunicacao = conexaoBruta?.ultima_conexao_ws_em || conexaoBruta?.ultima_coleta_em || null;
 
   function set(campo, valor) {
     setDados((d) => ({ ...d, [campo]: valor }));
@@ -244,11 +248,21 @@ export default function DispositivoForm() {
                   <span className="chip-dado" style={{ width: 'fit-content' }}>{ultimoNsr}</span>
                 </div>
               )}
-              {id && dados.protocolo === 'evo_ws' && (
+              {/* Nao restrito a evo_ws: em http_rest o equipamento tambem se
+                  registra, e era justamente ali que o estado nunca aparecia. */}
+              {id && (
                 <div className="campo">
-                  <label>Conexão WebSocket</label>
-                  <span className={`badge badge-${conectadoAgora ? 'ativo' : 'inativo'}`} style={{ width: 'fit-content' }}>
-                    {conectadoAgora ? 'Conectado agora' : 'Não conectado no momento'}
+                  <label>Comunicação</label>
+                  <span className="estado-conexao" title={conexao.titulo}>
+                    <span className={`badge badge-${conexao.classe}`} style={{ width: 'fit-content' }}>
+                      {conexao.rotulo}
+                    </span>
+                    {conexao.detalhe && <span className="estado-detalhe">{conexao.detalhe}</span>}
+                  </span>
+                  <span className="ajuda">
+                    Última comunicação: {dataHoraCompleta(ultimaComunicacao)}.
+                    {' '}Em HTTP o equipamento não mantém conexão aberta — o que indica que ele está vivo é
+                    esse horário, não o selo de conectado.
                   </span>
                 </div>
               )}
