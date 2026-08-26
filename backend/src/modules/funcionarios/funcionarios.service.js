@@ -32,6 +32,11 @@ async function buscarPorId(empresaId, funcionarioId) {
 }
 
 async function criar(empresaId, dados) {
+  if (dados.filial_id) {
+    const filial = await db('filiais').where({ id: dados.filial_id, empresa_id: empresaId }).first();
+    if (!filial) throw new AppError('Filial nao encontrada.', 404);
+  }
+
   const cpfExistente = await db('funcionarios')
     .where({ empresa_id: empresaId, cpf: dados.cpf })
     .first();
@@ -63,6 +68,11 @@ async function criar(empresaId, dados) {
 async function atualizar(empresaId, funcionarioId, dados) {
   await buscarPorId(empresaId, funcionarioId);
 
+  if (dados.filial_id) {
+    const filial = await db('filiais').where({ id: dados.filial_id, empresa_id: empresaId }).first();
+    if (!filial) throw new AppError('Filial nao encontrada.', 404);
+  }
+
   const [funcionario] = await db('funcionarios')
     .where({ id: funcionarioId, empresa_id: empresaId })
     .update({
@@ -86,12 +96,15 @@ async function atualizar(empresaId, funcionarioId, dados) {
  * brutas recebidas na coleta).
  */
 async function vincularDispositivo(empresaId, funcionarioId, dispositivoId, idNoDispositivo) {
-  await buscarPorId(empresaId, funcionarioId);
+  const funcionario = await buscarPorId(empresaId, funcionarioId);
 
   const dispositivo = await db('dispositivos')
     .where({ id: dispositivoId, empresa_id: empresaId })
     .first();
   if (!dispositivo) throw new AppError('Dispositivo nao encontrado.', 404);
+  if (!funcionario.filial_id || dispositivo.filial_id !== funcionario.filial_id) {
+    throw new AppError('O funcionario e o dispositivo devem pertencer a mesma filial.', 400);
+  }
 
   const [vinculo] = await db('funcionario_dispositivos')
     .insert({

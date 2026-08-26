@@ -6,9 +6,4 @@ exports.up = async function (knex) {
   `);
 };
 
-exports.down = async function (knex) {
-  await knex.schema.raw(`
-    ALTER TABLE alunos
-      DROP COLUMN IF EXISTS cpf
-  `);
-};
+exports.down = async function () {};

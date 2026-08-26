@@ -56,8 +56,14 @@ async function ingerirRegistros(empresaId, dispositivo, registros) {
   // cadastro esse X pertence e aqui (por isso duas consultas, uma tabela de
   // vinculo por tipo, sem duplicar o resto do pipeline de coleta).
   const [vinculosFuncionarios, vinculosAlunos] = await Promise.all([
-    db('funcionario_dispositivos').where({ dispositivo_id: dispositivo.id }),
-    db('aluno_dispositivos').where({ dispositivo_id: dispositivo.id }),
+    db('funcionario_dispositivos as fd')
+      .join('funcionarios as f', 'f.id', 'fd.funcionario_id')
+      .where({ 'fd.dispositivo_id': dispositivo.id, 'f.empresa_id': empresaId, 'f.filial_id': dispositivo.filial_id })
+      .select('fd.*'),
+    db('aluno_dispositivos as ad')
+      .join('alunos as a', 'a.id', 'ad.aluno_id')
+      .where({ 'ad.dispositivo_id': dispositivo.id, 'a.empresa_id': empresaId, 'a.filial_id': dispositivo.filial_id })
+      .select('ad.*'),
   ]);
   const mapaFuncionarioPorIdDispositivo = new Map(vinculosFuncionarios.map((v) => [v.id_no_dispositivo, v.funcionario_id]));
   const mapaAlunoPorIdDispositivo = new Map(vinculosAlunos.map((v) => [v.id_no_dispositivo, v.aluno_id]));
@@ -78,6 +84,7 @@ async function ingerirRegistros(empresaId, dispositivo, registros) {
       const [inserido] = await trx('registros_ponto')
         .insert({
           empresa_id: empresaId,
+          filial_id: dispositivo.filial_id,
           dispositivo_id: dispositivo.id,
           funcionario_id: funcionarioId,
           aluno_id: alunoId,
@@ -146,6 +153,7 @@ async function registrarBatidaManual(empresaId, { funcionarioId, dataHora, tipoB
   const [registro] = await db('registros_ponto')
     .insert({
       empresa_id: empresaId,
+      filial_id: funcionario.filial_id || null,
       funcionario_id: funcionarioId,
       data_hora: dataHora,
       tipo_batida: tipoBatida || 'indefinido',

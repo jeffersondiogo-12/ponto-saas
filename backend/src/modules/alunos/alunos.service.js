@@ -3,8 +3,9 @@ const { AppError } = require('../../middlewares/errorHandler');
 
 async function listar(empresaId, { turmaId, ativo } = {}) {
   const query = db('alunos as a')
-    .select('a.*', 't.nome as turma_nome', 'f.nome as filial_nome')
+    .select('a.*', 't.nome as turma_nome', 'f.nome as filial_nome', 'h.nome as horario_nome')
     .leftJoin('turmas as t', 't.id', 'a.turma_id')
+    .leftJoin('horarios_alunos as h', 'h.id', 'a.horario_aluno_id')
     .join('filiais as f', 'f.id', 'a.filial_id')
     .where('a.empresa_id', empresaId)
     .orderBy('a.nome');
@@ -31,6 +32,17 @@ async function criar(empresaId, dados) {
     throw new AppError('Alunos só podem ser cadastrados em unidades do tipo escola.', 400);
   }
 
+  if (dados.turma_id) {
+    const turma = await db('turmas').where({ id: dados.turma_id, empresa_id: empresaId, filial_id: dados.filial_id, ativo: true }).first();
+    if (!turma) throw new AppError('Turma nao encontrada nesta filial.', 404);
+  }
+
+  const horarioAlunoId = dados.horario_aluno_id === undefined ? alunoAtual.horario_aluno_id : dados.horario_aluno_id || null;
+  if (horarioAlunoId) {
+    const horario = await db('horarios_alunos').where({ id: horarioAlunoId }).first();
+    if (!horario) throw new AppError('Horario escolar nao encontrado.', 404);
+  }
+
   const matriculaExistente = await db('alunos')
     .where({ empresa_id: empresaId, matricula: dados.matricula })
     .first();
@@ -41,6 +53,7 @@ async function criar(empresaId, dados) {
       empresa_id: empresaId,
       filial_id: dados.filial_id,
       turma_id: dados.turma_id || null,
+      horario_aluno_id: horarioAlunoId,
       matricula: dados.matricula,
       nome: dados.nome,
       cpf,
@@ -54,14 +67,26 @@ async function criar(empresaId, dados) {
 }
 
 async function atualizar(empresaId, alunoId, dados) {
-  await buscarPorId(empresaId, alunoId);
+  const alunoAtual = await buscarPorId(empresaId, alunoId);
   const cpf = String(dados.cpf || '').replace(/\D/g, '');
   if (cpf.length !== 11) throw new AppError('CPF do aluno deve ter 11 digitos.', 400);
+
+  if (dados.turma_id) {
+    const turma = await db('turmas').where({ id: dados.turma_id, empresa_id: empresaId, filial_id: alunoAtual.filial_id, ativo: true }).first();
+    if (!turma) throw new AppError('Turma nao encontrada nesta filial.', 404);
+  }
+
+  const horarioAlunoId = dados.horario_aluno_id || null;
+  if (horarioAlunoId) {
+    const horario = await db('horarios_alunos').where({ id: horarioAlunoId }).first();
+    if (!horario) throw new AppError('Horario escolar nao encontrado.', 404);
+  }
 
   const [aluno] = await db('alunos')
     .where({ id: alunoId, empresa_id: empresaId })
     .update({
       turma_id: dados.turma_id || null,
+      horario_aluno_id: horarioAlunoId,
       nome: dados.nome,
       cpf,
       data_nascimento: dados.data_nascimento || null,
@@ -85,6 +110,9 @@ async function vincularDispositivo(empresaId, alunoId, dispositivoId, idNoDispos
 
   const dispositivo = await db('dispositivos').where({ id: dispositivoId, empresa_id: empresaId }).first();
   if (!dispositivo) throw new AppError('Dispositivo nao encontrado.', 404);
+  if (!dispositivo.filial_id || dispositivo.filial_id !== aluno.filial_id) {
+    throw new AppError('O aluno e o dispositivo devem pertencer a mesma filial.', 400);
+  }
 
   // Um mesmo ID interno do dispositivo nao pode already estar reservado por
   // um FUNCIONARIO (o equipamento nao distingue "tipo de pessoa" nos IDs dele).

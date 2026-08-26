@@ -41,10 +41,17 @@ async function criar(empresaId, dados) {
 }
 
 async function atualizar(empresaId, turmaId, dados) {
-  await buscarPorId(empresaId, turmaId);
+  const turmaAtual = await buscarPorId(empresaId, turmaId);
+
+  if (dados.ativo === false) {
+    const alunosAtivos = await db('alunos').where({ turma_id: turmaId, ativo: true }).count('* as total').first();
+    if (Number(alunosAtivos.total) > 0) {
+      throw new AppError('Nao e possivel inativar uma turma com alunos ativos.', 409);
+    }
+  }
 
   const [turma] = await db('turmas')
-    .where({ id: turmaId, empresa_id: empresaId })
+    .where({ id: turmaAtual.id, empresa_id: empresaId })
     .update({
       nome: dados.nome,
       turno: dados.turno,

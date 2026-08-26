@@ -46,6 +46,9 @@ async function buscarPorId(empresaId, dispositivoId) {
 }
 
 async function criar(empresaId, dados) {
+  const filial = await db('filiais').where({ id: dados.filial_id, empresa_id: empresaId }).first();
+  if (!filial) throw new AppError('Filial do dispositivo nao encontrada.', 404);
+
   const serieExistente = await db('dispositivos')
     .where({ empresa_id: empresaId, numero_serie: dados.numero_serie })
     .first();
@@ -81,6 +84,8 @@ async function criar(empresaId, dados) {
 
 async function atualizar(empresaId, dispositivoId, dados) {
   await buscarPorId(empresaId, dispositivoId);
+  const filial = await db('filiais').where({ id: dados.filial_id, empresa_id: empresaId }).first();
+  if (!filial) throw new AppError('Filial do dispositivo nao encontrada.', 404);
 
   const patch = {
     filial_id: dados.filial_id || null,
