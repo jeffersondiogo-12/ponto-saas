@@ -77,7 +77,11 @@ async function requisitar(caminho, { method = 'GET', body } = {}) {
   const dados = await resposta.json().catch(() => ({}));
 
   if (!resposta.ok) {
-    throw new Error(dados.erro || `Erro ${resposta.status}`);
+    // Carrega o status no erro: quem chama precisa distinguir "rota nao existe"
+    // (404) de "o servidor recusou" sem depender do texto da mensagem.
+    const erro = new Error(dados.erro || `Erro ${resposta.status}`);
+    erro.status = resposta.status;
+    throw erro;
   }
 
   return dados;
