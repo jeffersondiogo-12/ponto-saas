@@ -417,6 +417,18 @@ async function processarPostPublico(msg) {
     return resposta || { ret: 'reg', result: false, reason: 'registro sem resposta' };
   }
 
+  if (msg.cmd === 'sendlog') {
+    let resposta;
+    const wsVirtual = {
+      _numeroSerie: msg.sn,
+      send(payload) {
+        resposta = JSON.parse(payload);
+      },
+    };
+    await tratarSendlog(wsVirtual, msg);
+    return resposta || { ret: 'sendlog', result: false, reason: 'envio sem resposta' };
+  }
+
   return { ret: msg.cmd, result: false, reason: 'comando HTTP nao suportado' };
 }
 

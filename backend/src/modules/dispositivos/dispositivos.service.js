@@ -14,6 +14,8 @@ const COLUNA_PESSOA = { funcionario: 'funcionario_id', aluno: 'aluno_id' };
 // Nunca deixamos a senha (cifrada ou nao) sair para a API/tela.
 function sanitizar(dispositivo) {
   if (!dispositivo) return dispositivo;
+  const ultimaComunicacao = dispositivo.ultima_conexao_ws_em ? new Date(dispositivo.ultima_conexao_ws_em).getTime() : 0;
+  const comunicouRecentemente = ultimaComunicacao > 0 && Date.now() - ultimaComunicacao <= 60 * 1000;
   const { senha_dispositivo_cifrada, ...resto } = dispositivo;
   return {
     ...resto,
@@ -21,7 +23,10 @@ function sanitizar(dispositivo) {
     // So faz sentido pra dispositivos 'server' (o equipamento e quem se
     // conecta) - fica null pros demais, em vez de sempre false, para nao
     // sugerir "desconectado" num protocolo onde essa nocao nem existe.
-    conectado_agora: dispositivo.protocolo === 'evo_ws' ? evoFacialServidor.estaConectado(dispositivo.numero_serie) : null,
+    conectado_agora:
+      dispositivo.protocolo === 'evo_ws'
+        ? evoFacialServidor.estaConectado(dispositivo.numero_serie) || comunicouRecentemente
+        : null,
   };
 }
 
