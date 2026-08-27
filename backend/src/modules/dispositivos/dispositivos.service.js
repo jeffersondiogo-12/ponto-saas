@@ -1,21 +1,30 @@
-const db = require('../../config/db');
-const { AppError } = require('../../middlewares/errorHandler');
-const { encrypt, decrypt } = require('../../utils/crypto');
-const { criarAdapter } = require('./adapters');
-const evoFacialServidor = require('./evoFacialServidor');
+const db = require("../../config/db");
+const { AppError } = require("../../middlewares/errorHandler");
+const { encrypt, decrypt } = require("../../utils/crypto");
+const { criarAdapter } = require("./adapters");
+const evoFacialServidor = require("./evoFacialServidor");
 // Reaproveita o vinculo ja implementado em cada modulo de pessoa, em vez de
 // duplicar o upsert de funcionario_dispositivos/aluno_dispositivos aqui.
-const funcionariosService = require('../funcionarios/funcionarios.service');
-const alunosService = require('../alunos/alunos.service');
+const funcionariosService = require("../funcionarios/funcionarios.service");
+const alunosService = require("../alunos/alunos.service");
 
-const TABELA_VINCULO = { funcionario: 'funcionario_dispositivos', aluno: 'aluno_dispositivos' };
-const COLUNA_PESSOA = { funcionario: 'funcionario_id', aluno: 'aluno_id' };
+const TABELA_VINCULO = {
+  funcionario: "funcionario_dispositivos",
+  aluno: "aluno_dispositivos",
+};
+const COLUNA_PESSOA = { funcionario: "funcionario_id", aluno: "aluno_id" };
 
 // Nunca deixamos a senha (cifrada ou nao) sair para a API/tela.
 function sanitizar(dispositivo) {
   if (!dispositivo) return dispositivo;
-  const ultimaComunicacao = dispositivo.ultima_conexao_ws_em ? new Date(dispositivo.ultima_conexao_ws_em).getTime() : 0;
-  const comunicouRecentemente = ultimaComunicacao > 0 && Date.now() - ultimaComunicacao <= 60 * 1000;
+  const ultimaComunicacao = dispositivo.ultima_conexao_ws_em
+    ? new Date(dispositivo.ultima_conexao_ws_em).getTime()
+    : 0;
+  // Alguns firmwares Evo fazem o polling em aproximadamente 5 minutos,
+  // apesar do protocolo documentar 20 segundos. A janela precisa cobrir
+  // esse intervalo real para nao exibir "offline" entre dois registros.
+  const comunicouRecentemente =
+    ultimaComunicacao > 0 && Date.now() - ultimaComunicacao <= 10 * 60 * 1000;
   const { senha_dispositivo_cifrada, ...resto } = dispositivo;
   return {
     ...resto,
@@ -23,51 +32,58 @@ function sanitizar(dispositivo) {
     // So faz sentido pra dispositivos 'server' (o equipamento e quem se
     // conecta) - fica null pros demais, em vez de sempre false, para nao
     // sugerir "desconectado" num protocolo onde essa nocao nem existe.
-    conectado_agora:
-      ['evo_ws', 'http_rest'].includes(dispositivo.protocolo)
-        ? evoFacialServidor.estaConectado(dispositivo.numero_serie) || comunicouRecentemente
-        : null,
+    conectado_agora: ["evo_ws", "http_rest"].includes(dispositivo.protocolo)
+      ? evoFacialServidor.estaConectado(dispositivo.numero_serie) ||
+        comunicouRecentemente
+      : null,
   };
 }
 
 async function listar(empresaId) {
-  const dispositivos = await db('dispositivos')
+  const dispositivos = await db("dispositivos")
     .where({ empresa_id: empresaId })
-    .orderBy('descricao');
+    .orderBy("descricao");
   return dispositivos.map(sanitizar);
 }
 
 async function buscarPorId(empresaId, dispositivoId) {
-  const dispositivo = await db('dispositivos')
+  const dispositivo = await db("dispositivos")
     .where({ id: dispositivoId, empresa_id: empresaId })
     .first();
-  if (!dispositivo) throw new AppError('Dispositivo nao encontrado.', 404);
+  if (!dispositivo) throw new AppError("Dispositivo nao encontrado.", 404);
   return dispositivo; // versao NAO sanitizada, uso interno (ex: forcarColeta)
 }
 
 async function criar(empresaId, dados) {
-  const filial = await db('filiais').where({ id: dados.filial_id, empresa_id: empresaId }).first();
-  if (!filial) throw new AppError('Filial do dispositivo nao encontrada.', 404);
+  if (!dados.filial_id)
+    throw new AppError("Selecione a filial do dispositivo.", 400);
+  const filial = await db("filiais")
+    .where({ id: dados.filial_id, empresa_id: empresaId })
+    .first();
+  if (!filial) throw new AppError("Filial do dispositivo nao encontrada.", 404);
 
-  const serieExistente = await db('dispositivos')
+  const serieExistente = await db("dispositivos")
     .where({ empresa_id: empresaId, numero_serie: dados.numero_serie })
     .first();
   if (serieExistente) {
-    throw new AppError('Ja existe um dispositivo cadastrado com este numero de serie.', 409);
+    throw new AppError(
+      "Ja existe um dispositivo cadastrado com este numero de serie.",
+      409,
+    );
   }
 
-  const [dispositivo] = await db('dispositivos')
+  const [dispositivo] = await db("dispositivos")
     .insert({
       empresa_id: empresaId,
       filial_id: dados.filial_id || null,
       descricao: dados.descricao,
-      modelo: dados.modelo || 'Facial AI 5',
-      tipo_biometria: dados.tipo_biometria || 'facial',
-      situacao: dados.situacao || 'ativo',
-      fuso_horario: dados.fuso_horario || 'America/Sao_Paulo',
+      modelo: dados.modelo || "Facial AI 5",
+      tipo_biometria: dados.tipo_biometria || "facial",
+      situacao: dados.situacao || "ativo",
+      fuso_horario: dados.fuso_horario || "America/Sao_Paulo",
       enviar_comprovante_email: Boolean(dados.enviar_comprovante_email),
-      modo_conexao: dados.modo_conexao || 'client',
-      ip: dados.ip,
+      modo_conexao: dados.modo_conexao || "client",
+      ip: dados.ip?.trim() || null,
       porta: dados.porta || 4370,
       nao_validar_empresa: Boolean(dados.nao_validar_empresa),
       numero_serie: dados.numero_serie,
@@ -75,17 +91,21 @@ async function criar(empresaId, dados) {
       usuario_dispositivo: dados.usuario_dispositivo || null,
       senha_dispositivo_cifrada: encrypt(dados.senha_dispositivo),
       identificador_equipamento: dados.identificador_equipamento || null,
-      protocolo: dados.protocolo || 'desconhecido',
+      protocolo: dados.protocolo || "desconhecido",
     })
-    .returning('*');
+    .returning("*");
 
   return sanitizar(dispositivo);
 }
 
 async function atualizar(empresaId, dispositivoId, dados) {
   await buscarPorId(empresaId, dispositivoId);
-  const filial = await db('filiais').where({ id: dados.filial_id, empresa_id: empresaId }).first();
-  if (!filial) throw new AppError('Filial do dispositivo nao encontrada.', 404);
+  if (!dados.filial_id)
+    throw new AppError("Selecione a filial do dispositivo.", 400);
+  const filial = await db("filiais")
+    .where({ id: dados.filial_id, empresa_id: empresaId })
+    .first();
+  if (!filial) throw new AppError("Filial do dispositivo nao encontrada.", 404);
 
   const patch = {
     filial_id: dados.filial_id || null,
@@ -96,7 +116,7 @@ async function atualizar(empresaId, dispositivoId, dados) {
     fuso_horario: dados.fuso_horario,
     enviar_comprovante_email: Boolean(dados.enviar_comprovante_email),
     modo_conexao: dados.modo_conexao,
-    ip: dados.ip,
+    ip: dados.ip?.trim() || null,
     porta: dados.porta,
     nao_validar_empresa: Boolean(dados.nao_validar_empresa),
     mac_address: dados.mac_address || null,
@@ -110,10 +130,10 @@ async function atualizar(empresaId, dispositivoId, dados) {
     patch.senha_dispositivo_cifrada = encrypt(dados.senha_dispositivo);
   }
 
-  const [dispositivo] = await db('dispositivos')
+  const [dispositivo] = await db("dispositivos")
     .where({ id: dispositivoId, empresa_id: empresaId })
     .update(patch)
-    .returning('*');
+    .returning("*");
 
   return sanitizar(dispositivo);
 }
@@ -172,17 +192,40 @@ async function listarUsuariosNoEquipamento(empresaId, dispositivoId) {
  * So funciona com protocolos que suportam cadastro remoto (ver
  * DeviceAdapter.cadastrarFace) - hoje, so evo_ws.
  */
-async function cadastrarFace(empresaId, dispositivoId, { tipo, pessoaId, idNoDispositivo, nome, fotoBase64 }) {
-  if (!TABELA_VINCULO[tipo]) throw new AppError('tipo deve ser "funcionario" ou "aluno".', 400);
-  if (!idNoDispositivo) throw new AppError('idNoDispositivo (enrollId no equipamento) e obrigatorio.', 400);
+async function cadastrarFace(
+  empresaId,
+  dispositivoId,
+  { tipo, pessoaId, idNoDispositivo, nome, fotoBase64 },
+) {
+  if (!TABELA_VINCULO[tipo])
+    throw new AppError('tipo deve ser "funcionario" ou "aluno".', 400);
+  if (!idNoDispositivo)
+    throw new AppError(
+      "idNoDispositivo (enrollId no equipamento) e obrigatorio.",
+      400,
+    );
 
   const adapter = await obterAdapter(empresaId, dispositivoId);
-  const resultado = await adapter.cadastrarFace({ enrollId: idNoDispositivo, nome, fotoBase64 });
+  const resultado = await adapter.cadastrarFace({
+    enrollId: idNoDispositivo,
+    nome,
+    fotoBase64,
+  });
 
-  if (tipo === 'funcionario') {
-    await funcionariosService.vincularDispositivo(empresaId, pessoaId, dispositivoId, resultado.enrollId);
+  if (tipo === "funcionario") {
+    await funcionariosService.vincularDispositivo(
+      empresaId,
+      pessoaId,
+      dispositivoId,
+      resultado.enrollId,
+    );
   } else {
-    await alunosService.vincularDispositivo(empresaId, pessoaId, dispositivoId, resultado.enrollId);
+    await alunosService.vincularDispositivo(
+      empresaId,
+      pessoaId,
+      dispositivoId,
+      resultado.enrollId,
+    );
   }
 
   return { enrollId: resultado.enrollId };
@@ -191,12 +234,19 @@ async function cadastrarFace(empresaId, dispositivoId, { tipo, pessoaId, idNoDis
 /** Remove a face do equipamento e desfaz o vinculo local, nessa ordem (so desvincula se o equipamento confirmar). */
 async function removerFace(empresaId, dispositivoId, { tipo, pessoaId }) {
   const tabela = TABELA_VINCULO[tipo];
-  if (!tabela) throw new AppError('tipo deve ser "funcionario" ou "aluno".', 400);
+  if (!tabela)
+    throw new AppError('tipo deve ser "funcionario" ou "aluno".', 400);
 
   await buscarPorId(empresaId, dispositivoId); // valida que o dispositivo e desta empresa
 
-  const vinculo = await db(tabela).where({ dispositivo_id: dispositivoId, [COLUNA_PESSOA[tipo]]: pessoaId }).first();
-  if (!vinculo) throw new AppError('Este funcionario/aluno nao esta vinculado a este dispositivo.', 404);
+  const vinculo = await db(tabela)
+    .where({ dispositivo_id: dispositivoId, [COLUNA_PESSOA[tipo]]: pessoaId })
+    .first();
+  if (!vinculo)
+    throw new AppError(
+      "Este funcionario/aluno nao esta vinculado a este dispositivo.",
+      404,
+    );
 
   const adapter = await obterAdapter(empresaId, dispositivoId);
   await adapter.removerFace(vinculo.id_no_dispositivo);

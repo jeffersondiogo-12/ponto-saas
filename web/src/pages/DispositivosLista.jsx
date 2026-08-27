@@ -1,25 +1,46 @@
-import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import Layout from '../components/Layout';
-import { api } from '../api';
-import { estadoConexao } from '../utils/conexao';
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import Layout from "../components/Layout";
+import { api } from "../api";
+import { estadoConexao } from "../utils/conexao";
 
 export default function DispositivosLista() {
   const [dispositivos, setDispositivos] = useState([]);
   const [carregando, setCarregando] = useState(true);
 
   useEffect(() => {
-    api.listarDispositivos().then((r) => {
-      setDispositivos(r.dispositivos);
-      setCarregando(false);
-    });
+    let ativo = true;
+    const carregar = () =>
+      api.listarDispositivos().then((r) => {
+        if (!ativo) return;
+        setDispositivos(r.dispositivos);
+        setCarregando(false);
+      });
+
+    carregar();
+    const timer = setInterval(carregar, 20_000);
+    return () => {
+      ativo = false;
+      clearInterval(timer);
+    };
   }, []);
 
   return (
     <Layout>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 22 }}>
-        <h1 className="titulo-pagina" style={{ marginBottom: 0 }}>Dispositivos</h1>
-        <Link to="/dispositivos/novo" className="btn btn-azul">+ Novo dispositivo</Link>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: 22,
+        }}
+      >
+        <h1 className="titulo-pagina" style={{ marginBottom: 0 }}>
+          Dispositivos
+        </h1>
+        <Link to="/dispositivos/novo" className="btn btn-azul">
+          + Novo dispositivo
+        </Link>
       </div>
 
       <div className="card">
@@ -46,30 +67,56 @@ export default function DispositivosLista() {
                   <tr key={d.id}>
                     <td>{d.descricao}</td>
                     <td>{d.modelo}</td>
-                    <td className="mono">{d.ip || '—'}:{d.porta}</td>
+                    <td className="mono">
+                      {d.ip || "—"}:{d.porta}
+                    </td>
                     <td className="mono">{d.numero_serie}</td>
-                    <td><span className="chip-dado">{d.protocolo === 'desconhecido' ? 'a confirmar' : d.protocolo}</span></td>
-                    <td><span className={`badge badge-${d.situacao}`}>{d.situacao === 'ativo' ? 'Ativo' : 'Inativo'}</span></td>
+                    <td>
+                      <span className="chip-dado">
+                        {d.protocolo === "desconhecido"
+                          ? "a confirmar"
+                          : d.protocolo}
+                      </span>
+                    </td>
+                    <td>
+                      <span className={`badge badge-${d.situacao}`}>
+                        {d.situacao === "ativo" ? "Ativo" : "Inativo"}
+                      </span>
+                    </td>
                     <td>
                       {(() => {
                         const c = estadoConexao(d);
                         return (
                           <span className="estado-conexao" title={c.titulo}>
-                            <span className={`badge badge-${c.classe}`}>{c.rotulo}</span>
-                            {c.detalhe && <span className="estado-detalhe">{c.detalhe}</span>}
+                            <span className={`badge badge-${c.classe}`}>
+                              {c.rotulo}
+                            </span>
+                            {c.detalhe && (
+                              <span className="estado-detalhe">
+                                {c.detalhe}
+                              </span>
+                            )}
                           </span>
                         );
                       })()}
                     </td>
                     <td>
-                      <Link to={`/dispositivos/${d.id}/editar`} className="btn btn-secundario" style={{ padding: '6px 12px', fontSize: 12.5 }}>
+                      <Link
+                        to={`/dispositivos/${d.id}/editar`}
+                        className="btn btn-secundario"
+                        style={{ padding: "6px 12px", fontSize: 12.5 }}
+                      >
                         Editar
                       </Link>
                     </td>
                   </tr>
                 ))}
                 {dispositivos.length === 0 && (
-                  <tr><td colSpan={8} className="texto-apoio">Nenhum dispositivo cadastrado ainda.</td></tr>
+                  <tr>
+                    <td colSpan={8} className="texto-apoio">
+                      Nenhum dispositivo cadastrado ainda.
+                    </td>
+                  </tr>
                 )}
               </tbody>
             </table>

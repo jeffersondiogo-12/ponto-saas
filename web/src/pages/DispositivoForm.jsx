@@ -1,49 +1,77 @@
-import { useEffect, useState } from 'react';
-import { useNavigate, useParams, Link } from 'react-router-dom';
-import Layout from '../components/Layout';
-import Selecao from '../components/Selecao';
-import { api } from '../api';
-import { dataHoraCompleta, estadoConexao } from '../utils/conexao';
+import { useEffect, useState } from "react";
+import { useNavigate, useParams, Link } from "react-router-dom";
+import Layout from "../components/Layout";
+import Selecao from "../components/Selecao";
+import { api } from "../api";
+import { dataHoraCompleta, estadoConexao } from "../utils/conexao";
+import { useAuth } from "../context/AuthContext";
 
 const PADRAO = {
-  descricao: '',
-  filial_id: '',
-  situacao: 'ativo',
-  modelo: 'Facial AI 5',
-  tipo_biometria: 'facial',
-  fuso_horario: 'America/Sao_Paulo',
+  descricao: "",
+  filial_id: "",
+  situacao: "ativo",
+  modelo: "Facial AI 5",
+  tipo_biometria: "facial",
+  fuso_horario: "America/Sao_Paulo",
   enviar_comprovante_email: false,
-  modo_conexao: 'client',
-  ip: '',
+  modo_conexao: "client",
+  ip: "",
   porta: 4370,
   nao_validar_empresa: false,
-  numero_serie: '',
-  mac_address: '',
-  protocolo: 'desconhecido',
-  usuario_dispositivo: '',
-  senha_dispositivo: '',
-  identificador_equipamento: '',
+  numero_serie: "",
+  mac_address: "",
+  protocolo: "desconhecido",
+  usuario_dispositivo: "",
+  senha_dispositivo: "",
+  identificador_equipamento: "",
 };
 
 export default function DispositivoForm() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { empresaSelecionada, filialSelecionada } = useAuth();
   const [dados, setDados] = useState(PADRAO);
+  const [filiais, setFiliais] = useState([]);
   const [ultimoNsr, setUltimoNsr] = useState(null);
   const [conexaoBruta, setConexaoBruta] = useState(null);
-  const [statusAcao, setStatusAcao] = useState('');
+  const [statusAcao, setStatusAcao] = useState("");
+
+  useEffect(() => {
+    api
+      .listarUnidades()
+      .then((r) => {
+        const disponiveis = (r.filiais || []).filter(
+          (filial) =>
+            filial.ativo &&
+            (!empresaSelecionada ||
+              String(filial.empresa_id) === String(empresaSelecionada.id)),
+        );
+        setFiliais(disponiveis);
+        if (
+          !id &&
+          filialSelecionada &&
+          disponiveis.some((filial) => filial.id === filialSelecionada.id)
+        ) {
+          setDados((atual) => ({ ...atual, filial_id: filialSelecionada.id }));
+        }
+      })
+      .catch(() => setFiliais([]));
+  }, [empresaSelecionada, filialSelecionada, id]);
 
   useEffect(() => {
     if (!id) return;
     api.buscarDispositivo(id).then((r) => {
-      setDados({ ...PADRAO, ...r.dispositivo, senha_dispositivo: '' });
+      setDados({ ...PADRAO, ...r.dispositivo, senha_dispositivo: "" });
       setUltimoNsr(r.dispositivo.ultimo_nsr);
       setConexaoBruta(r.dispositivo);
     });
   }, [id]);
 
   const conexao = estadoConexao(conexaoBruta);
-  const ultimaComunicacao = conexaoBruta?.ultima_conexao_ws_em || conexaoBruta?.ultima_coleta_em || null;
+  const ultimaComunicacao =
+    conexaoBruta?.ultima_conexao_ws_em ||
+    conexaoBruta?.ultima_coleta_em ||
+    null;
 
   function set(campo, valor) {
     setDados((d) => ({ ...d, [campo]: valor }));
@@ -51,40 +79,49 @@ export default function DispositivoForm() {
 
   async function salvar(e) {
     e.preventDefault();
+    if (!dados.filial_id) {
+      alert("Selecione a filial do dispositivo.");
+      return;
+    }
     const payload = { ...dados };
+    payload.ip = payload.ip?.trim() || null;
     if (!payload.senha_dispositivo) delete payload.senha_dispositivo;
 
     try {
       if (id) await api.atualizarDispositivo(id, payload);
       else await api.criarDispositivo(payload);
-      navigate('/dispositivos');
+      navigate("/dispositivos");
     } catch (err) {
       alert(err.message);
     }
   }
 
   async function testarConexao() {
-    setStatusAcao('Testando conexão...');
+    setStatusAcao("Testando conexão...");
     try {
       const r = await api.testarConexaoDispositivo(id);
-      setStatusAcao(r.ok ? 'Conectado com sucesso.' : `Falha: ${r.erro}`);
+      setStatusAcao(r.ok ? "Conectado com sucesso." : `Falha: ${r.erro}`);
     } catch (err) {
       setStatusAcao(`Falha: ${err.message}`);
     }
   }
 
   async function forcarColeta() {
-    setStatusAcao('Coletando...');
+    setStatusAcao("Coletando...");
     try {
       const r = await api.forcarColeta(id);
-      setStatusAcao(r.ok ? `${r.totalNovos} novo(s), ${r.totalNaoResolvidos} sem vínculo.` : `Falha: ${r.erro}`);
+      setStatusAcao(
+        r.ok
+          ? `${r.totalNovos} novo(s), ${r.totalNaoResolvidos} sem vínculo.`
+          : `Falha: ${r.erro}`,
+      );
     } catch (err) {
       setStatusAcao(`Falha: ${err.message}`);
     }
   }
 
   async function verUsuariosNoEquipamento() {
-    setStatusAcao('Consultando equipamento...');
+    setStatusAcao("Consultando equipamento...");
     try {
       const r = await api.usuariosNoEquipamento(id);
       if (r.ok === false) {
@@ -92,8 +129,8 @@ export default function DispositivoForm() {
       } else {
         setStatusAcao(
           r.usuarios.length
-            ? `${r.usuarios.length} usuário(s) no equipamento: ${r.usuarios.map((u) => u.idNoDispositivo).join(', ')}`
-            : 'Nenhum usuário cadastrado no equipamento.'
+            ? `${r.usuarios.length} usuário(s) no equipamento: ${r.usuarios.map((u) => u.idNoDispositivo).join(", ")}`
+            : "Nenhum usuário cadastrado no equipamento.",
         );
       }
     } catch (err) {
@@ -103,8 +140,12 @@ export default function DispositivoForm() {
 
   return (
     <Layout>
-      <Link to="/dispositivos" className="link-topo">&larr; Dispositivos</Link>
-      <h1 className="titulo-pagina">{id ? dados.descricao : 'Novo dispositivo'}</h1>
+      <Link to="/dispositivos" className="link-topo">
+        &larr; Dispositivos
+      </Link>
+      <h1 className="titulo-pagina">
+        {id ? dados.descricao : "Novo dispositivo"}
+      </h1>
 
       <form onSubmit={salvar}>
         <div className="card">
@@ -112,48 +153,77 @@ export default function DispositivoForm() {
           <div className="card-corpo">
             <div className="grid-form">
               <div className="campo">
+                <label>Filial do equipamento</label>
+                <Selecao
+                  rotuloAria="Filial do equipamento"
+                  valor={dados.filial_id}
+                  aoMudar={(v) => set("filial_id", v)}
+                  opcoes={filiais.map((filial) => ({
+                    valor: filial.id,
+                    rotulo: filial.nome,
+                  }))}
+                />
+              </div>
+              <div className="campo">
                 <label>Descrição do equipamento</label>
-                <input value={dados.descricao} onChange={(e) => set('descricao', e.target.value)} required />
+                <input
+                  value={dados.descricao}
+                  onChange={(e) => set("descricao", e.target.value)}
+                  required
+                />
               </div>
               <div className="campo">
                 <label>Situação do cadastro</label>
                 <Selecao
                   rotuloAria="Situação do cadastro"
                   valor={dados.situacao}
-                  aoMudar={(v) => set('situacao', v)}
+                  aoMudar={(v) => set("situacao", v)}
                   opcoes={[
-                    { valor: 'ativo', rotulo: 'Ativo' },
-                    { valor: 'inativo', rotulo: 'Inativo' },
+                    { valor: "ativo", rotulo: "Ativo" },
+                    { valor: "inativo", rotulo: "Inativo" },
                   ]}
                 />
               </div>
               <div className="campo">
                 <label>Modelo do equipamento</label>
-                <input value={dados.modelo} onChange={(e) => set('modelo', e.target.value)} />
+                <input
+                  value={dados.modelo}
+                  onChange={(e) => set("modelo", e.target.value)}
+                />
               </div>
               <div className="campo">
                 <label>Tipo de biometria</label>
                 <Selecao
                   rotuloAria="Tipo de biometria"
                   valor={dados.tipo_biometria}
-                  aoMudar={(v) => set('tipo_biometria', v)}
-                  opcoes={['facial', 'digital', 'cartao', 'senha', 'misto'].map((t) => ({
-                    valor: t, rotulo: t.charAt(0).toUpperCase() + t.slice(1),
-                  }))}
+                  aoMudar={(v) => set("tipo_biometria", v)}
+                  opcoes={["facial", "digital", "cartao", "senha", "misto"].map(
+                    (t) => ({
+                      valor: t,
+                      rotulo: t.charAt(0).toUpperCase() + t.slice(1),
+                    }),
+                  )}
                 />
               </div>
               <div className="campo">
                 <label>Fuso horário</label>
-                <input value={dados.fuso_horario} onChange={(e) => set('fuso_horario', e.target.value)} />
+                <input
+                  value={dados.fuso_horario}
+                  onChange={(e) => set("fuso_horario", e.target.value)}
+                />
               </div>
               <div className="campo campo-checkbox">
                 <input
                   type="checkbox"
                   id="comprovante"
                   checked={dados.enviar_comprovante_email}
-                  onChange={(e) => set('enviar_comprovante_email', e.target.checked)}
+                  onChange={(e) =>
+                    set("enviar_comprovante_email", e.target.checked)
+                  }
                 />
-                <label htmlFor="comprovante">Enviar comprovante por e-mail</label>
+                <label htmlFor="comprovante">
+                  Enviar comprovante por e-mail
+                </label>
               </div>
             </div>
           </div>
@@ -168,48 +238,70 @@ export default function DispositivoForm() {
                 <Selecao
                   rotuloAria="Modo de conexão do relógio"
                   valor={dados.modo_conexao}
-                  aoMudar={(v) => set('modo_conexao', v)}
+                  aoMudar={(v) => set("modo_conexao", v)}
                   opcoes={[
-                    { valor: 'client', rotulo: 'Client' },
-                    { valor: 'server', rotulo: 'Server' },
+                    { valor: "client", rotulo: "Client" },
+                    { valor: "server", rotulo: "Server" },
                   ]}
                 />
               </div>
               <div className="campo">
-                <label>IP{dados.modo_conexao === 'server' ? ' (opcional)' : ''}</label>
+                <label>
+                  IP{dados.modo_conexao === "server" ? " (opcional)" : ""}
+                </label>
                 <input
                   className="mono"
-                  value={dados.ip || ''}
-                  onChange={(e) => set('ip', e.target.value)}
-                  placeholder={dados.modo_conexao === 'server' ? 'preenchido automaticamente ao conectar' : '192.168.0.206'}
-                  required={dados.modo_conexao !== 'server'}
+                  value={dados.ip || ""}
+                  onChange={(e) => set("ip", e.target.value)}
+                  placeholder={
+                    dados.modo_conexao === "server"
+                      ? "preenchido automaticamente ao conectar"
+                      : "192.168.0.206"
+                  }
+                  required={dados.modo_conexao !== "server"}
                 />
-                {dados.modo_conexao === 'server' && (
+                {dados.modo_conexao === "server" && (
                   <span className="texto-apoio">
-                    Em modo Server é o equipamento quem se conecta a este servidor — o IP é detectado sozinho no primeiro registro.
+                    Em modo Server é o equipamento quem se conecta a este
+                    servidor — o IP é detectado sozinho no primeiro registro.
                   </span>
                 )}
               </div>
               <div className="campo">
                 <label>Porta de acesso</label>
-                <input className="mono" type="number" value={dados.porta} onChange={(e) => set('porta', Number(e.target.value))} />
+                <input
+                  className="mono"
+                  type="number"
+                  value={dados.porta}
+                  onChange={(e) => set("porta", Number(e.target.value))}
+                />
               </div>
               <div className="campo campo-checkbox">
                 <input
                   type="checkbox"
                   id="naoValidar"
                   checked={dados.nao_validar_empresa}
-                  onChange={(e) => set('nao_validar_empresa', e.target.checked)}
+                  onChange={(e) => set("nao_validar_empresa", e.target.checked)}
                 />
                 <label htmlFor="naoValidar">Não validar empresa</label>
               </div>
               <div className="campo">
                 <label>Número de série</label>
-                <input className="mono" value={dados.numero_serie} onChange={(e) => set('numero_serie', e.target.value)} required />
+                <input
+                  className="mono"
+                  value={dados.numero_serie}
+                  onChange={(e) => set("numero_serie", e.target.value)}
+                  required
+                />
               </div>
               <div className="campo">
                 <label>MAC</label>
-                <input className="mono" value={dados.mac_address || ''} onChange={(e) => set('mac_address', e.target.value)} placeholder="00:01:A9:1B:96:8D" />
+                <input
+                  className="mono"
+                  value={dados.mac_address || ""}
+                  onChange={(e) => set("mac_address", e.target.value)}
+                  placeholder="00:01:A9:1B:96:8D"
+                />
               </div>
               <div className="campo">
                 <label>Protocolo de comunicação</label>
@@ -224,28 +316,44 @@ export default function DispositivoForm() {
                       // contraria com 400) - troca sozinho pra nao depender do admin lembrar
                       // de mexer nos dois campos. Ao sair de evo_ws, volta pra 'client' se
                       // estava em 'server', ja que nenhum outro protocolo hoje suporta isso.
-                      modo_conexao: v === 'evo_ws' ? 'server' : d.modo_conexao === 'server' ? 'client' : d.modo_conexao,
+                      modo_conexao:
+                        v === "evo_ws"
+                          ? "server"
+                          : d.modo_conexao === "server"
+                            ? "client"
+                            : d.modo_conexao,
                     }))
                   }
                   opcoes={[
-                    { valor: 'desconhecido', rotulo: 'A confirmar' },
-                    { valor: 'zk_tcp', rotulo: 'Protocolo ZK (TCP) — não confirmado' },
-                    { valor: 'evo_ws', rotulo: 'Evo Facial (WebSocket) — protocolo oficial do fabricante' },
-                    { valor: 'http_rest', rotulo: 'HTTP/REST' },
+                    { valor: "desconhecido", rotulo: "A confirmar" },
+                    {
+                      valor: "zk_tcp",
+                      rotulo: "Protocolo ZK (TCP) — não confirmado",
+                    },
+                    {
+                      valor: "evo_ws",
+                      rotulo:
+                        "Evo Facial (WebSocket) — protocolo oficial do fabricante",
+                    },
+                    { valor: "http_rest", rotulo: "HTTP/REST" },
                   ]}
                 />
-                {dados.protocolo === 'evo_ws' && (
+                {dados.protocolo === "evo_ws" && (
                   <span className="texto-apoio">
-                    Modo "Server" (selecionado automaticamente). Em produção, aponte o equipamento para o domínio
-                    público deste servidor + <code>/evo</code>, porta 443/HTTPS — não use IP nem a porta
-                    EVO_FACIAL_WS_PORT, que só se aplica rodando o backend standalone na sua própria rede.
+                    Modo "Server" (selecionado automaticamente). Em produção,
+                    aponte o equipamento para o domínio público deste servidor +{" "}
+                    <code>/evo</code>, porta 443/HTTPS — não use IP nem a porta
+                    EVO_FACIAL_WS_PORT, que só se aplica rodando o backend
+                    standalone na sua própria rede.
                   </span>
                 )}
               </div>
               {id && (
                 <div className="campo">
                   <label>Último NSR sincronizado</label>
-                  <span className="chip-dado" style={{ width: 'fit-content' }}>{ultimoNsr}</span>
+                  <span className="chip-dado" style={{ width: "fit-content" }}>
+                    {ultimoNsr}
+                  </span>
                 </div>
               )}
               {/* Nao restrito a evo_ws: em http_rest o equipamento tambem se
@@ -254,26 +362,51 @@ export default function DispositivoForm() {
                 <div className="campo">
                   <label>Comunicação</label>
                   <span className="estado-conexao" title={conexao.titulo}>
-                    <span className={`badge badge-${conexao.classe}`} style={{ width: 'fit-content' }}>
+                    <span
+                      className={`badge badge-${conexao.classe}`}
+                      style={{ width: "fit-content" }}
+                    >
                       {conexao.rotulo}
                     </span>
-                    {conexao.detalhe && <span className="estado-detalhe">{conexao.detalhe}</span>}
+                    {conexao.detalhe && (
+                      <span className="estado-detalhe">{conexao.detalhe}</span>
+                    )}
                   </span>
                   <span className="ajuda">
-                    Última comunicação: {dataHoraCompleta(ultimaComunicacao)}.
-                    {' '}Em HTTP o equipamento não mantém conexão aberta — o que indica que ele está vivo é
-                    esse horário, não o selo de conectado.
+                    Última comunicação: {dataHoraCompleta(ultimaComunicacao)}.{" "}
+                    Em HTTP o equipamento não mantém conexão aberta — o que
+                    indica que ele está vivo é esse horário, não o selo de
+                    conectado.
                   </span>
                 </div>
               )}
             </div>
 
             {id && (
-              <div className="acoes-form" style={{ justifyContent: 'flex-start', marginTop: 20 }}>
-                <button type="button" className="btn btn-secundario" onClick={testarConexao}>Testar conexão</button>
-                <button type="button" className="btn btn-secundario" onClick={forcarColeta}>Forçar coleta</button>
-                {dados.protocolo === 'evo_ws' && (
-                  <button type="button" className="btn btn-secundario" onClick={verUsuariosNoEquipamento}>
+              <div
+                className="acoes-form"
+                style={{ justifyContent: "flex-start", marginTop: 20 }}
+              >
+                <button
+                  type="button"
+                  className="btn btn-secundario"
+                  onClick={testarConexao}
+                >
+                  Testar conexão
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secundario"
+                  onClick={forcarColeta}
+                >
+                  Forçar coleta
+                </button>
+                {dados.protocolo === "evo_ws" && (
+                  <button
+                    type="button"
+                    className="btn btn-secundario"
+                    onClick={verUsuariosNoEquipamento}
+                  >
                     Usuários no equipamento
                   </button>
                 )}
@@ -289,17 +422,26 @@ export default function DispositivoForm() {
             <div className="grid-form">
               <div className="campo">
                 <label>Usuário</label>
-                <input value={dados.usuario_dispositivo || ''} onChange={(e) => set('usuario_dispositivo', e.target.value)} />
+                <input
+                  value={dados.usuario_dispositivo || ""}
+                  onChange={(e) => set("usuario_dispositivo", e.target.value)}
+                />
               </div>
               <div className="campo">
-                <label>Senha {id ? '(deixe em branco para manter)' : ''}</label>
-                <input type="password" value={dados.senha_dispositivo} onChange={(e) => set('senha_dispositivo', e.target.value)} />
+                <label>Senha {id ? "(deixe em branco para manter)" : ""}</label>
+                <input
+                  type="password"
+                  value={dados.senha_dispositivo}
+                  onChange={(e) => set("senha_dispositivo", e.target.value)}
+                />
               </div>
               <div className="campo">
                 <label>Identificador de equipamento</label>
                 <input
-                  value={dados.identificador_equipamento || ''}
-                  onChange={(e) => set('identificador_equipamento', e.target.value)}
+                  value={dados.identificador_equipamento || ""}
+                  onChange={(e) =>
+                    set("identificador_equipamento", e.target.value)
+                  }
                   placeholder="Escreva o identificador."
                 />
               </div>
@@ -308,8 +450,12 @@ export default function DispositivoForm() {
         </div>
 
         <div className="acoes-form">
-          <Link to="/dispositivos" className="btn btn-secundario">Cancelar</Link>
-          <button type="submit" className="btn btn-primario">Salvar</button>
+          <Link to="/dispositivos" className="btn btn-secundario">
+            Cancelar
+          </Link>
+          <button type="submit" className="btn btn-primario">
+            Salvar
+          </button>
         </div>
       </form>
     </Layout>

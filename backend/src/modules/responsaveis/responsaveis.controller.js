@@ -21,7 +21,7 @@ async function login(req, res, next) {
 
 async function listarAlunos(req, res, next) {
   try {
-    const alunos = await responsaveisService.listarAlunosVinculados(req.usuario.alunoIds);
+    const alunos = await responsaveisService.listarAlunosVinculados(req.usuario.empresa_id, req.usuario.alunoIds);
     res.json({ alunos });
   } catch (err) {
     next(err);
@@ -31,11 +31,11 @@ async function listarAlunos(req, res, next) {
 async function frequenciaDoAluno(req, res, next) {
   try {
     const { de, ate } = req.query;
-    const registros = await responsaveisService.frequenciaDoAluno(req.usuario.alunoIds, req.params.alunoId, {
+    const resultado = await responsaveisService.frequenciaDoAluno(req.usuario.empresa_id, req.usuario.alunoIds, req.params.alunoId, {
       de,
       ate,
     });
-    res.json({ registros });
+    res.json(resultado);
   } catch (err) {
     next(err);
   }
@@ -70,7 +70,11 @@ async function vincularNovoFilho(req, res, next) {
 
 async function presencaSalaDoAluno(req, res, next) {
   try {
-    const registros = await responsaveisService.presencaSalaDoAluno(req.usuario.alunoIds, req.params.alunoId);
+    const registros = await responsaveisService.presencaSalaDoAluno(
+      req.usuario.empresa_id,
+      req.usuario.alunoIds,
+      req.params.alunoId
+    );
     res.json({ registros });
   } catch (err) {
     next(err);

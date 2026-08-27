@@ -82,30 +82,85 @@ async function vincularAluno(empresaId, responsavelId, matriculaAluno, parentesc
   return vinculo;
 }
 
-async function listarAlunosVinculados(alunoIds) {
+function validarAcessoAoAluno(alunoIdsPermitidos, alunoId) {
+  if (!Array.isArray(alunoIdsPermitidos) || !alunoIdsPermitidos.includes(alunoId)) {
+    throw new AppError('Voce nao tem acesso a este aluno.', 403);
+  }
+}
+
+function colunaHorariosTurma() {
+  return db.raw(`COALESCE((
+    SELECT json_agg(
+      json_build_object(
+        'hora_entrada', ht.hora_entrada,
+        'hora_saida', ht.hora_saida
+      )
+      ORDER BY ht.created_at
+    )
+    FROM horarios_turmas ht
+    WHERE ht.turma_id = a.turma_id
+      AND ht.empresa_id = a.empresa_id
+      AND ht.ativo = true
+  ), '[]'::json) AS horarios_turma`);
+}
+
+async function buscarAlunoVinculadoComHorario(empresaId, alunoIdsPermitidos, alunoId) {
+  validarAcessoAoAluno(alunoIdsPermitidos, alunoId);
+
+  const aluno = await db('alunos as a')
+    .select(
+      'a.id',
+      'a.nome',
+      'a.matricula',
+      'a.turma_id',
+      't.nome as turma_nome',
+      'f.nome as filial_nome',
+      colunaHorariosTurma()
+    )
+    .leftJoin('turmas as t', 't.id', 'a.turma_id')
+    .join('filiais as f', 'f.id', 'a.filial_id')
+    .where({ 'a.id': alunoId, 'a.empresa_id': empresaId })
+    .first();
+
+  if (!aluno) throw new AppError('Aluno nao encontrado.', 404);
+  aluno.horarios_turma = Array.isArray(aluno.horarios_turma) ? aluno.horarios_turma : [];
+  return aluno;
+}
+
+async function listarAlunosVinculados(empresaId, alunoIds) {
   if (!alunoIds || alunoIds.length === 0) return [];
 
   return db('alunos as a')
-    .select('a.id', 'a.nome', 'a.matricula', 't.nome as turma_nome', 'f.nome as filial_nome')
+    .select(
+      'a.id',
+      'a.nome',
+      'a.matricula',
+      'a.turma_id',
+      't.nome as turma_nome',
+      'f.nome as filial_nome',
+      colunaHorariosTurma()
+    )
     .leftJoin('turmas as t', 't.id', 'a.turma_id')
     .join('filiais as f', 'f.id', 'a.filial_id')
-    .whereIn('a.id', alunoIds);
+    .where('a.empresa_id', empresaId)
+    .whereIn('a.id', alunoIds)
+    .orderBy('a.nome');
 }
 
-async function frequenciaDoAluno(alunoIdsPermitidos, alunoId, { de, ate } = {}) {
-  if (!alunoIdsPermitidos.includes(alunoId)) {
-    throw new AppError('Voce nao tem acesso a este aluno.', 403);
-  }
+async function frequenciaDoAluno(empresaId, alunoIdsPermitidos, alunoId, { de, ate } = {}) {
+  const alunoComHorario = await buscarAlunoVinculadoComHorario(empresaId, alunoIdsPermitidos, alunoId);
 
   const query = db('registros_ponto')
     .select('data_hora', 'origem', 'nsr', 'tipo_batida', 'tipo_verificacao_bruto', 'dispositivo_id')
-    .where({ aluno_id: alunoId })
+    .where({ empresa_id: empresaId, aluno_id: alunoId })
     .orderBy('data_hora', 'desc');
 
   if (de) query.where('data_hora', '>=', de);
   if (ate) query.where('data_hora', '<=', ate);
 
-  return query;
+  const registros = await query;
+  const { horarios_turma, ...aluno } = alunoComHorario;
+  return { aluno, horarios_turma, registros };
 }
 
 async function notasDoAluno(alunoIdsPermitidos, alunoId) {
@@ -169,15 +224,38 @@ async function vincularNovoFilho(empresaId, responsavelId, { nome_completo, cpf,
  * pelo professor, distinta da frequenciaDoAluno (que le registros_ponto, a
  * catraca/facial na entrada da escola).
  */
-async function presencaSalaDoAluno(alunoIdsPermitidos, alunoId) {
-  if (!alunoIdsPermitidos.includes(alunoId)) {
-    throw new AppError('Voce nao tem acesso a este aluno.', 403);
-  }
+async function presencaSalaDoAluno(empresaId, alunoIdsPermitidos, alunoId) {
+  await buscarAlunoVinculadoComHorario(empresaId, alunoIdsPermitidos, alunoId);
 
   return db('presencas_sala as p')
-    .select('p.id', 'p.data', 'p.presente', 'p.falta_justificada', 'p.justificativa', 'p.materia', 'p.observacao', 't.nome as turma_nome')
-    .leftJoin('turmas as t', 't.id', 'p.turma_id')
-    .where('p.aluno_id', alunoId)
+    .select(
+      'p.id',
+      'p.data',
+      'p.presente',
+      'p.falta_justificada',
+      'p.justificativa',
+      'p.observacao',
+      'p.professor_id',
+      'u.nome as professor_nome',
+      'p.atribuicao_id',
+      't.nome as turma_nome',
+      db.raw('COALESCE(p.materia, tp.materia) AS materia'),
+      db.raw(`CASE
+        WHEN p.presente = true THEN 'presente'
+        WHEN p.falta_justificada = true THEN 'falta_justificada'
+        ELSE 'falta_nao_justificada'
+      END AS situacao`)
+    )
+    .leftJoin('turmas as t', function relacionarTurma() {
+      this.on('t.id', '=', 'p.turma_id').andOn('t.empresa_id', '=', 'p.empresa_id');
+    })
+    .leftJoin('usuarios as u', function relacionarProfessor() {
+      this.on('u.id', '=', 'p.professor_id').andOn('u.empresa_id', '=', 'p.empresa_id');
+    })
+    .leftJoin('turma_professores as tp', function relacionarAtribuicao() {
+      this.on('tp.id', '=', 'p.atribuicao_id').andOn('tp.empresa_id', '=', 'p.empresa_id');
+    })
+    .where({ 'p.empresa_id': empresaId, 'p.aluno_id': alunoId })
     .orderBy('p.data', 'desc')
     .limit(60);
 }
