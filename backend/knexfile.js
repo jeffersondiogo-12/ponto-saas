@@ -5,7 +5,11 @@ require('dotenv').config();
  * Em producao, prefira sempre variaveis de ambiente (nunca credenciais no codigo).
  */
 const sslOptions = process.env.DB_SSL === 'true'
-  ? { rejectUnauthorized: false, servername: process.env.DB_HOST, checkServerIdentity: () => undefined }
+  ? {
+      rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED === 'true',
+      ca: process.env.DB_SSL_CA || undefined,
+      servername: process.env.DB_HOST,
+    }
   : false;
 
 const connection = process.env.DATABASE_URL
