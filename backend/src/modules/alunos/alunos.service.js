@@ -69,9 +69,13 @@ async function resolverPorMatriculaDispositivo(empresaId, filialId, matriculaDis
       contato_responsavel: dados.contato_responsavel || null,
       ativo: dados.ativo !== undefined ? Boolean(dados.ativo) : true,
     })
+    .onConflict(['empresa_id', 'matricula'])
+    .ignore()
     .returning('*');
 
-  return aluno;
+  if (aluno) return aluno;
+
+  return db('alunos').where({ empresa_id: empresaId, matricula }).first();
 }
 
 async function criar(empresaId, dados) {

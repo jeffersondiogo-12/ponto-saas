@@ -76,7 +76,7 @@ async function resolverPessoaPeloIdDispositivo(empresaId, dispositivo, registro)
     },
   );
 
-  return { funcionarioId: null, alunoId: alunoCriado.id };
+  return { funcionarioId: null, alunoId: alunoCriado?.id || null };
 }
 
 async function ingerirRegistros(empresaId, dispositivo, registros) {
