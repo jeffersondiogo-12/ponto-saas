@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Layout from '../components/Layout';
 import Selecao from '../components/Selecao';
 import { api } from '../api';
+import { useRecarregarAoVivo } from '../context/RealtimeContext';
 import { baixarCsv, exportarPdf, limitesDoMes, minutosParaHoras } from '../utils/exportar';
 
 const data = (v) => (v ? new Date(v).toLocaleDateString('pt-BR') : '—');
@@ -43,6 +44,7 @@ const RELATORIOS = [
   },
   {
     id: 'presenca-aluno',
+    aoVivo: true, // depende de batida/presenca: vale reexecutar sozinho
     rotulo: 'Presença de aluno',
     grupo: 'Presença',
     descricao: 'Batidas registradas de um aluno no período — entrada e saída da escola.',
@@ -86,6 +88,7 @@ const RELATORIOS = [
   },
   {
     id: 'resumo-ponto',
+    aoVivo: true, // depende de batida/presenca: vale reexecutar sozinho
     rotulo: 'Resumo de ponto por funcionário',
     grupo: 'Funcionários',
     descricao: 'Horas trabalhadas, saldo, extras, faltas e atrasos no período.',
@@ -106,6 +109,7 @@ const RELATORIOS = [
   },
   {
     id: 'espelho-ponto',
+    aoVivo: true, // depende de batida/presenca: vale reexecutar sozinho
     rotulo: 'Espelho de ponto',
     grupo: 'Funcionários',
     descricao: 'Apontamentos diários de um funcionário — o relatório de conferência do RH.',
@@ -149,6 +153,7 @@ const RELATORIOS = [
   },
   {
     id: 'sem-vinculo',
+    aoVivo: true, // depende de batida/presenca: vale reexecutar sozinho
     rotulo: 'Batidas sem vínculo',
     grupo: 'Ponto',
     descricao: 'Registros capturados pelos relógios que não casaram com nenhum funcionário ou aluno.',
@@ -276,6 +281,23 @@ export default function Relatorios() {
       setGerando(false);
     }
   }, [tipo, filtros, ctx]);
+
+  /**
+   * Reexecuta sozinho o relatorio que ja esta na tela, quando ele depende de
+   * batida ou presenca. Sem `setGerando`: a tabela troca no lugar, sem apagar
+   * e reaparecer na frente de quem esta lendo. Falha e engolida de proposito -
+   * manter o resultado anterior e melhor do que esvaziar a tela sozinho.
+   */
+  const regerarAoVivo = useCallback(async () => {
+    if (!tipo.aoVivo || !linhas) return;
+    try {
+      setLinhas(await tipo.buscar(filtros, ctx));
+    } catch {
+      // silencio: o que ja esta na tela continua valendo
+    }
+  }, [tipo, linhas, filtros, ctx]);
+
+  useRecarregarAoVivo(['ponto.criado', 'presenca.sala'], regerarAoVivo);
 
   function exportarCsv() {
     if (!linhas) return;

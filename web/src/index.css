@@ -576,6 +576,48 @@ table.tabela tbody tr:hover td { background: var(--azul-fraco); }
 
 /* ---------- Impressao (e assim que o PDF sai) ---------- */
 
+/* Avisos de tempo real: canto inferior direito, empilhados.
+   Cada tom carrega o territorio de cor de sempre - azul e estrutura,
+   verde e dado efetivo, ambar e atencao. Nada de vermelho: evento que
+   chegou nao e falha. */
+.avisos-pilha {
+  position: fixed; right: 20px; bottom: 20px; z-index: 60;
+  display: flex; flex-direction: column; gap: 10px;
+  width: min(320px, calc(100vw - 40px)); pointer-events: none;
+}
+.aviso-toast {
+  pointer-events: auto;
+  display: flex; align-items: flex-start; gap: 10px;
+  background: var(--branco); border: 1px solid var(--borda);
+  border-left: 3px solid var(--azul); border-radius: var(--raio);
+  box-shadow: var(--sombra); padding: 11px 12px;
+  animation: aviso-entra 180ms ease-out;
+}
+.aviso-ok { border-left-color: var(--verde); }
+.aviso-atencao { border-left-color: var(--ambar); }
+.aviso-corpo { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.aviso-corpo strong { font-size: 13px; font-weight: 600; color: var(--tinta); }
+.aviso-info .aviso-corpo strong { color: var(--azul-escuro); }
+.aviso-ok .aviso-corpo strong { color: var(--verde-forte); }
+.aviso-atencao .aviso-corpo strong { color: var(--ambar); }
+.aviso-detalhe { font-size: 12px; color: var(--tinta-fraca); }
+.aviso-fechar {
+  flex-shrink: 0; background: none; border: 0; cursor: pointer;
+  color: var(--tinta-tenue); font-size: 17px; line-height: 1;
+  padding: 0 2px; border-radius: 4px;
+}
+.aviso-fechar:hover { color: var(--tinta); }
+
+@keyframes aviso-entra {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Na barra horizontal (<=860px) o rodape fica disputado: sobe para o topo. */
+@media (max-width: 860px) {
+  .avisos-pilha { right: 12px; left: 12px; bottom: 12px; width: auto; }
+}
+
 @media print {
   .dock, .barra-topo, .nao-imprimir, .filtros { display: none !important; }
   .colunas { grid-template-columns: minmax(0, 1fr); }

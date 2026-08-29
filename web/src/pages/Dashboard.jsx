@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Layout from '../components/Layout';
 import Selecao from '../components/Selecao';
 import { api } from '../api';
+import { useRecarregarAoVivo } from '../context/RealtimeContext';
 import { MESES, baixarCsv, exportarPdf, limitesDoMes, minutosParaHoras } from '../utils/exportar';
 
 /** Plural de verdade: "1 turma", "8 turmas" — nada de "turma(s)". */
@@ -108,51 +109,70 @@ export default function Dashboard() {
   const [carregandoResumo, setCarregandoResumo] = useState(false);
 
   /* allSettled, nao all: uma rota com falha nao pode derrubar o painel todo. */
-  useEffect(() => {
-    let ativo = true;
-    (async () => {
-      const r = await Promise.allSettled([
-        api.listarDispositivos(),
-        api.listarFuncionarios(),
-        api.listarRegistrosNaoResolvidos(),
-        api.listarAlunos(),
-        api.listarTurmas(),
-        api.listarUnidades(),
-      ]);
-      if (!ativo) return;
+  const carregarTudo = useCallback(async (ativo = () => true) => {
+    const r = await Promise.allSettled([
+      api.listarDispositivos(),
+      api.listarFuncionarios(),
+      api.listarRegistrosNaoResolvidos(),
+      api.listarAlunos(),
+      api.listarTurmas(),
+      api.listarUnidades(),
+    ]);
+    if (!ativo()) return;
 
-      const falhas = [];
-      const [disp, func, naoRes, alun, turm, unid] = r;
+    const falhas = [];
+    const [disp, func, naoRes, alun, turm, unid] = r;
 
-      if (disp.status === 'fulfilled') setDispositivos(disp.value.dispositivos || []); else falhas.push('dispositivos');
-      if (func.status === 'fulfilled') setTotalFuncionarios((func.value.funcionarios || []).length); else falhas.push('funcionários');
-      if (naoRes.status === 'fulfilled') setNaoResolvidos(naoRes.value.registros || []); else falhas.push('batidas sem vínculo');
-      if (alun.status === 'fulfilled') setAlunos(alun.value.alunos || []); else falhas.push('alunos');
-      if (turm.status === 'fulfilled') setTurmas(turm.value.turmas || []); else falhas.push('turmas');
-      if (unid.status === 'fulfilled') setUnidades(unid.value.filiais || []); else falhas.push('unidades');
+    if (disp.status === 'fulfilled') setDispositivos(disp.value.dispositivos || []); else falhas.push('dispositivos');
+    if (func.status === 'fulfilled') setTotalFuncionarios((func.value.funcionarios || []).length); else falhas.push('funcionários');
+    if (naoRes.status === 'fulfilled') setNaoResolvidos(naoRes.value.registros || []); else falhas.push('batidas sem vínculo');
+    if (alun.status === 'fulfilled') setAlunos(alun.value.alunos || []); else falhas.push('alunos');
+    if (turm.status === 'fulfilled') setTurmas(turm.value.turmas || []); else falhas.push('turmas');
+    if (unid.status === 'fulfilled') setUnidades(unid.value.filiais || []); else falhas.push('unidades');
 
-      setIndisponiveis(falhas);
-      setCarregando(false);
-    })();
-    return () => { ativo = false; };
+    setIndisponiveis(falhas);
+    setCarregando(false);
   }, []);
 
   useEffect(() => {
     let ativo = true;
-    (async () => {
-      setCarregandoResumo(true);
-      const { de, ate } = limitesDoMes(ano, mes);
-      try {
-        const res = await api.resumoPeriodo(de, ate);
-        if (ativo) setResumo(res.resumo || []);
-      } catch {
-        if (ativo) setResumo(null); // null = indisponivel; [] = vazio
-      } finally {
-        if (ativo) setCarregandoResumo(false);
-      }
-    })();
+    carregarTudo(() => ativo);
     return () => { ativo = false; };
+  }, [carregarTudo]);
+
+  /**
+   * Recarga ao vivo. `carregando` so vira false e nunca volta a true, entao a
+   * atualizacao e silenciosa: os numeros trocam sem a tela piscar em estado
+   * de carregamento.
+   */
+  useRecarregarAoVivo(['ponto.criado', 'presenca.sala'], carregarTudo);
+
+  /**
+   * `silencioso` existe para a recarga ao vivo: sem ele, cada batida nova
+   * faria o grafico piscar em "carregando" no meio da leitura de quem esta
+   * olhando a tela.
+   */
+  const carregarResumo = useCallback(async (ativo = () => true, silencioso = false) => {
+    if (!silencioso) setCarregandoResumo(true);
+    const { de, ate } = limitesDoMes(ano, mes);
+    try {
+      const res = await api.resumoPeriodo(de, ate);
+      if (ativo()) setResumo(res.resumo || []);
+    } catch {
+      if (ativo()) setResumo(null); // null = indisponivel; [] = vazio
+    } finally {
+      if (ativo() && !silencioso) setCarregandoResumo(false);
+    }
   }, [mes, ano]);
+
+  useEffect(() => {
+    let ativo = true;
+    carregarResumo(() => ativo);
+    return () => { ativo = false; };
+  }, [carregarResumo]);
+
+  const recarregarResumoAoVivo = useCallback(() => carregarResumo(() => true, true), [carregarResumo]);
+  useRecarregarAoVivo(['ponto.criado', 'presenca.sala'], recarregarResumoAoVivo);
 
   /**
    * O filtro de unidade agora vale para as quatro fontes.

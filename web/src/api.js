@@ -1,4 +1,4 @@
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+export const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 const CHAVE_TOKEN = 'ponto_saas_token';
 const CHAVE_EMPRESA_ID = 'ponto_saas_empresa_id';
 const CHAVE_EMPRESA_NOME = 'ponto_saas_empresa_nome';
@@ -6,7 +6,7 @@ const CHAVE_FILIAL_ID = 'ponto_saas_filial_id';
 const CHAVE_FILIAL_NOME = 'ponto_saas_filial_nome';
 const CHAVE_FILIAL_TIPO = 'ponto_saas_filial_tipo';
 
-function obterToken() {
+export function obterToken() {
   return localStorage.getItem(CHAVE_TOKEN);
 }
 

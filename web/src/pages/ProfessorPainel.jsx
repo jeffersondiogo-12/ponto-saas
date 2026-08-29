@@ -14,6 +14,15 @@ function comoDias(v) {
   try { return JSON.parse(v || '[]'); } catch { return []; }
 }
 
+/**
+ * O backend grava `etapa` como `Bimestre N` a partir do numero, e exige
+ * `tipo_avaliacao` nao-vazio. Sao dois campos separados de proposito: dois
+ * lancamentos do mesmo bimestre so se distinguem pelo tipo.
+ */
+const BIMESTRES = [1, 2, 3, 4].map((n) => ({ valor: String(n), rotulo: `${n}º bimestre` }));
+const TIPOS_AVALIACAO = ['Prova', 'Trabalho', 'Atividade', 'Participação', 'Seminário', 'Recuperação']
+  .map((v) => ({ valor: v, rotulo: v }));
+
 const rotuloAula = (a) =>
   `${a.materia} · ${hhmm(a.hora_inicio)}–${hhmm(a.hora_fim)} · ${comoDias(a.dias_semana).map((d) => DIAS[d]).join(', ') || 'sem dias'}`;
 
@@ -27,7 +36,7 @@ export default function ProfessorPainel() {
   const [presencas, setPresencas] = useState({});
   const [historicos, setHistoricos] = useState({});
 
-  const [nota, setNota] = useState({ aluno_id: '', valor: '', etapa: '1º bimestre', observacao: '' });
+  const [nota, setNota] = useState({ aluno_id: '', valor: '', bimestre: '1', tipo_avaliacao: 'Prova', observacao: '' });
   const [obs, setObs] = useState({ aluno_id: '', texto: '' });
 
   const [carregando, setCarregando] = useState(true);
@@ -112,13 +121,17 @@ export default function ProfessorPainel() {
     if (!nota.aluno_id) { setErro('Selecione o aluno para lançar a nota.'); return; }
     const valor = Number(String(nota.valor).replace(',', '.'));
     if (!Number.isFinite(valor) || valor < 0 || valor > 10) { setErro('A nota precisa estar entre 0 e 10.'); return; }
+    // <Selecao> e um <button>: nao participa da validacao nativa do formulario.
+    if (!String(nota.tipo_avaliacao || '').trim()) { setErro('Escolha o tipo da avaliação.'); return; }
 
     setOcupado(true);
     try {
       await api.criarNotaProfessor(aula.turma_id, {
+        atribuicao_id: aula.atribuicao_id,
         aluno_id: nota.aluno_id,
         disciplina: aula.materia,
-        etapa: nota.etapa,
+        bimestre: Number(nota.bimestre),
+        tipo_avaliacao: nota.tipo_avaliacao,
         nota: valor,
         observacao: nota.observacao.trim() || null,
       });
@@ -312,11 +325,12 @@ export default function ProfessorPainel() {
                                         <h4>Notas de {aula.materia}</h4>
                                         {h.notas.length ? (
                                           <table className="log-diff">
-                                            <thead><tr><th>Etapa</th><th>Nota</th><th>Observação</th><th>Quando</th></tr></thead>
+                                            <thead><tr><th>Etapa</th><th>Tipo</th><th>Nota</th><th>Observação</th><th>Quando</th></tr></thead>
                                             <tbody>
                                               {h.notas.map((n) => (
                                                 <tr key={n.id}>
                                                   <td>{n.etapa}</td>
+                                                  <td>{n.tipo_avaliacao || '—'}</td>
                                                   <td className="mono">{n.nota}</td>
                                                   <td>{n.observacao || '—'}</td>
                                                   <td className="mono">{dataHoraCompleta(n.created_at)}</td>
@@ -377,12 +391,19 @@ export default function ProfessorPainel() {
                       />
                     </div>
                     <div className="campo">
-                      <label htmlFor="pp-etapa">Etapa</label>
+                      <label htmlFor="pp-bimestre">Bimestre <span className="obrigatorio">*</span></label>
                       <Selecao
-                        id="pp-etapa" rotuloAria="Etapa" valor={nota.etapa}
-                        aoMudar={(v) => setNota((n) => ({ ...n, etapa: v }))}
-                        opcoes={['1º bimestre', '2º bimestre', '3º bimestre', '4º bimestre']
-                          .map((e) => ({ valor: e, rotulo: e }))}
+                        id="pp-bimestre" rotuloAria="Bimestre" valor={nota.bimestre}
+                        aoMudar={(v) => setNota((n) => ({ ...n, bimestre: v }))}
+                        opcoes={BIMESTRES}
+                      />
+                    </div>
+                    <div className="campo">
+                      <label htmlFor="pp-tipo">Tipo da avaliação <span className="obrigatorio">*</span></label>
+                      <Selecao
+                        id="pp-tipo" rotuloAria="Tipo da avaliação" valor={nota.tipo_avaliacao}
+                        aoMudar={(v) => setNota((n) => ({ ...n, tipo_avaliacao: v }))}
+                        opcoes={TIPOS_AVALIACAO}
                       />
                     </div>
                     <div className="campo">
