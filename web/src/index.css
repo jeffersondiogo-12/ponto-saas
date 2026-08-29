@@ -239,6 +239,8 @@ table.tabela-form .aviso-linha { display: block; margin-top: 5px; font-size: 12p
 .estado-conexao { display: inline-flex; flex-direction: column; gap: 3px; align-items: flex-start; }
 .estado-detalhe { font-size: 11.5px; color: var(--tinta-tenue); white-space: nowrap; }
 
+.paginacao { display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 14px; }
+
 /* Auditoria */
 .auditoria-linha { cursor: pointer; }
 .auditoria-linha.aberta td { background: var(--azul-fraco) !important; }
@@ -489,6 +491,13 @@ table.tabela tbody tr:hover td { background: var(--azul-fraco); }
 .erro { background: var(--vermelho-fraco); color: var(--vermelho); font-size: 13px; padding: 11px 14px; border-radius: var(--raio-p); margin-bottom: 16px; }
 .aviso { background: var(--ambar-fraco); color: var(--ambar); font-size: 13px; padding: 11px 14px; border-radius: var(--raio-p); margin-bottom: 16px; }
 .info { background: var(--azul-fraco); color: var(--azul-forte); font-size: 13px; padding: 11px 14px; border-radius: var(--raio-p); margin-bottom: 16px; }
+/* Faltava: o painel do professor ja usava `.sucesso` sem ela existir. */
+.sucesso { background: var(--verde-fraco); color: var(--verde); font-size: 13px; padding: 11px 14px; border-radius: var(--raio-p); margin-bottom: 16px; }
+
+/* Linha de campos que terminam num botao alinhado a base. */
+.linha-form { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+.linha-form > .campo { flex: 0 1 auto; }
+.linha-form > .campo.cresce { flex: 1 1 240px; }
 
 /* ---------- Login ---------- */
 

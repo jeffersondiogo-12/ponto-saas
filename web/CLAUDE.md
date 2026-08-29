@@ -268,8 +268,11 @@ Como ficou (`src/pages/Dashboard.jsx`):
   se um dia precisar de PDF gerado no servidor ou com layout fixo, aí sim entra
   uma lib como jsPDF.
 - **Filtros**: unidade, mês e ano, numa barra própria acima do conteúdo. O
-  filtro de unidade só se aplica a alunos e turmas — dispositivos e batidas
-  não são escopados por filial nesta API.
+  filtro de unidade vale para as **quatro** fontes — alunos, turmas,
+  dispositivos e batidas. Dispositivos e batidas passaram a ter `filial_id`
+  nas migrations de 2026-08-26; antes o número de dispositivos ficava igual em
+  qualquer unidade, sugerindo que todos pertenciam a todas. Registro antigo sem
+  `filial_id` aparece só em "todas as unidades", em vez de cair na errada.
 - **Um botão "Exportar"** que abre menu para escolher o formato, em vez de dois
   botões concorrendo. Fecha com clique fora e com Esc, e tem `aria-haspopup`.
 - **Pendências** calculadas no cliente: alunos sem turma, sem data de
@@ -320,9 +323,15 @@ Como ficou:
   dentro da listagem, o que confundia: a mesma tela era lista e formulário.
   Ao criar, leva direto para a gestão da turma nova — o passo seguinte natural
   é pôr alunos e professores nela.
-- **`src/pages/TurmaDetalhe.jsx`** (rota `/turmas/:id`) — alunos da turma,
-  vínculo de aluno já cadastrado, remoção da turma, adição em massa e
-  atribuição de professores.
+- **`src/pages/TurmaDetalhe.jsx`** (rota `/turmas/:id`) — horário da turma,
+  alunos da turma, vínculo de aluno já cadastrado, remoção da turma, adição em
+  massa e atribuição de professores.
+
+**Horário da turma** usa `GET/PUT /api/turmas/:id/horarios` e
+`DELETE /:id/horarios/:horarioId`, que chegaram em 2026-08-26. É **uma janela
+por turma** (entrada/saída): o `GET` usa `limit 1` e o `PUT` faz upsert com
+conflito em `turma_id`, então salvar de novo atualiza a mesma linha em vez de
+criar outra. Essa janela é o que delimita a chamada e a presença do facial.
 
 Dois detalhes que não são óbvios e é bom não desfazer:
 
@@ -426,27 +435,51 @@ dia, então mudá-lo reinterpretaria batidas já gravadas.
 > `/turmas/:turmaId/alunos`, `/presencas`, `/notas`, `/observacoes`.
 > Para `gestor` não há endpoint dedicado — ele usa as rotas de staff.
 
-### 4.9 Excluir turma: fallback para desativar — **concluído**
+### 4.9 Turma se desativa, não se apaga — **concluído**
 
-O backend **não expõe `DELETE /api/turmas/:id`** — o módulo tem só get/post/put.
-Em vez de deixar o botão sempre errando, `TurmasLista` tenta o DELETE e, ao
-receber **404 ou 405**, cai para `PUT` com `ativo: false`.
+**Decisão de produto: não existe e não existirá `DELETE /api/turmas/:id`.**
+A turma é referenciada por alunos e por registros de ponto já gravados; apagar
+deixaria esses vínculos órfãos. "Excluir" é **desativar** (`PUT ativo: false`),
+e turma inativa tem **Reativar** — desativar sem poder desfazer seria pior do
+que apagar.
 
-Não fizemos remoção só na tela: a linha sumiria e voltaria no F5, dando a
-entender que algo foi apagado quando nada mudou no servidor. Desativar
-**persiste**, e é mais seguro num sistema onde a turma é referenciada por alunos
-e por registros de ponto já gravados.
+`api.desativarTurma()` / `api.reativarTurma()` recebem a **turma inteira**, não
+só o id: o `PUT` reescreve todos os campos, e mandar só `ativo` deixaria `nome`
+e `turno` como `undefined`, estourando o Knex do backend. Mesma armadilha do
+`payloadAluno()`.
 
-O botão passou a se chamar **Desativar**, e turma inativa ganha **Reativar** —
-desativar sem poder desfazer seria pior do que apagar.
+Nunca faça remoção só na tela: a linha sumiria e voltaria no F5, dando a
+entender que algo foi apagado quando nada mudou no servidor.
 
-Dois detalhes que sustentam isso:
+### 4.10 Painel do professor — **refeito**
 
-- `requisitar()` agora carrega `erro.status` com o código HTTP. Sem isso o
-  fallback teria de comparar o **texto** da mensagem para saber se a rota existe.
-- O `PUT` reescreve todos os campos: mandar só `ativo` deixaria `nome` e `turno`
-  como `undefined` e o Knex do backend estouraria. Por isso reenviamos o
-  registro inteiro — mesma armadilha do `payloadAluno()`.
+Estava quebrado por um motivo simples: usava as classes `.linha-form` e
+`.sucesso`, que **não existiam no CSS**. Ambas foram criadas.
+
+A tela agora usa os endpoints que chegaram em 2026-08-26:
+
+- `GET /minhas-turmas` traz uma linha por **atribuição** (professor + matéria +
+  horário), não por turma. O seletor é de **aula**, e `atribuicao_id` acompanha
+  todas as chamadas — sem ele o backend não valida a janela da aula.
+- `GET /turmas/:id/alunos` traz **`presenca_facial`**: se o facial já detectou o
+  aluno hoje. A chamada **parte desse estado**, então vira conferência em vez de
+  digitação do zero, e a tela conta quantos **divergem** do facial.
+- `GET /turmas/:id/alunos/:alunoId/historico` abre notas e observações por
+  aluno, **sob demanda** — 30 alunos seriam 30 requisições se carregasse tudo.
+- `GET /turmas/:id/grade` mostra a grade completa e a janela da turma.
+
+### 4.11 Painel do gestor — **novo** (`/gestao`)
+
+O papel `gestor` acompanha a operação sem alterar cadastro. O escopo saiu do que
+`professores.routes.js` libera para ele: ver a grade, ver professores e
+**registrar presença** — inclusive fora da janela da aula, que é a exceção
+concedida ao gestor (`permitirGestor` no service).
+
+Alunos vêm de `/api/alunos?turma_id=`, **não** da rota do professor, que é
+restrita a `papel: 'professor'`. Por isso aqui não existe `presenca_facial`.
+
+Na dock aparece para `gestor`, `admin` e `super_admin`, porque o backend libera
+as mesmas rotas aos três, e só em unidade do tipo escola.
 
 ### 4.8 Estado de conexão do dispositivo — **concluído**
 
@@ -479,9 +512,18 @@ com antes em vermelho e depois em verde. Num log de 30 campos, dois JSON lado a
 lado não revelam nada — a lista de diferenças revela. Não troque isso por um
 dump simples.
 
-> **Depende do backend.** `GET /api/auditoria` **não está montado no `app.js`**
-> (o `auditoria.routes.js` existe, mas ninguém o registra). Até isso ser
-> corrigido a tela carrega e mostra o erro, com uma dica explicando a causa.
+**Paginada de verdade.** A API devolve `{ logs, paginacao: { pagina, limite,
+total, total_paginas } }` e a tela usa isso (50 por página). Auditoria só
+cresce — puxar "os 200 mais recentes" esconderia o resto sem avisar.
+
+Cuidado ao mexer: a **busca por texto e a exportação valem só para a página
+carregada**; quem percorre todo o histórico são os filtros de período, ação,
+entidade e usuário, que vão para o servidor. A tela diz isso ao usuário quando
+há mais de uma página — não remova o aviso.
+
+> `GET /api/auditoria` foi montado no `app.js` em 2026-08-26. A tela ainda
+> mantém a dica de "rota não encontrada" na mensagem de erro, porque é barata e
+> cobre o caso de alguém desmontar de novo.
 
 A rota chegou no pull de 2026-08-23 (`GET /api/auditoria`, somente leitura,
 restrita a `super_admin`/`admin`/`rh`). Não virou tela separada de propósito:

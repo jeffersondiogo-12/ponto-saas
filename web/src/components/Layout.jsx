@@ -26,6 +26,7 @@ const ICONES = {
   usuarios: () => svg(['M12 3l7 3v5.5c0 4.2-2.9 7.6-7 8.5-4.1-.9-7-4.3-7-8.5V6zM9.3 11.8l1.9 1.9 3.6-3.7']),
   relatorios: () => svg(['M14 3H7a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7zM14 3v4h4M9 12h6M9 16h4']),
   auditoria: () => svg(['M4 5h16M4 12h10M4 19h6', 'M20.5 19.5L18 17'], <circle cx="16" cy="15" r="3.2" />),
+  gestao: () => svg(['M3 20h18M6 20V11M11 20V6M16 20v-7M21 20V9']),
   professor: () => svg(['M3 4h18v11H3zM12 15v5M8 20h8M8 11l2.5-3 2 2.2L16 6.5']),
   sair: () => svg(['M9 21H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h4M16 17l5-5-5-5M21 12H9']),
 };
@@ -65,6 +66,11 @@ export default function Layout({ children, empresaNome }) {
           <ItemDock para="/dashboard" icone="visao" rotulo="Visão geral" ativo={ehAtivo('/dashboard')} />
           {usuario?.papel === 'professor' && (
             <ItemDock para="/professor" icone="professor" rotulo="Minhas turmas" ativo={ehAtivo('/professor')} />
+          )}
+          {/* Gestor acompanha a operacao; admin e super_admin tambem alcancam,
+              porque o backend libera as mesmas rotas para eles. */}
+          {['gestor', 'admin', 'super_admin'].includes(usuario?.papel) && ehEscola && (
+            <ItemDock para="/gestao" icone="gestao" rotulo="Gestão" ativo={ehAtivo('/gestao')} />
           )}
           {ehGestao && (
             <ItemDock para="/unidades" icone="unidades" rotulo="Unidades" ativo={ehAtivo('/unidades')} />

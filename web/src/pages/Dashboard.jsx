@@ -154,16 +154,24 @@ export default function Dashboard() {
     return () => { ativo = false; };
   }, [mes, ano]);
 
-  // O filtro de unidade so se aplica a quem tem filial_id — dispositivos e
-  // batidas nao sao escopados por unidade nesta API.
-  const alunosFiltrados = useMemo(
-    () => (unidadeId ? alunos.filter((a) => a.filial_id === unidadeId) : alunos),
-    [alunos, unidadeId],
-  );
-  const turmasFiltradas = useMemo(
-    () => (unidadeId ? turmas.filter((t) => t.filial_id === unidadeId) : turmas),
-    [turmas, unidadeId],
-  );
+  /**
+   * O filtro de unidade agora vale para as quatro fontes.
+   *
+   * Dispositivos e batidas passaram a ter `filial_id` (migrations de
+   * 2026-08-26: isolamento de dispositivos por filial e integridade
+   * relacional). Antes so alunos e turmas eram escopados, e o numero de
+   * dispositivos ficava igual em qualquer unidade escolhida — o que dava a
+   * entender que todos pertenciam a todas.
+   *
+   * Registro antigo pode nao ter `filial_id` preenchido; nesse caso ele so
+   * aparece em "todas as unidades", em vez de ser atribuido a uma errada.
+   */
+  const porUnidade = (lista) => (unidadeId ? lista.filter((x) => x.filial_id === unidadeId) : lista);
+
+  const alunosFiltrados = useMemo(() => porUnidade(alunos), [alunos, unidadeId]); // eslint-disable-line react-hooks/exhaustive-deps
+  const turmasFiltradas = useMemo(() => porUnidade(turmas), [turmas, unidadeId]); // eslint-disable-line react-hooks/exhaustive-deps
+  const dispositivosFiltrados = useMemo(() => porUnidade(dispositivos), [dispositivos, unidadeId]); // eslint-disable-line react-hooks/exhaustive-deps
+  const naoResolvidosFiltrados = useMemo(() => porUnidade(naoResolvidos), [naoResolvidos, unidadeId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const unidadeNome = unidades.find((u) => u.id === unidadeId)?.nome;
   const periodo = `${MESES[mes]} de ${ano}`;
@@ -189,9 +197,9 @@ export default function Dashboard() {
       // unico lembrete de que ela ainda falta. Nao remova.
       { chave: 'matricula', texto: 'Alunos sem matrícula — regularizar', total: alunosFiltrados.filter((a) => !a.matricula).length, link: '/alunos' },
       { chave: 'vazia', texto: 'Turmas ativas sem nenhum aluno', total: turmasFiltradas.filter((t) => t.ativo && !comAluno.has(t.id)).length, link: '/turmas' },
-      { chave: 'batidas', texto: 'Batidas sem funcionário ou aluno vinculado', total: naoResolvidos.length, link: '/relatorios' },
+      { chave: 'batidas', texto: 'Batidas sem funcionário ou aluno vinculado', total: naoResolvidosFiltrados.length, link: '/relatorios' },
     ].filter((p) => p.total > 0);
-  }, [alunosFiltrados, turmasFiltradas, naoResolvidos]);
+  }, [alunosFiltrados, turmasFiltradas, naoResolvidosFiltrados]);
 
   const faltasDoMes = useMemo(() => {
     if (!resumo) return [];
@@ -215,8 +223,8 @@ export default function Dashboard() {
       ['Funcionários ativos', totalFuncionarios ?? 'indisponível'],
       ['Alunos', alunosFiltrados.length],
       ['Turmas', turmasFiltradas.length],
-      ['Dispositivos', dispositivos.length],
-      ['Batidas sem vínculo', naoResolvidos.length],
+      ['Dispositivos', dispositivosFiltrados.length],
+      ['Batidas sem vínculo', naoResolvidosFiltrados.length],
       [],
       ['Precisa de atenção'],
       ['Descrição', 'Total'],
@@ -315,11 +323,11 @@ export default function Dashboard() {
             <div className="label">Turmas</div>
           </div>
           <div className="numero">
-            <div className="valor">{dispositivos.length}</div>
+            <div className="valor">{dispositivosFiltrados.length}</div>
             <div className="label">Dispositivos</div>
           </div>
-          <div className={`numero ${naoResolvidos.length ? 'destaque' : 'ok'}`}>
-            <div className="valor">{naoResolvidos.length}</div>
+          <div className={`numero ${naoResolvidosFiltrados.length ? 'destaque' : 'ok'}`}>
+            <div className="valor">{naoResolvidosFiltrados.length}</div>
             <div className="label">Batidas sem vínculo</div>
           </div>
         </div>
@@ -407,7 +415,7 @@ export default function Dashboard() {
       <section className="secao">
         <h2>
           Dispositivos
-          <span className="nota">{plural(dispositivos.length, 'cadastrado', 'cadastrados')}</span>
+          <span className="nota">{plural(dispositivosFiltrados.length, 'cadastrado', 'cadastrados')}</span>
         </h2>
         <div className="painel">
           <table className="tabela">
@@ -420,7 +428,7 @@ export default function Dashboard() {
               </tr>
             </thead>
             <tbody>
-              {dispositivos.map((d) => (
+              {dispositivosFiltrados.map((d) => (
                 <tr key={d.id}>
                   <td><Link to={`/dispositivos/${d.id}/editar`}>{d.descricao}</Link></td>
                   <td className="mono">{d.ip}:{d.porta}</td>
@@ -432,7 +440,7 @@ export default function Dashboard() {
                   </td>
                 </tr>
               ))}
-              {dispositivos.length === 0 && (
+              {dispositivosFiltrados.length === 0 && (
                 <tr><td colSpan={4}><div className="vazio">Nenhum dispositivo cadastrado.</div></td></tr>
               )}
             </tbody>

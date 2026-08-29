@@ -116,9 +116,31 @@ export const api = {
   buscarTurma: (id) => requisitar(`/api/turmas/${id}`),
   criarTurma: (dados) => requisitar('/api/turmas', { method: 'POST', body: dados }),
   atualizarTurma: (id, dados) => requisitar(`/api/turmas/${id}`, { method: 'PUT', body: dados }),
-  excluirTurma: (id) => requisitar(`/api/turmas/${id}`, { method: 'DELETE' }),
+  // Nao existe DELETE de turma, por decisao de produto: turma e referenciada
+  // por alunos e por registros de ponto ja gravados. "Excluir" e desativar.
+  desativarTurma: (turma) => requisitar(`/api/turmas/${turma.id}`, {
+    method: 'PUT',
+    // O PUT reescreve todos os campos; mandar so `ativo` deixaria nome e turno
+    // como undefined e o Knex do backend estouraria.
+    body: { nome: turma.nome, turno: turma.turno, ano_letivo: turma.ano_letivo, ativo: false },
+  }),
+  reativarTurma: (turma) => requisitar(`/api/turmas/${turma.id}`, {
+    method: 'PUT',
+    body: { nome: turma.nome, turno: turma.turno, ano_letivo: turma.ano_letivo, ativo: true },
+  }),
+  // Janela de funcionamento da turma (entrada/saida). O backend guarda uma
+  // por turma e faz upsert, entao salvar duas vezes atualiza a mesma linha.
+  listarHorariosTurma: (id) => requisitar(`/api/turmas/${id}/horarios`),
+  salvarHorarioTurma: (id, dados) => requisitar(`/api/turmas/${id}/horarios`, { method: 'PUT', body: dados }),
+  removerHorarioTurma: (id, horarioId) => requisitar(`/api/turmas/${id}/horarios/${horarioId}`, { method: 'DELETE' }),
   listarMinhasTurmas: () => requisitar('/api/professores/minhas-turmas'),
-  listarAlunosDaTurma: (turmaId) => requisitar(`/api/professores/turmas/${turmaId}/alunos`),
+  // atribuicao_id identifica QUAL aula (professor + materia + horario) esta
+  // sendo consultada; sem ele o backend nao sabe validar a janela da aula.
+  listarAlunosDaTurma: (turmaId, atribuicaoId) =>
+    requisitar(`/api/professores/turmas/${turmaId}/alunos?${consulta({ atribuicao_id: atribuicaoId })}`),
+  gradeDaTurma: (turmaId) => requisitar(`/api/professores/turmas/${turmaId}/grade`),
+  historicoDoAluno: (turmaId, alunoId, atribuicaoId) =>
+    requisitar(`/api/professores/turmas/${turmaId}/alunos/${alunoId}/historico?${consulta({ atribuicao_id: atribuicaoId })}`),
   registrarPresencasSala: (turmaId, dados) => requisitar(`/api/professores/turmas/${turmaId}/presencas`, { method: 'POST', body: dados }),
   criarNotaProfessor: (turmaId, dados) => requisitar(`/api/professores/turmas/${turmaId}/notas`, { method: 'POST', body: dados }),
   criarObservacaoProfessor: (turmaId, dados) => requisitar(`/api/professores/turmas/${turmaId}/observacoes`, { method: 'POST', body: dados }),

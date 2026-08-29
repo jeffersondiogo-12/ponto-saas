@@ -7,6 +7,8 @@ import { useAuth } from '../context/AuthContext';
 import { baixarCsv, exportarPdf, limitesDoMes } from '../utils/exportar';
 import { dataHoraCompleta, tempoRelativo } from '../utils/conexao';
 
+const POR_PAGINA = 50;
+
 /** Converte o que vier (objeto, string JSON ou null) num objeto navegavel. */
 function comoObjeto(v) {
   if (v === null || v === undefined) return null;
@@ -54,6 +56,7 @@ export default function Auditoria() {
   const [filtros, setFiltros] = useState({ de: mes.de, ate: mes.ate, acao: '', entidade: '', usuario_id: '' });
   const [busca, setBusca] = useState('');
   const [logs, setLogs] = useState(null);
+  const [paginacao, setPaginacao] = useState(null);
   const [usuarios, setUsuarios] = useState([]);
   const [abertoId, setAbertoId] = useState(null);
   const [carregando, setCarregando] = useState(false);
@@ -66,17 +69,23 @@ export default function Auditoria() {
     api.listarUsuarios().then((r) => setUsuarios(r.usuarios || [])).catch(() => {});
   }, [ehSuperAdmin]);
 
-  const buscar = useCallback(async () => {
+  /**
+   * A API devolve { logs, paginacao: { pagina, limite, total, total_paginas } }.
+   * Paginamos de verdade em vez de puxar um lote grande: auditoria cresce sem
+   * parar, e "os 200 mais recentes" esconderia o resto sem avisar.
+   */
+  const buscar = useCallback(async (pagina = 1) => {
     setCarregando(true);
     setErro(null);
     setAbertoId(null);
     try {
-      const r = await api.listarAuditoria({ ...filtros, limite: 200 });
-      // A API pode devolver a lista sob nomes diferentes; aceita os provaveis.
-      setLogs(r.logs || r.registros || r.auditoria || r.dados || []);
+      const r = await api.listarAuditoria({ ...filtros, pagina, limite: POR_PAGINA });
+      setLogs(r.logs || []);
+      setPaginacao(r.paginacao || null);
     } catch (err) {
       setErro(err.message || 'Não foi possível carregar a auditoria.');
       setLogs(null);
+      setPaginacao(null);
     } finally {
       setCarregando(false);
     }
@@ -210,8 +219,10 @@ export default function Auditoria() {
           Ações registradas
           {filtrados && (
             <span className="nota">
-              {filtrados.length === 1 ? '1 ação' : `${filtrados.length} ações`}
-              {filtrados.length === 200 && ' · limite da consulta'}
+              {paginacao
+                ? `${paginacao.total} ${paginacao.total === 1 ? 'ação' : 'ações'} no período`
+                : `${filtrados.length} ${filtrados.length === 1 ? 'ação' : 'ações'}`}
+              {busca.trim() && ` · ${filtrados.length} nesta página após o filtro`}
             </span>
           )}
         </h2>
@@ -339,6 +350,37 @@ export default function Auditoria() {
             <div className="painel-corpo"><p className="vazio">Ajuste os filtros e clique em “Buscar”.</p></div>
           )}
         </div>
+
+        {paginacao && paginacao.total_paginas > 1 && (
+          <div className="paginacao nao-imprimir">
+            <button
+              type="button"
+              className="btn btn-secundario btn-pequeno"
+              onClick={() => buscar(paginacao.pagina - 1)}
+              disabled={carregando || paginacao.pagina <= 1}
+            >
+              ← Anterior
+            </button>
+            <span className="texto-apoio">
+              Página {paginacao.pagina} de {paginacao.total_paginas}
+            </span>
+            <button
+              type="button"
+              className="btn btn-secundario btn-pequeno"
+              onClick={() => buscar(paginacao.pagina + 1)}
+              disabled={carregando || paginacao.pagina >= paginacao.total_paginas}
+            >
+              Próxima →
+            </button>
+          </div>
+        )}
+
+        {paginacao && paginacao.total_paginas > 1 && (
+          <p className="texto-apoio" style={{ marginTop: 8 }}>
+            A busca por texto e a exportação valem só para esta página — o filtro de
+            período, ação, entidade e usuário é que percorre todo o histórico.
+          </p>
+        )}
       </section>
     </Layout>
   );

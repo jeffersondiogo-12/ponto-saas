@@ -33,43 +33,19 @@ export default function TurmasLista() {
   }, [alunos]);
 
   /**
-   * Excluir com fallback para desativar.
+   * Turma nao e apagada — e desativada.
    *
-   * O backend nao expoe DELETE /api/turmas/:id — o modulo tem so get/post/put.
-   * Em vez de deixar o botao sempre errando, caimos para `ativo: false` pelo
-   * PUT, que existe. A turma sai da operacao e continua no historico, o que e
-   * mais seguro num sistema onde ela e referenciada por alunos e por registros
-   * de ponto ja gravados.
-   *
-   * Nao fazemos remocao so na tela: a linha sumiria e voltaria no F5, dando a
-   * entender que algo foi apagado quando nada mudou no servidor.
+   * Decisao de produto: nao existe DELETE de turma no backend, porque ela e
+   * referenciada por alunos e por registros de ponto ja gravados. Apagar
+   * deixaria esses vinculos orfaos. Desativar tira da operacao e preserva o
+   * historico.
    */
-  async function excluir(turma) {
+  async function desativar(turma) {
     setErro(null);
     setAviso(null);
     try {
-      await api.excluirTurma(turma.id);
-      setConfirmandoExclusao(null);
-      await carregar();
-      return;
-    } catch (err) {
-      if (err.status !== 404 && err.status !== 405) {
-        setErro(err.message || 'Erro ao excluir a turma.');
-        setConfirmandoExclusao(null);
-        return;
-      }
-    }
-
-    try {
-      // O PUT reescreve todos os campos: mandar so `ativo` deixaria nome e
-      // turno como undefined e o Knex do backend estouraria.
-      await api.atualizarTurma(turma.id, {
-        nome: turma.nome,
-        turno: turma.turno,
-        ano_letivo: turma.ano_letivo,
-        ativo: false,
-      });
-      setAviso(`“${turma.nome}” foi desativada. Ela sai da operação, mas continua no histórico — o servidor não permite apagar turmas.`);
+      await api.desativarTurma(turma);
+      setAviso(`“${turma.nome}” foi desativada. Ela sai da operação e continua no histórico.`);
       await carregar();
     } catch (err) {
       setErro(err.message || 'Não foi possível desativar a turma.');
@@ -83,12 +59,7 @@ export default function TurmasLista() {
     setErro(null);
     setAviso(null);
     try {
-      await api.atualizarTurma(turma.id, {
-        nome: turma.nome,
-        turno: turma.turno,
-        ano_letivo: turma.ano_letivo,
-        ativo: true,
-      });
+      await api.reativarTurma(turma);
       setAviso(`“${turma.nome}” voltou a ficar ativa.`);
       await carregar();
     } catch (err) {
@@ -149,7 +120,7 @@ export default function TurmasLista() {
                       </button>
                     ) : confirmandoExclusao === t.id ? (
                       <>
-                        <button type="button" className="btn btn-perigo btn-pequeno" onClick={() => excluir(t)}>
+                        <button type="button" className="btn btn-perigo btn-pequeno" onClick={() => desativar(t)}>
                           Confirmar
                         </button>
                         <button type="button" className="btn btn-secundario btn-pequeno" onClick={() => setConfirmandoExclusao(null)}>

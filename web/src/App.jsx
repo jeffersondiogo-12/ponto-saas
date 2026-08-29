@@ -18,6 +18,7 @@ import TurmaDetalhe from './pages/TurmaDetalhe';
 import Relatorios from './pages/Relatorios';
 import Auditoria from './pages/Auditoria';
 import ProfessorPainel from './pages/ProfessorPainel';
+import GestorPainel from './pages/GestorPainel';
 import SelecionarFilialModal from './components/SelecionarFilialModal';
 import ErrorOverlay from './components/ErrorOverlay';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -57,6 +58,7 @@ export default function App() {
           <Route path="/relatorios" element={<RotaProtegida><Relatorios /></RotaProtegida>} />
           <Route path="/auditoria" element={<RotaProtegida><Auditoria /></RotaProtegida>} />
           <Route path="/professor" element={<RotaProtegida><ProfessorPainel /></RotaProtegida>} />
+          <Route path="/gestao" element={<RotaProtegida><GestorPainel /></RotaProtegida>} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </ErrorBoundary>

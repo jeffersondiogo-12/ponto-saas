@@ -55,13 +55,28 @@ export default function TurmaDetalhe() {
   const [formProf, setFormProf] = useState({ professor_id: '', materia: '', hora_inicio: '07:00', hora_fim: '08:00', dias: [1, 2, 3, 4, 5] });
   const [mostrarFormProf, setMostrarFormProf] = useState(false);
 
+  const [horario, setHorario] = useState(null);
+  const [formHorario, setFormHorario] = useState({ hora_entrada: '07:00', hora_saida: '12:00' });
+  const [salvandoHorario, setSalvandoHorario] = useState(false);
+
   const carregar = useCallback(async () => {
-    const [t, todosAlunos, profs, usuarios] = await Promise.allSettled([
+    const [t, todosAlunos, profs, usuarios, hor] = await Promise.allSettled([
       api.buscarTurma(id),
       api.listarAlunos(),
       api.listarProfessoresTurma(id),
       api.listarUsuarios(),
+      api.listarHorariosTurma(id),
     ]);
+
+    if (hor.status === 'fulfilled') {
+      // O backend guarda no maximo uma janela por turma (a query usa limit 1).
+      const h = (hor.value.horarios || [])[0] || null;
+      setHorario(h);
+      setFormHorario({
+        hora_entrada: (h?.hora_entrada || '07:00').slice(0, 5),
+        hora_saida: (h?.hora_saida || '12:00').slice(0, 5),
+      });
+    }
 
     if (t.status === 'fulfilled') setTurma(t.value.turma);
     else setErro('Não foi possível carregar a turma.');
@@ -109,6 +124,39 @@ export default function TurmaDetalhe() {
       setErro(err.message || 'Erro ao remover o aluno da turma.');
     } finally {
       setOcupado(false);
+    }
+  }
+
+  /** Janela de funcionamento da turma — o backend faz upsert, uma por turma. */
+  async function salvarHorario(e) {
+    e.preventDefault();
+    setErro(null);
+    setAviso(null);
+    if (formHorario.hora_saida <= formHorario.hora_entrada) {
+      setErro('A saída precisa ser depois da entrada.');
+      return;
+    }
+    setSalvandoHorario(true);
+    try {
+      await api.salvarHorarioTurma(id, { ...formHorario, ativo: true });
+      setAviso('Horário da turma salvo.');
+      await carregar();
+    } catch (err) {
+      setErro(err.message || 'Não foi possível salvar o horário.');
+    } finally {
+      setSalvandoHorario(false);
+    }
+  }
+
+  async function removerHorario() {
+    setErro(null);
+    setAviso(null);
+    try {
+      await api.removerHorarioTurma(id, horario.id);
+      setAviso('Horário removido.');
+      await carregar();
+    } catch (err) {
+      setErro(err.message || 'Não foi possível remover o horário.');
     }
   }
 
@@ -222,6 +270,56 @@ export default function TurmaDetalhe() {
         <div className="metrica">
           <div className="valor mono">{turma.ano_letivo}</div>
           <div className="label">Ano letivo</div>
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="eyebrow">Horário da turma</div>
+        <div className="card-corpo">
+          <p className="texto-apoio" style={{ marginTop: 0 }}>
+            Janela de entrada e saída da turma. É o que delimita a chamada e a
+            presença registrada pelo facial.
+          </p>
+          <form onSubmit={salvarHorario}>
+            <div className="grid-form">
+              <div className="campo">
+                <label htmlFor="th-entrada">Entrada <span className="obrigatorio">*</span></label>
+                <input
+                  id="th-entrada"
+                  type="time"
+                  value={formHorario.hora_entrada}
+                  onChange={(e) => setFormHorario({ ...formHorario, hora_entrada: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="campo">
+                <label htmlFor="th-saida">Saída <span className="obrigatorio">*</span></label>
+                <input
+                  id="th-saida"
+                  type="time"
+                  value={formHorario.hora_saida}
+                  onChange={(e) => setFormHorario({ ...formHorario, hora_saida: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="campo">
+                <label>Situação</label>
+                <span className={`badge badge-${horario ? 'ativo' : 'inativo'}`} style={{ width: 'fit-content' }}>
+                  {horario ? 'Definido' : 'Sem horário'}
+                </span>
+              </div>
+            </div>
+            <div className="acoes-form">
+              {horario && (
+                <button type="button" className="btn btn-perigo" onClick={removerHorario} disabled={ocupado}>
+                  Remover horário
+                </button>
+              )}
+              <button type="submit" className="btn btn-primario" disabled={salvandoHorario}>
+                {salvandoHorario ? 'Salvando...' : (horario ? 'Atualizar horário' : 'Definir horário')}
+              </button>
+            </div>
+          </form>
         </div>
       </div>
 
