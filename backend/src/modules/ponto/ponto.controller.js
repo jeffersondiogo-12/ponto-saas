@@ -63,6 +63,21 @@ async function listarNaoResolvidos(req, res, next) {
   }
 }
 
+async function listarRegistrosAlunos(req, res, next) {
+  try {
+    const { aluno_id, de, ate, limite } = req.query;
+    const registros = await pontoService.listarRegistrosAlunos(req.empresaId, {
+      alunoId: aluno_id,
+      de,
+      ate,
+      limite,
+    });
+    res.json({ registros });
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function extratoBancoHoras(req, res, next) {
   try {
     const { de, ate } = req.query;
@@ -97,6 +112,7 @@ module.exports = {
   listarApontamentos,
   obterFoto,
   listarNaoResolvidos,
+  listarRegistrosAlunos,
   extratoBancoHoras,
   lancamentoManualBancoHoras,
 };

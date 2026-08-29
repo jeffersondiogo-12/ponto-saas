@@ -123,8 +123,7 @@ async function criar(empresaId, dados) {
 
 async function atualizar(empresaId, alunoId, dados) {
   const alunoAtual = await buscarPorId(empresaId, alunoId);
-  const cpf = String(dados.cpf || '').replace(/\D/g, '');
-  if (cpf.length !== 11) throw new AppError('CPF do aluno deve ter 11 digitos.', 400);
+  const cpf = await normalizarCpfOpcional(dados.cpf);
 
   if (dados.turma_id) {
     const turma = await db('turmas').where({ id: dados.turma_id, empresa_id: empresaId, filial_id: alunoAtual.filial_id, ativo: true }).first();

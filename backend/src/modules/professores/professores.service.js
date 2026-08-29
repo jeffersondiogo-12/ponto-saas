@@ -162,7 +162,13 @@ async function criarObservacao(empresaId, professorId, turmaId, dados) {
   await validarAluno(empresaId, turmaId, dados.aluno_id);
   const filial = await db('filiais').where({ id: atribuicao.filial_id, empresa_id: empresaId }).first();
   validarAulaNoMomento(atribuicao, filial?.fuso_horario || 'America/Sao_Paulo', dataAtualNoFuso(filial?.fuso_horario || 'America/Sao_Paulo'));
-  const [observacao] = await db('observacoes_alunos').insert({ ...dados, empresa_id: empresaId, autor_nome: dados.autor_nome || atribuicao.materia }).returning('*');
+  const [observacao] = await db('observacoes_alunos').insert({
+    empresa_id: empresaId,
+    aluno_id: dados.aluno_id,
+    titulo: String(dados.titulo || '').trim(),
+    texto: String(dados.texto || '').trim(),
+    autor_nome: dados.autor_nome || atribuicao.materia,
+  }).returning('*');
   publicarEvento('observacao.criada', { empresaId, alunoId: dados.aluno_id });
   return observacao;
 }

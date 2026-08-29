@@ -353,6 +353,33 @@ async function listarRegistrosNaoResolvidos(empresaId) {
     .orderBy('r.data_hora', 'desc');
 }
 
+async function listarRegistrosAlunos(empresaId, { alunoId, de, ate, limite } = {}) {
+  const query = db('registros_ponto as r')
+    .select(
+      'r.id',
+      'r.aluno_id',
+      'a.nome as aluno_nome',
+      'r.data_hora',
+      'r.tipo_batida',
+      'r.tipo_verificacao_bruto',
+      'r.nsr',
+      'r.origem',
+      'd.descricao as dispositivo_descricao',
+    )
+    .join('alunos as a', 'a.id', 'r.aluno_id')
+    .leftJoin('dispositivos as d', 'd.id', 'r.dispositivo_id')
+    .where('r.empresa_id', empresaId)
+    .whereNotNull('r.aluno_id')
+    .orderBy('r.data_hora', 'desc');
+
+  if (alunoId) query.where('r.aluno_id', alunoId);
+  if (de) query.where('r.data_hora', '>=', de);
+  if (ate) query.where('r.data_hora', '<=', ate);
+
+  query.limit(Math.min(Math.max(Number(limite) || 100, 1), 500));
+  return query;
+}
+
 module.exports = {
   ingerirRegistros,
   registrarBatidaManual,
@@ -360,4 +387,5 @@ module.exports = {
   listarApontamentos,
   buscarFoto,
   listarRegistrosNaoResolvidos,
+  listarRegistrosAlunos,
 };
