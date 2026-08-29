@@ -26,9 +26,56 @@ async function buscarPorId(empresaId, alunoId) {
   return aluno;
 }
 
+async function normalizarCpfOpcional(valor) {
+  if (valor === null || valor === undefined || String(valor).trim() === '') return null;
+
+  const cpf = String(valor).replace(/\D/g, '');
+  if (cpf && cpf.length !== 11) throw new AppError('CPF do aluno deve ter 11 digitos.', 400);
+  return cpf || null;
+}
+
+async function resolverPorMatriculaDispositivo(empresaId, filialId, matriculaDispositivo, dados = {}) {
+  const matricula = String(matriculaDispositivo ?? '').trim();
+  if (!matricula) throw new AppError('A matrícula do dispositivo é obrigatória.', 400);
+
+  const alunoExistente = await db('alunos')
+    .where({ empresa_id: empresaId, matricula })
+    .first();
+
+  if (alunoExistente) return alunoExistente;
+
+  const filial = await db('filiais')
+    .where({ id: filialId, empresa_id: empresaId })
+    .first();
+  if (!filial) throw new AppError('Unidade nao encontrada.', 404);
+  if (filial.tipo !== 'escola') {
+    throw new AppError('Alunos só podem ser cadastrados em unidades do tipo escola.', 400);
+  }
+
+  const cpf = await normalizarCpfOpcional(dados.cpf);
+  const nome = (dados.nome || 'Aluno importado do dispositivo').trim() || 'Aluno importado do dispositivo';
+
+  const [aluno] = await db('alunos')
+    .insert({
+      empresa_id: empresaId,
+      filial_id: filialId,
+      turma_id: dados.turma_id || null,
+      horario_aluno_id: dados.horario_aluno_id || null,
+      matricula,
+      nome,
+      cpf,
+      data_nascimento: dados.data_nascimento || null,
+      nome_responsavel: dados.nome_responsavel || null,
+      contato_responsavel: dados.contato_responsavel || null,
+      ativo: dados.ativo !== undefined ? Boolean(dados.ativo) : true,
+    })
+    .returning('*');
+
+  return aluno;
+}
+
 async function criar(empresaId, dados) {
-  const cpf = String(dados.cpf || '').replace(/\D/g, '');
-  if (cpf.length !== 11) throw new AppError('CPF do aluno deve ter 11 digitos.', 400);
+  const cpf = await normalizarCpfOpcional(dados.cpf);
 
   const filial = await db('filiais').where({ id: dados.filial_id, empresa_id: empresaId }).first();
   if (!filial) throw new AppError('Unidade nao encontrada.', 404);
@@ -41,7 +88,7 @@ async function criar(empresaId, dados) {
     if (!turma) throw new AppError('Turma nao encontrada nesta filial.', 404);
   }
 
-  const horarioAlunoId = dados.horario_aluno_id === undefined ? alunoAtual.horario_aluno_id : dados.horario_aluno_id || null;
+  const horarioAlunoId = dados.horario_aluno_id || null;
   if (horarioAlunoId) {
     const horario = await db('horarios_alunos').where({ id: horarioAlunoId }).first();
     if (!horario) throw new AppError('Horario escolar nao encontrado.', 404);
@@ -110,7 +157,7 @@ async function atualizar(empresaId, alunoId, dados) {
  * um funcionario sao cadastros diferentes.
  */
 async function vincularDispositivo(empresaId, alunoId, dispositivoId, idNoDispositivo) {
-  await buscarPorId(empresaId, alunoId);
+  const aluno = await buscarPorId(empresaId, alunoId);
 
   const dispositivo = await db('dispositivos').where({ id: dispositivoId, empresa_id: empresaId }).first();
   if (!dispositivo) throw new AppError('Dispositivo nao encontrado.', 404);
@@ -155,4 +202,12 @@ async function frequencia(empresaId, alunoId, { de, ate } = {}) {
   return query;
 }
 
-module.exports = { listar, buscarPorId, criar, atualizar, vincularDispositivo, frequencia };
+module.exports = {
+  listar,
+  buscarPorId,
+  criar,
+  atualizar,
+  vincularDispositivo,
+  frequencia,
+  resolverPorMatriculaDispositivo,
+};

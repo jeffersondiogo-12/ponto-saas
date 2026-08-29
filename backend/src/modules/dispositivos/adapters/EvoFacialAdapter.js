@@ -86,6 +86,7 @@ class EvoFacialAdapter extends DeviceAdapter {
     }
     return (resposta.record || []).map((u) => ({
       idNoDispositivo: String(u.enrollid),
+      matricula: String(u.enrollid),
       nome: null, // getuserlist nao devolve nome (so enrollid/admin/backupnum - ver PDF 2.1)
     }));
   }

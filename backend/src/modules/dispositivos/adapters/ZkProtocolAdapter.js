@@ -103,6 +103,7 @@ class ZkProtocolAdapter extends DeviceAdapter {
     const usuarios = resultado?.data || resultado || [];
     return usuarios.map((u) => ({
       idNoDispositivo: String(u.userId || u.uid),
+      matricula: String(u.userId || u.uid),
       nome: u.name || null,
     }));
   }

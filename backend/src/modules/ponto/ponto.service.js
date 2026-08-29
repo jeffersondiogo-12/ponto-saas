@@ -5,6 +5,7 @@ const bancoHorasService = require('./bancoHoras.service');
 const { horaLocalParaUTC } = require('../../utils/tempo');
 const notificacoesService = require('../responsaveis/notificacoes.service');
 const { caminhoAbsoluto } = require('../dispositivos/fotoStorage');
+const alunosService = require('../alunos/alunos.service');
 const { publicarEvento } = require('../../realtime');
 
 const FUSO_PADRAO = 'America/Sao_Paulo';
@@ -42,6 +43,42 @@ function normalizarTipoBatida(codigoBruto) {
  * Idempotente: reexecutar com os mesmos registros nao duplica nada, gracas
  * ao indice unico (dispositivo_id, nsr).
  */
+async function resolverPessoaPeloIdDispositivo(empresaId, dispositivo, registro) {
+  const idNoDispositivo = String(registro?.idNoDispositivo ?? registro?.matricula ?? '').trim();
+  if (!idNoDispositivo) return { funcionarioId: null, alunoId: null };
+
+  const funcionario = await db('funcionarios as f')
+    .where({ 'f.empresa_id': empresaId, 'f.filial_id': dispositivo.filial_id, 'f.matricula': idNoDispositivo })
+    .select('f.id')
+    .first();
+  if (funcionario) return { funcionarioId: funcionario.id, alunoId: null };
+
+  const aluno = await db('alunos as a')
+    .where({ 'a.empresa_id': empresaId, 'a.filial_id': dispositivo.filial_id, 'a.matricula': idNoDispositivo })
+    .select('a.id')
+    .first();
+  if (aluno) return { funcionarioId: null, alunoId: aluno.id };
+
+  const temDadosPessoais = Boolean(registro?.nome || registro?.cpf || registro?.dataNascimento || registro?.data_nascimento);
+  if (!temDadosPessoais) return { funcionarioId: null, alunoId: null };
+
+  const alunoCriado = await alunosService.resolverPorMatriculaDispositivo(
+    empresaId,
+    dispositivo.filial_id,
+    idNoDispositivo,
+    {
+      nome: registro.nome,
+      cpf: registro.cpf,
+      data_nascimento: registro.dataNascimento || registro.data_nascimento || null,
+      turma_id: null,
+      horario_aluno_id: null,
+      ativo: true,
+    },
+  );
+
+  return { funcionarioId: null, alunoId: alunoCriado.id };
+}
+
 async function ingerirRegistros(empresaId, dispositivo, registros) {
   if (!registros || registros.length === 0) {
     await db('dispositivos')
@@ -76,8 +113,15 @@ async function ingerirRegistros(empresaId, dispositivo, registros) {
 
   await db.transaction(async (trx) => {
     for (const registro of registros) {
-      const funcionarioId = mapaFuncionarioPorIdDispositivo.get(registro.idNoDispositivo) || null;
-      const alunoId = funcionarioId ? null : mapaAlunoPorIdDispositivo.get(registro.idNoDispositivo) || null;
+      let funcionarioId = mapaFuncionarioPorIdDispositivo.get(registro.idNoDispositivo) || null;
+      let alunoId = funcionarioId ? null : mapaAlunoPorIdDispositivo.get(registro.idNoDispositivo) || null;
+
+      if (!funcionarioId && !alunoId) {
+        const pessoaPorMatricula = await resolverPessoaPeloIdDispositivo(empresaId, dispositivo, registro);
+        funcionarioId = pessoaPorMatricula.funcionarioId || null;
+        alunoId = pessoaPorMatricula.alunoId || null;
+      }
+
       const resolvido = Boolean(funcionarioId || alunoId);
       if (!resolvido) totalNaoResolvidos += 1;
 
