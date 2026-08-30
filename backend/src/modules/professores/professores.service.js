@@ -234,9 +234,18 @@ async function atribuirProfessor(empresaId, turmaId, dados) {
   if (!janelaTurma || dados.hora_inicio < janelaTurma.hora_entrada || dados.hora_fim > janelaTurma.hora_saida) {
     throw new AppError('A aula deve ficar dentro do horario da turma.', 400);
   }
-  const atribuicoesAtivas = await db('turma_professores')
-    .where({ empresa_id: empresaId, turma_id: turmaId, ativo: true })
-    .whereNot({ professor_id: dados.professor_id, materia: dados.materia });
+  const atribuicaoExistente = await db('turma_professores')
+    .where({
+      empresa_id: empresaId,
+      turma_id: turmaId,
+      professor_id: dados.professor_id,
+      materia: dados.materia,
+    })
+    .first('id');
+  const consultaAtribuicoes = db('turma_professores')
+    .where({ empresa_id: empresaId, turma_id: turmaId, ativo: true });
+  if (atribuicaoExistente) consultaAtribuicoes.whereNot('id', atribuicaoExistente.id);
+  const atribuicoesAtivas = await consultaAtribuicoes;
   const conflitos = atribuicoesAtivas.filter((atribuicao) => {
     const diasExistentes = Array.isArray(atribuicao.dias_semana) ? atribuicao.dias_semana : JSON.parse(atribuicao.dias_semana || '[]');
     const mesmoDia = dias.some((dia) => diasExistentes.includes(dia));
