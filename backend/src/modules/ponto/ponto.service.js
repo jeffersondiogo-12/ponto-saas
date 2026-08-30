@@ -2,7 +2,7 @@ const db = require('../../config/db');
 const { AppError } = require('../../middlewares/errorHandler');
 const { calcularApontamentoDoDia } = require('./calculoJornada');
 const bancoHorasService = require('./bancoHoras.service');
-const { horaLocalParaUTC } = require('../../utils/tempo');
+const { horaLocalParaUTC, partesNoFuso } = require('../../utils/tempo');
 const notificacoesService = require('../responsaveis/notificacoes.service');
 const { caminhoAbsoluto } = require('../dispositivos/fotoStorage');
 const alunosService = require('../alunos/alunos.service');
@@ -35,6 +35,41 @@ const TIPO_BATIDA_POR_CODIGO = {
 
 function normalizarTipoBatida(codigoBruto) {
   return TIPO_BATIDA_POR_CODIGO[codigoBruto] || 'indefinido';
+}
+
+function classificarBatidasAlunos(registros) {
+  const grupos = new Map();
+
+  registros.forEach((registro) => {
+    const timeZone = registro.filial_fuso_horario || FUSO_PADRAO;
+    const partes = partesNoFuso(new Date(registro.data_hora), timeZone);
+    const chave = `${registro.aluno_id}:${partes.year}-${partes.month}-${partes.day}`;
+    if (!grupos.has(chave)) grupos.set(chave, []);
+    grupos.get(chave).push(registro);
+  });
+
+  grupos.forEach((grupo) => {
+    grupo.sort((a, b) => {
+      const diferenca = new Date(a.data_hora).getTime() - new Date(b.data_hora).getTime();
+      return diferenca || Number(a.id) - Number(b.id);
+    });
+
+    const tiposBrutos = grupo.map((registro) => registro.tipo_batida);
+    const somenteTiposBasicos = tiposBrutos.every((tipo) => (
+      tipo === 'entrada' || tipo === 'saida' || tipo === 'indefinido'
+    ));
+    const sequenciaConfiavel = somenteTiposBasicos && tiposBrutos.every((tipo, indice) => (
+      tipo === (indice % 2 === 0 ? 'entrada' : 'saida')
+    ));
+
+    if (!sequenciaConfiavel) {
+      grupo.forEach((registro, indice) => {
+        registro.tipo_batida = indice % 2 === 0 ? 'entrada' : 'saida';
+      });
+    }
+  });
+
+  return registros;
 }
 
 /**
@@ -367,13 +402,16 @@ async function listarRegistrosAlunos(empresaId, { alunoId, filialId, turmaId, de
       'r.nsr',
       'r.origem',
       'd.descricao as dispositivo_descricao',
+      'f.fuso_horario as filial_fuso_horario',
     )
     .join('alunos as a', 'a.id', 'r.aluno_id')
     .leftJoin('dispositivos as d', 'd.id', 'r.dispositivo_id')
+    .leftJoin('filiais as f', 'f.id', 'r.filial_id')
     .where('r.empresa_id', empresaId)
     .where('a.empresa_id', empresaId)
     .whereNotNull('r.aluno_id')
-    .orderBy('r.data_hora', 'desc');
+    .orderBy('r.data_hora', 'asc')
+    .orderBy('r.id', 'asc');
 
   if (alunoId) query.where('r.aluno_id', alunoId);
   if (filialId) query.where('r.filial_id', filialId);
@@ -381,8 +419,17 @@ async function listarRegistrosAlunos(empresaId, { alunoId, filialId, turmaId, de
   if (de) query.where('r.data_hora', '>=', de);
   if (ate) query.where('r.data_hora', '<=', ate);
 
-  query.limit(Math.min(Math.max(Number(limite) || 100, 1), 500));
-  return query;
+  const limiteSeguro = Math.min(Math.max(Number(limite) || 100, 1), 500);
+  const registros = await query.limit(500);
+  classificarBatidasAlunos(registros);
+
+  return registros
+    .sort((a, b) => {
+      const diferenca = new Date(b.data_hora).getTime() - new Date(a.data_hora).getTime();
+      return diferenca || Number(b.id) - Number(a.id);
+    })
+    .slice(0, limiteSeguro)
+    .map(({ filial_fuso_horario, ...registro }) => registro);
 }
 
 module.exports = {
