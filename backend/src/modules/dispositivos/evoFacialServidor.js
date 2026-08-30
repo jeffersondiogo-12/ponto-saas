@@ -92,7 +92,14 @@ function enviarMensagem(ws, numeroSerie, payload) {
 
 function estaConectado(numeroSerie) {
   const conexao = conexoes.get(numeroSerie);
-  return Boolean(conexao && conexao.ws.readyState === conexao.ws.OPEN);
+  if (!conexao) return false;
+
+  if (conexao.ws && conexao.ws.readyState === conexao.ws.OPEN) return true;
+
+  const ultimaComunicacao = Number(conexao.ultimoHeartbeatEm || 0);
+  if (!ultimaComunicacao) return false;
+
+  return Date.now() - ultimaComunicacao <= 10 * 60 * 1000;
 }
 
 function listarNumerosSerieConectados() {
@@ -409,7 +416,7 @@ async function processarPostPublico(msg) {
   if (!msg || typeof msg !== 'object' || !msg.cmd) {
     return { ret: null, result: false, reason: 'cmd ausente' };
   }
-  if (!['reg', 'sendlog'].includes(msg.cmd)) {
+  if (!['reg', 'sendlog', 'checklive'].includes(msg.cmd)) {
     return { ret: msg.cmd, result: false, reason: 'comando HTTP nao permitido' };
   }
   if (!msg.sn || typeof msg.sn !== 'string' || msg.sn.trim().length < 4) {
@@ -422,6 +429,33 @@ async function processarPostPublico(msg) {
     if (msg.count != null && Number(msg.count) !== msg.record.length) {
       return { ret: 'sendlog', result: false, reason: 'count invalido' };
     }
+  }
+
+  if (msg.cmd === 'checklive') {
+    const numeroSerie = msg.sn.trim();
+    const dispositivo = await db('dispositivos')
+      .whereRaw('UPPER(numero_serie) = UPPER(?)', [numeroSerie])
+      .first();
+
+    if (!dispositivo) {
+      return { ret: 'checklive', result: false, reason: 'dispositivo nao cadastrado' };
+    }
+
+    const conexaoAtual = conexoes.get(dispositivo.numero_serie) || { ws: null, ultimoHeartbeatEm: 0 };
+    conexoes.set(dispositivo.numero_serie, {
+      ...conexaoAtual,
+      dispositivo,
+      ultimoHeartbeatEm: Date.now(),
+    });
+
+    await db('dispositivos')
+      .where({ id: dispositivo.id })
+      .update({
+        ultima_conexao_ws_em: db.fn.now(),
+        ultima_coleta_status: 'conectado_via_http',
+      });
+
+    return { ret: 'checklive', result: true, sn: numeroSerie };
   }
 
   if (msg.cmd === 'reg') {
