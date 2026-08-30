@@ -353,11 +353,13 @@ async function listarRegistrosNaoResolvidos(empresaId) {
     .orderBy('r.data_hora', 'desc');
 }
 
-async function listarRegistrosAlunos(empresaId, { alunoId, de, ate, limite } = {}) {
+async function listarRegistrosAlunos(empresaId, { alunoId, filialId, turmaId, de, ate, limite } = {}) {
   const query = db('registros_ponto as r')
     .select(
       'r.id',
       'r.aluno_id',
+      'r.filial_id',
+      'a.turma_id',
       'a.nome as aluno_nome',
       'r.data_hora',
       'r.tipo_batida',
@@ -369,10 +371,13 @@ async function listarRegistrosAlunos(empresaId, { alunoId, de, ate, limite } = {
     .join('alunos as a', 'a.id', 'r.aluno_id')
     .leftJoin('dispositivos as d', 'd.id', 'r.dispositivo_id')
     .where('r.empresa_id', empresaId)
+    .where('a.empresa_id', empresaId)
     .whereNotNull('r.aluno_id')
     .orderBy('r.data_hora', 'desc');
 
   if (alunoId) query.where('r.aluno_id', alunoId);
+  if (filialId) query.where('r.filial_id', filialId);
+  if (turmaId) query.where('a.turma_id', turmaId);
   if (de) query.where('r.data_hora', '>=', de);
   if (ate) query.where('r.data_hora', '<=', ate);
 

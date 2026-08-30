@@ -65,9 +65,11 @@ async function listarNaoResolvidos(req, res, next) {
 
 async function listarRegistrosAlunos(req, res, next) {
   try {
-    const { aluno_id, de, ate, limite } = req.query;
+    const { aluno_id, filial_id, turma_id, de, ate, limite } = req.query;
     const registros = await pontoService.listarRegistrosAlunos(req.empresaId, {
       alunoId: aluno_id,
+      filialId: filial_id,
+      turmaId: turma_id,
       de,
       ate,
       limite,
