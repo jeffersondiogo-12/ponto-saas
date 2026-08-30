@@ -159,6 +159,15 @@ export const api = {
   listarUsuarios: () => requisitar('/api/auth/usuarios'),
   criarUsuario: (dados) => requisitar('/api/auth/usuarios', { method: 'POST', body: dados }),
   listarRegistrosNaoResolvidos: () => requisitar('/api/ponto/registros/nao-resolvidos'),
+  /**
+   * Batidas ja vinculadas a aluno. Os filtros valem no BANCO, antes do teto de
+   * `limite` (padrao 100, maximo 500) - por isso sempre mande `turma_id` ou
+   * `filial_id`: sem recorte, o teto pode ser preenchido por outra unidade da
+   * mesma empresa e a turma pedida aparece vazia.
+   * Aceita: aluno_id, filial_id, turma_id, de, ate, limite.
+   */
+  listarRegistrosAlunos: (params = {}) =>
+    requisitar(`/api/ponto/registros/alunos?${consulta(params)}`),
 
   resumoPeriodo: (de, ate) => requisitar(`/api/relatorios/resumo-periodo?de=${de}&ate=${ate}`),
   espelhoPonto: (funcionarioId, de, ate) =>

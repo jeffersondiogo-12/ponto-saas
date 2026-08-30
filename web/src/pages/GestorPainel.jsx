@@ -4,8 +4,9 @@ import Layout from '../components/Layout';
 import Selecao from '../components/Selecao';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
+import { useRecarregarAoVivo } from '../context/RealtimeContext';
 import { baixarCsv, exportarPdf } from '../utils/exportar';
-import { rotuloTurno } from '../utils/dominio';
+import { rotuloTipoBatida, rotuloTurno } from '../utils/dominio';
 
 const DIAS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 const hoje = () => new Date().toISOString().slice(0, 10);
@@ -15,6 +16,25 @@ function comoDias(v) {
   if (Array.isArray(v)) return v;
   try { return JSON.parse(v || '[]'); } catch { return []; }
 }
+
+/**
+ * `registros_ponto.data_hora` e `timestamp with time zone`. Mandar a data
+ * crua ("2026-08-29") como `ate` cortaria o dia na meia-noite e devolveria
+ * quase nada, entao os limites vao em ISO completo. `new Date('...T00:00:00')`
+ * sem sufixo e lido como hora LOCAL, e o toISOString converte para UTC - o
+ * dia enviado e o dia de quem esta olhando a tela.
+ */
+function limitesDoDia(data) {
+  return {
+    de: new Date(`${data}T00:00:00`).toISOString(),
+    ate: new Date(`${data}T23:59:59.999`).toISOString(),
+  };
+}
+
+const horaDaBatida = (iso) => {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? '—' : d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+};
 
 /**
  * Painel do gestor.
@@ -39,6 +59,10 @@ export default function GestorPainel() {
 
   const [data, setData] = useState(hoje());
   const [presencas, setPresencas] = useState({});
+
+  const [batidas, setBatidas] = useState([]);
+  const [batidasIndisponivel, setBatidasIndisponivel] = useState(false);
+  const [carregandoBatidas, setCarregandoBatidas] = useState(false);
 
   const [carregando, setCarregando] = useState(true);
   const [carregandoTurma, setCarregandoTurma] = useState(false);
@@ -83,6 +107,37 @@ export default function GestorPainel() {
   }, [turmaId]);
 
   useEffect(() => { carregarTurma(); }, [carregarTurma]);
+
+  /**
+   * Batidas da turma no dia escolhido. `turma_id` vai na consulta de proposito,
+   * e nao como filtro no cliente: o teto de 500 do endpoint e aplicado no banco,
+   * antes de qualquer filtro daqui - sem o recorte, outra unidade da mesma
+   * empresa poderia ocupar as 500 linhas e esta turma apareceria vazia.
+   *
+   * `silencioso` serve a recarga por evento: a lista troca no lugar, sem passar
+   * por "carregando" na frente de quem esta lendo.
+   */
+  const carregarBatidas = useCallback(async (silencioso = false) => {
+    if (!turmaId) { setBatidas([]); return; }
+    if (!silencioso) setCarregandoBatidas(true);
+    try {
+      const { de, ate } = limitesDoDia(data);
+      const r = await api.listarRegistrosAlunos({ turma_id: turmaId, de, ate, limite: 200 });
+      setBatidas(r.registros || []);
+      setBatidasIndisponivel(false);
+    } catch {
+      // Degrada por secao, como o Dashboard: o resto do painel continua de pe.
+      setBatidas([]);
+      setBatidasIndisponivel(true);
+    } finally {
+      if (!silencioso) setCarregandoBatidas(false);
+    }
+  }, [turmaId, data]);
+
+  useEffect(() => { carregarBatidas(); }, [carregarBatidas]);
+
+  const recarregarBatidas = useCallback(() => carregarBatidas(true), [carregarBatidas]);
+  useRecarregarAoVivo(['ponto.criado'], recarregarBatidas);
 
   const aulas = grade?.aulas || [];
   const [atribuicaoId, setAtribuicaoId] = useState('');
@@ -391,6 +446,59 @@ export default function GestorPainel() {
             </table>
           </div>
         </form>
+      </section>
+
+      <section className="secao">
+        <h2>
+          Batidas do dia
+          {batidas.length > 0 && (
+            <span className="nota">{batidas.length === 1 ? '1 batida' : `${batidas.length} batidas`}</span>
+          )}
+        </h2>
+
+        <p className="texto-apoio" style={{ marginTop: -6, marginBottom: 12 }}>
+          O que o equipamento registrou para os alunos desta turma em{' '}
+          <span className="mono">{data.split('-').reverse().join('/')}</span> — sem precisar
+          abrir relatório. Atualiza sozinha quando chega batida nova.
+        </p>
+
+        <div className="painel">
+          <div className="painel-corpo">
+            {batidasIndisponivel ? (
+              <div className="vazio">Batidas indisponíveis no momento.</div>
+            ) : carregandoBatidas ? (
+              <div className="vazio">Carregando batidas...</div>
+            ) : (
+              <table className="tabela">
+                <thead>
+                  <tr>
+                    <th style={{ width: 1 }}>Hora</th>
+                    <th>Aluno</th>
+                    <th>Tipo</th>
+                    <th>Equipamento</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {batidas.map((b) => (
+                    <tr key={b.id}>
+                      <td className="mono">{horaDaBatida(b.data_hora)}</td>
+                      <td>{b.aluno_nome}</td>
+                      <td>{rotuloTipoBatida(b.tipo_batida)}</td>
+                      <td>{b.dispositivo_descricao || '—'}</td>
+                    </tr>
+                  ))}
+                  {!batidas.length && (
+                    <tr>
+                      <td colSpan={4}>
+                        <div className="vazio">Nenhuma batida registrada para esta turma nesta data.</div>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
       </section>
     </Layout>
   );

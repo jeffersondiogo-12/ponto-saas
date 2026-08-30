@@ -15,6 +15,32 @@ function comoDias(v) {
 }
 
 /**
+ * A observacao passa por `validarAulaNoMomento` no servidor: so e aceita no
+ * DIA da aula e DENTRO do horario dela. A conta aqui e a mesma, feita pelo
+ * relogio do navegador, e serve so para avisar antes - quem decide continua
+ * sendo o servidor, que usa o fuso da filial. Por isso isto NAO bloqueia o
+ * envio: se o fuso do computador estiver diferente do da escola, bloquear
+ * impediria um lancamento legitimo.
+ */
+function janelaDaAula(aula) {
+  if (!aula) return null;
+  const dias = comoDias(aula.dias_semana);
+  const agora = new Date();
+  const noDia = dias.includes(agora.getDay());
+  const minutos = agora.getHours() * 60 + agora.getMinutes();
+  const emMinutos = (v) => {
+    const [h, m] = String(v || '').split(':');
+    return Number(h) * 60 + Number(m || 0);
+  };
+  const noHorario = minutos >= emMinutos(aula.hora_inicio) && minutos <= emMinutos(aula.hora_fim);
+  return {
+    aberta: noDia && noHorario,
+    dias: dias.map((d) => DIAS[d]).join(', ') || 'nenhum dia definido',
+    horario: `${hhmm(aula.hora_inicio)} às ${hhmm(aula.hora_fim)}`,
+  };
+}
+
+/**
  * O backend grava `etapa` como `Bimestre N` a partir do numero, e exige
  * `tipo_avaliacao` nao-vazio. Sao dois campos separados de proposito: dois
  * lancamentos do mesmo bimestre so se distinguem pelo tipo.
@@ -48,6 +74,22 @@ export default function ProfessorPainel() {
     () => turmas.find((t) => String(t.atribuicao_id) === String(atribuicaoId)) || null,
     [turmas, atribuicaoId],
   );
+
+  /**
+   * A janela depende da HORA, nao so da aula escolhida: sem um tique o aviso
+   * ficaria congelado no estado de quando a tela abriu, e continuaria dizendo
+   * "fora do horario" depois de a aula ter comecado. Um minuto basta - a
+   * precisao aqui e de minuto, e o servidor continua sendo quem decide.
+   */
+  const [, marcarMinuto] = useState(0);
+  useEffect(() => {
+    if (!aula) return undefined;
+    const timer = setInterval(() => marcarMinuto((n) => n + 1), 60000);
+    return () => clearInterval(timer);
+  }, [aula]);
+
+  // Sem memo de proposito: o resultado depende do relogio, e a conta e barata.
+  const janela = janelaDaAula(aula);
 
   useEffect(() => {
     api.listarMinhasTurmas()
@@ -154,6 +196,7 @@ export default function ProfessorPainel() {
     setOcupado(true);
     try {
       await api.criarObservacaoProfessor(aula.turma_id, {
+        atribuicao_id: aula.atribuicao_id,
         aluno_id: obs.aluno_id,
         titulo: `Observação de ${aula.materia}`,
         texto: obs.texto.trim(),
@@ -162,7 +205,13 @@ export default function ProfessorPainel() {
       setObs({ aluno_id: obs.aluno_id, texto: '' });
       setHistoricos((h) => ({ ...h, [obs.aluno_id]: undefined }));
     } catch (err) {
-      setErro(err.message);
+      // O servidor reaproveita `validarAulaNoMomento` aqui, entao a recusa vem
+      // escrita como se fosse a chamada. Dizer "chamada" a quem esta mandando
+      // uma observacao manda a pessoa conferir a tela errada.
+      const fora = /chamada so pode ser registrada|chamada só pode ser registrada/i.test(err.message || '');
+      setErro(fora && janela
+        ? `A observação só pode ser enviada durante a aula — ${janela.dias}, das ${janela.horario}.`
+        : err.message);
     } finally {
       setOcupado(false);
     }
@@ -439,6 +488,12 @@ export default function ProfessorPainel() {
             <section className="secao">
               <h2>Observação para o responsável</h2>
               <div className="painel"><div className="painel-corpo">
+                {janela && !janela.aberta && (
+                  <p className="info">
+                    O servidor só aceita observação durante a aula — {janela.dias}, das {janela.horario}.
+                    Fora desse horário o envio é recusado.
+                  </p>
+                )}
                 <form onSubmit={salvarObservacao}>
                   <div className="campo">
                     <label htmlFor="pp-obs-aluno">Aluno <span className="obrigatorio">*</span></label>
