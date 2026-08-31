@@ -21,12 +21,20 @@ const soDigitos = (v) => String(v || '').replace(/\D/g, '');
  * atualizarAluno faz UPDATE de todos os campos do aluno (ver
  * backend/src/modules/alunos/alunos.service.js). Mandar so o turma_id
  * apagaria nome, cpf e o resto - por isso reenviamos o registro inteiro.
+ *
+ * A lista aqui precisa cobrir TODO campo que o `.update()` do backend grava.
+ * Campo que falta nao da erro: o backend le `dados.campo` como undefined e
+ * grava null, apagando em silencio o que ja estava la. Foi o que aconteceu com
+ * `matricula`, incluida no UPDATE em 2026-08-31 - vincular um aluno a turma
+ * apagava a matricula dele. Ao ver campo novo no `atualizar`, acrescente aqui.
  */
 function payloadAluno(aluno, mudancas) {
   return {
     nome: aluno.nome,
     cpf: aluno.cpf,
+    matricula: aluno.matricula,
     data_nascimento: aluno.data_nascimento ? String(aluno.data_nascimento).slice(0, 10) : null,
+    horario_aluno_id: aluno.horario_aluno_id,
     nome_responsavel: aluno.nome_responsavel,
     contato_responsavel: aluno.contato_responsavel,
     turma_id: aluno.turma_id,

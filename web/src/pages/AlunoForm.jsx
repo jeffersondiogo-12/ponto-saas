@@ -16,9 +16,16 @@ function mascaraCpf(v) {
     .replace(/^(\d{3})\.(\d{3})\.(\d{3})(\d)/, '$1.$2.$3-$4');
 }
 
+/**
+ * `ativo` e `horario_aluno_id` nao aparecem no formulario, mas moram aqui de
+ * proposito: o `atualizar` do backend grava TODOS os campos, e o que nao for
+ * reenviado e apagado em silencio. `ativo` ausente e pior ainda - o backend
+ * assume `true`, entao editar um aluno inativo o reativaria sozinho.
+ */
 const VAZIO = {
   nome: '', cpf: '', data_nascimento: '', matricula: '',
   filial_id: '', turma_id: '', nome_responsavel: '', contato_responsavel: '',
+  ativo: true, horario_aluno_id: null,
 };
 
 export default function AlunoForm() {
@@ -69,6 +76,8 @@ export default function AlunoForm() {
           turma_id: aluno.turma_id || '',
           nome_responsavel: aluno.nome_responsavel || '',
           contato_responsavel: aluno.contato_responsavel || '',
+          ativo: aluno.ativo !== undefined ? aluno.ativo : true,
+          horario_aluno_id: aluno.horario_aluno_id || null,
         });
       }
     })();
@@ -110,6 +119,8 @@ export default function AlunoForm() {
         turma_id: dados.turma_id || null,
         nome_responsavel: dados.nome_responsavel.trim() || null,
         contato_responsavel: dados.contato_responsavel.trim() || null,
+        horario_aluno_id: dados.horario_aluno_id,
+        ativo: dados.ativo,
       };
       if (editando) await api.atualizarAluno(id, payload);
       else await api.criarAluno(payload);
