@@ -87,6 +87,7 @@ function Navegacao() {
         ) : ehProfessor ? (
           <>
             <Stack.Screen name="Professor" component={ProfessorScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="AlunoDetalhe" component={AlunoDetalheScreen} options={{ title: '' }} />
             <Stack.Screen name="Sincronizacao" component={SincronizacaoScreen} options={{ title: '' }} />
             <Stack.Screen name="Agenda" component={AgendaScreen} options={{ title: '' }} />
             <Stack.Screen name="Relatorios" component={RelatoriosScreen} options={{ title: '' }} />

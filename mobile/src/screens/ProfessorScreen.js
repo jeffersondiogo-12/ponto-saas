@@ -174,7 +174,9 @@ export default function ProfessorScreen({ navigation }) {
     setMensagem('');
     try {
       const res = await api.listarAlunosDaTurma(item.turma_id, item.atribuicao_id);
-      const listaAlunos = res.alunos || [];
+      const listaAlunos = [...(res.alunos || [])].sort((a, b) =>
+        String(a.nome || '').localeCompare(String(b.nome || ''), 'pt-BR', { sensitivity: 'base' })
+      );
       setAlunos(listaAlunos);
       const primeiroAlunoId = listaAlunos[0]?.id || '';
       setAlunoId(primeiroAlunoId);
@@ -188,6 +190,11 @@ export default function ProfessorScreen({ navigation }) {
     } finally {
       setCarregandoTurma(false);
     }
+  }
+
+  function abrirDetalhesAluno(aluno) {
+    if (!aluno?.id) return;
+    navigation.navigate('AlunoDetalhe', { alunoId: aluno.id, nome: aluno.nome || 'Aluno' });
   }
 
   async function carregarHistorico(turmaId, alunoIdAlvo, atribuicaoId = turma?.atribuicao_id) {
@@ -311,8 +318,11 @@ export default function ProfessorScreen({ navigation }) {
     );
   }
 
-  const alunoSelecionado = alunos.find((item) => item.id === alunoId);
-  const totalPresentes = alunos.filter((aluno) => presencas[aluno.id]).length;
+  const alunosOrdenados = [...alunos].sort((a, b) =>
+    String(a.nome || '').localeCompare(String(b.nome || ''), 'pt-BR', { sensitivity: 'base' })
+  );
+  const alunoSelecionado = alunosOrdenados.find((item) => item.id === alunoId) || alunos.find((item) => item.id === alunoId);
+  const totalPresentes = alunosOrdenados.filter((aluno) => presencas[aluno.id]).length;
   const resumoFila = pendentes.length
     ? `${pendentes.length} ação${pendentes.length > 1 ? 'ões' : 'ão'} em fila`
     : 'Tudo sincronizado';
@@ -478,17 +488,25 @@ export default function ProfessorScreen({ navigation }) {
                         </View>
                       </View>
 
-                      {alunos.map((aluno, indice) => (
-                        <LinhaAluno
-                          key={aluno.id}
-                          aluno={aluno}
-                          atraso={indice * 45}
-                          presente={Boolean(presencas[aluno.id])}
-                          faltaJustificada={Boolean(faltasJustificadas[aluno.id])}
-                          justificativa={justificativas[aluno.id] || ''}
-                          onToggle={() => alternarPresenca(aluno)}
-                          onJustificativa={(valor) => setJustificativas({ ...justificativas, [aluno.id]: valor })}
-                        />
+                      {alunosOrdenados.map((aluno, indice) => (
+                        <View key={aluno.id} style={estilos.alunoListaCard}>
+                          <LinhaAluno
+                            aluno={aluno}
+                            atraso={indice * 45}
+                            presente={Boolean(presencas[aluno.id])}
+                            faltaJustificada={Boolean(faltasJustificadas[aluno.id])}
+                            justificativa={justificativas[aluno.id] || ''}
+                            onToggle={() => alternarPresenca(aluno)}
+                            onJustificativa={(valor) => setJustificativas({ ...justificativas, [aluno.id]: valor })}
+                          />
+                          <PressaoAnimada
+                            style={estilos.botaoDetalhes}
+                            onPress={() => abrirDetalhesAluno(aluno)}
+                            escala={0.96}
+                          >
+                            <Text style={estilos.botaoDetalhesTexto}>Ver aluno</Text>
+                          </PressaoAnimada>
+                        </View>
                       ))}
 
                       <PressaoAnimada style={estilos.botao} onPress={salvarPresencas} disabled={enviando}>
@@ -508,19 +526,27 @@ export default function ProfessorScreen({ navigation }) {
                     <AparecerEm style={estilos.card}>
                       <Text style={estilos.rotulo}>Aluno</Text>
                       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                        {alunos.map((aluno) => {
+                        {alunosOrdenados.map((aluno) => {
                           const ativo = aluno.id === alunoId;
                           return (
-                            <PressaoAnimada
-                              key={aluno.id}
-                              style={[estilos.alunoChip, ativo && estilos.alunoChipAtivo]}
-                              onPress={() => selecionarAluno(aluno)}
-                              escala={0.94}
-                            >
-                              <Text style={ativo ? estilos.alunoChipTextoAtivo : estilos.alunoChipTexto}>
-                                {aluno.nome}
-                              </Text>
-                            </PressaoAnimada>
+                            <View key={aluno.id} style={estilos.alunoChipWrap}>
+                              <PressaoAnimada
+                                style={[estilos.alunoChip, ativo && estilos.alunoChipAtivo]}
+                                onPress={() => selecionarAluno(aluno)}
+                                escala={0.94}
+                              >
+                                <Text style={ativo ? estilos.alunoChipTextoAtivo : estilos.alunoChipTexto}>
+                                  {aluno.nome}
+                                </Text>
+                              </PressaoAnimada>
+                              <PressaoAnimada
+                                style={estilos.botaoMiniDetalhe}
+                                onPress={() => abrirDetalhesAluno(aluno)}
+                                escala={0.94}
+                              >
+                                <Text style={estilos.botaoMiniDetalheTexto}>Dados</Text>
+                              </PressaoAnimada>
+                            </View>
                           );
                         })}
                       </ScrollView>
@@ -703,19 +729,40 @@ const estilos = StyleSheet.create({
   chave: { borderRadius: raio.pill, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 6 },
   presente: { color: cores.verdeEscuro, fontWeight: '800', fontSize: 12.5 },
   falta: { color: cores.inkSoft, fontWeight: '800', fontSize: 12.5 },
+  alunoListaCard: { marginBottom: 10 },
+  alunoChipWrap: { flexDirection: 'row', alignItems: 'center', marginRight: 7, marginBottom: 12 },
   alunoChip: {
     borderWidth: 1,
     borderColor: cores.linha,
     borderRadius: raio.pill,
     paddingHorizontal: 14,
     paddingVertical: 9,
-    marginRight: 7,
-    marginBottom: 12,
     backgroundColor: cores.surfaceAlt,
   },
   alunoChipAtivo: { borderColor: cores.verde, backgroundColor: cores.verdeSoft },
   alunoChipTexto: { color: cores.inkSoft, fontSize: 13 },
   alunoChipTextoAtivo: { color: cores.verdeEscuro, fontWeight: '800', fontSize: 13 },
+  botaoMiniDetalhe: {
+    marginLeft: 6,
+    paddingHorizontal: 9,
+    paddingVertical: 7,
+    borderRadius: raio.pill,
+    borderWidth: 1,
+    borderColor: cores.azul,
+    backgroundColor: cores.azulSoft,
+  },
+  botaoMiniDetalheTexto: { color: cores.azul, fontWeight: '800', fontSize: 11.5 },
+  botaoDetalhes: {
+    alignSelf: 'flex-end',
+    marginTop: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: raio.pill,
+    borderWidth: 1,
+    borderColor: cores.azul,
+    backgroundColor: cores.azulSoft,
+  },
+  botaoDetalhesTexto: { color: cores.azul, fontWeight: '800', fontSize: 11.5 },
   historico: { backgroundColor: cores.surfaceAlt, borderRadius: raio.sm, padding: 12, marginBottom: 12, borderLeftWidth: 3, borderLeftColor: cores.azul },
   historicoTitulo: { color: cores.ink, fontSize: 12, fontWeight: '800', marginBottom: 5 },
   historicoLinha: { color: cores.inkSoft, fontSize: 12.5, marginTop: 2 },
