@@ -1,0 +1,22 @@
+# Projeto mobile enviado ao EAS
+backend/
+web/
+.git/
+
+# Excluir ferramentas locais e symlinks do workspace
+.agents/
+.windsurf/
+.vscode/
+**/.agents/
+**/.agents/**
+**/.windsurf/
+**/.windsurf/**
+**/.vscode/
+**/.vscode/**
+
+# Dependencias e segredos
+**/node_modules/
+**/.expo/
+**/.env
+**/.env.*
+!.env.example
