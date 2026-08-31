@@ -32,9 +32,23 @@ const VALIDADE_REPETIDO = 10000;
  */
 const TENTATIVAS_SEM_ABRIR = 5;
 
+/**
+ * `BASE_URL` tem tres formas possiveis, e as tres precisam virar um endereco
+ * absoluto de socket:
+ *   ''                       web servido pelo MESMO servico do backend (producao)
+ *   'http://localhost:3000'  backend local
+ *   'https://...onrender...' API hospedada
+ *
+ * `new URL(caminho, origem)` resolve as tres: base absoluta vence a origem,
+ * base vazia cai na origem da propria pagina. O protocolo e trocado pelo valor
+ * real, nao por prefixo de texto - trocar 'http' por 'ws' numa string vazia
+ * nao troca nada, e a funcao sairia devolvendo um caminho relativo.
+ */
 function urlDoSocket(token) {
-  const base = String(BASE_URL).replace(/\/+$/, '').replace(/^http/, 'ws');
-  return `${base}/ws?token=${encodeURIComponent(token)}`;
+  const url = new URL(`${String(BASE_URL).replace(/\/+$/, '')}/ws`, window.location.origin);
+  url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+  url.searchParams.set('token', token);
+  return url.toString();
 }
 
 /** Identifica a mensagem pelo conteudo, para descartar repetido. */
