@@ -56,6 +56,9 @@ export default function HomeScreen({ navigation }) {
           <PressaoAnimada style={estilos.botaoAdicionar} onPress={() => navigation.navigate('AdicionarFilho')}>
             <Text style={estilos.adicionar}>+ Filho</Text>
           </PressaoAnimada>
+          <PressaoAnimada style={estilos.botaoSincronizacao} onPress={() => navigation.navigate('Sincronizacao')}>
+            <Text style={estilos.sincronizacao}>Fila</Text>
+          </PressaoAnimada>
           <PressaoAnimada style={estilos.botaoSair} onPress={logout}>
             <Text style={estilos.sair}>Sair</Text>
           </PressaoAnimada>
@@ -150,6 +153,8 @@ const estilos = StyleSheet.create({
   adicionar: { color: cores.azul, fontSize: 13, fontWeight: '800' },
   botaoSair: { paddingHorizontal: 8, paddingVertical: 9 },
   sair: { color: cores.inkSoft, fontSize: 13, fontWeight: '600' },
+  botaoSincronizacao: { paddingHorizontal: 8, paddingVertical: 9 },
+  sincronizacao: { color: cores.azul, fontSize: 13, fontWeight: '700' },
   faixaOffline: {
     backgroundColor: cores.surface,
     borderLeftWidth: 3,

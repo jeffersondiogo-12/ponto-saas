@@ -10,7 +10,10 @@ const gestao = exigirPapel('super_admin', 'admin', 'gestor');
 // Leitura pelos responsaveis fica em responsaveis.routes.js (avisosDoAluno),
 // ja escopada por aluno/filial. Aqui e so a gestao do mural pelo staff.
 router.get('/', ...staff, gestao, controller.listar);
+router.get('/:id', ...staff, gestao, controller.buscar);
 router.post('/', ...staff, gestao, controller.criar);
+router.put('/:id', ...staff, gestao, controller.atualizar);
+router.delete('/:id', ...staff, gestao, controller.remover);
 router.patch('/:id/ativar', ...staff, gestao, controller.ativar);
 router.patch('/:id/desativar', ...staff, gestao, controller.desativar);
 

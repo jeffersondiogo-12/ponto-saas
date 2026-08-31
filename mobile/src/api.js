@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { salvarCache, lerCache } from './storage';
-import { enfileirar, obterFila, removerDaFila } from './filaOffline';
+import { enfileirar, obterFila, removerDaFila, marcarFalhaNaFila } from './filaOffline';
 
 // Em desenvolvimento, aponte para o IP da sua maquina na rede local (nao
 // "localhost" - no celular/emulador isso resolveria para o proprio
@@ -10,6 +10,7 @@ const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.0.10:3000';
 
 const CHAVE_TOKEN = '@ponto_saas_responsavel_token';
 const CHAVE_SESSAO = '@ponto_saas_sessao';
+const CHAVE_ULTIMA_SINCRONIZACAO = '@ponto_saas_ultima_sincronizacao';
 
 export async function salvarToken(token) {
   await AsyncStorage.setItem(CHAVE_TOKEN, token);
@@ -37,6 +38,14 @@ export async function obterSessao() {
 
 export async function limparSessao() {
   await AsyncStorage.removeItem(CHAVE_SESSAO);
+}
+
+export async function obterUltimaSincronizacao() {
+  return AsyncStorage.getItem(CHAVE_ULTIMA_SINCRONIZACAO);
+}
+
+async function registrarSincronizacao() {
+  await AsyncStorage.setItem(CHAVE_ULTIMA_SINCRONIZACAO, new Date().toISOString());
 }
 
 // fetch no React Native so REJEITA (throw) por falha de rede de verdade -
@@ -91,15 +100,18 @@ export async function processarFilaOffline() {
   try {
     const fila = await obterFila();
     for (const item of fila) {
+      if (item.falhaDefinitiva) continue;
       try {
         // eslint-disable-next-line no-await-in-loop
         await chamarServidor(item.caminho, { method: item.method, body: item.body });
         // eslint-disable-next-line no-await-in-loop
         await removerDaFila(item.id);
+        await registrarSincronizacao();
       } catch (err) {
         if (ehFalhaDeRede(err)) break;
+        // Mantem o item visivel para o usuario corrigir ou tentar novamente.
         // eslint-disable-next-line no-await-in-loop
-        await removerDaFila(item.id);
+        await marcarFalhaNaFila(item.id, err.message || 'O servidor recusou a ação.');
       }
     }
   } finally {
@@ -118,6 +130,7 @@ export async function processarFilaOffline() {
 async function requisitar(caminho, { method = 'GET', body, rotulo, permitirFila = true } = {}) {
   try {
     const dados = await chamarServidor(caminho, { method, body });
+    registrarSincronizacao();
     if (method === 'GET') salvarCache(caminho, dados);
     if (!processandoFila) processarFilaOffline();
     return dados;
@@ -168,6 +181,7 @@ export const api = {
   loginProfessor: (email, senha, unidade) =>
     requisitar('/api/auth/login', { method: 'POST', body: { email, senha, unidade }, permitirFila: false }),
   listarMinhasTurmas: () => requisitar('/api/professores/minhas-turmas'),
+  resumoProfessor: () => requisitar('/api/professores/minhas-turmas/resumo'),
   listarAlunosDaTurma: (turmaId, atribuicaoId) => {
     if (!atribuicaoId) {
       const erro = new Error('Aula legada sem atribuicao_id. Atualize as turmas antes de registrar a chamada.');

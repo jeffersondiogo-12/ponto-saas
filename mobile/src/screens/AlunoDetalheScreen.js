@@ -27,6 +27,27 @@ function formatarData(iso) {
   return data.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
+const FUSO_BRASILIA = 'America/Sao_Paulo';
+
+function diaNoFuso(iso) {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: FUSO_BRASILIA }).format(new Date(iso));
+}
+
+function prepararRegistros(registros) {
+  const ordenados = [...(registros || [])].sort((a, b) => {
+    const diferenca = new Date(a.data_hora).getTime() - new Date(b.data_hora).getTime();
+    return diferenca || String(a.id || '').localeCompare(String(b.id || ''));
+  });
+  const quantidadePorDia = new Map();
+  const classificados = ordenados.map((registro) => {
+    const dia = diaNoFuso(registro.data_hora);
+    const indice = quantidadePorDia.get(dia) || 0;
+    quantidadePorDia.set(dia, indice + 1);
+    return { ...registro, tipoExibicao: indice % 2 === 0 ? 'Chegada' : 'Saída' };
+  });
+  return classificados.reverse();
+}
+
 function iniciais(nome = '') {
   return nome
     .trim()
@@ -64,7 +85,7 @@ export default function AlunoDetalheScreen({ route }) {
       api.observacoesDoAluno(alunoId),
       api.avisosDoAluno(alunoId),
     ]);
-    setRegistros(frequencia.registros);
+    setRegistros(prepararRegistros(frequencia.registros));
     setPresencasSala(sala.registros);
     setNotas(notasResposta.notas);
     setObservacoes(observacoesResposta.observacoes);
@@ -157,9 +178,7 @@ export default function AlunoDetalheScreen({ route }) {
           keyExtractor={(item, indice) => `${item.data_hora}-${indice}`}
           ListEmptyComponent={<Text style={estilos.vazio}>Nenhum registro ainda.</Text>}
           renderItem={({ item, index }) => {
-            // Mesma logica par/impar do backend: 1a batida do dia = chegada,
-            // 2a = saida - so pra rotular aqui na lista (mais recente primeiro).
-            const tipo = index % 2 === 0 ? 'Chegada' : 'Saída';
+            const tipo = item.tipoExibicao;
             return (
               <AparecerEm atraso={index * 45}>
                 <View style={estilos.linha}>

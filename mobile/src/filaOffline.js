@@ -53,3 +53,21 @@ export async function removerDaFila(id) {
   const fila = await lerFila();
   await salvarFila(fila.filter((item) => item.id !== id));
 }
+
+export async function marcarFalhaNaFila(id, mensagem) {
+  const fila = await lerFila();
+  await salvarFila(fila.map((item) => (
+    item.id === id
+      ? { ...item, falhaDefinitiva: true, erro: mensagem, ultimaTentativaEm: Date.now() }
+      : item
+  )));
+}
+
+export async function reabrirNaFila(id) {
+  const fila = await lerFila();
+  await salvarFila(fila.map((item) => (
+    item.id === id
+      ? { ...item, falhaDefinitiva: false, erro: null, ultimaTentativaEm: null }
+      : item
+  )));
+}

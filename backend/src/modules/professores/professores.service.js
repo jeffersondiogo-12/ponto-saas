@@ -62,6 +62,35 @@ async function listarMinhasTurmas(empresaId, professorId) {
     .orderBy('t.nome');
 }
 
+async function resumoMinhasTurmas(empresaId, professorId) {
+  const atribuicoes = await db('turma_professores as tp')
+    .join('turmas as t', 't.id', 'tp.turma_id')
+    .join('filiais as f', 'f.id', 't.filial_id')
+    .select('tp.id as atribuicao_id', 'tp.turma_id', 'tp.materia', 'tp.hora_inicio', 'tp.hora_fim', 'f.fuso_horario', 't.nome as turma_nome')
+    .where({ 'tp.empresa_id': empresaId, 'tp.professor_id': professorId, 'tp.ativo': true, 't.ativo': true });
+
+  return Promise.all(atribuicoes.map(async (atribuicao) => {
+    const hoje = new Intl.DateTimeFormat('en-CA', { timeZone: atribuicao.fuso_horario || 'America/Sao_Paulo' }).format(new Date());
+    const [alunos, batidas] = await Promise.all([
+      db('alunos').where({ empresa_id: empresaId, turma_id: atribuicao.turma_id, ativo: true }).count('id as total').first(),
+      db('registros_ponto as rp')
+        .join('alunos as a', 'a.id', 'rp.aluno_id')
+        .where({ 'rp.empresa_id': empresaId, 'a.empresa_id': empresaId, 'a.turma_id': atribuicao.turma_id, 'a.ativo': true })
+        .whereRaw('(rp.data_hora AT TIME ZONE ?)::date = ?', [atribuicao.fuso_horario || 'America/Sao_Paulo', hoje])
+        .countDistinct('rp.aluno_id as total')
+        .first(),
+    ]);
+    return {
+      atribuicao_id: atribuicao.atribuicao_id,
+      turma_nome: atribuicao.turma_nome,
+      materia: atribuicao.materia,
+      horario: `${String(atribuicao.hora_inicio).slice(0, 5)}-${String(atribuicao.hora_fim).slice(0, 5)}`,
+      total_alunos: Number(alunos?.total || 0),
+      presentes_facial: Number(batidas?.total || 0),
+    };
+  }));
+}
+
 async function listarAlunos(empresaId, professorId, turmaId, atribuicaoId) {
   const atribuicao = await buscarAtribuicao(empresaId, professorId, turmaId, atribuicaoId);
   const filial = await db('filiais').where({ id: atribuicao.filial_id, empresa_id: empresaId }).first();
@@ -275,4 +304,4 @@ async function listarGradeTurma(empresaId, turmaId) {
   return { janela_turma: janela || null, aulas };
 }
 
-module.exports = { listarMinhasTurmas, listarAlunos, registrarPresencas, criarNota, criarObservacao, historicoDoAluno, atribuirProfessor, listarProfessoresDaTurma, listarGradeTurma };
+module.exports = { listarMinhasTurmas, resumoMinhasTurmas, listarAlunos, registrarPresencas, criarNota, criarObservacao, historicoDoAluno, atribuirProfessor, listarProfessoresDaTurma, listarGradeTurma };

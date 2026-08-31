@@ -88,7 +88,7 @@ function LinhaAluno({ aluno, presente, faltaJustificada, justificativa, onToggle
   );
 }
 
-export default function ProfessorScreen() {
+export default function ProfessorScreen({ navigation }) {
   const { logout } = useAuth();
   const [turmas, setTurmas] = useState([]);
   const [turma, setTurma] = useState(null);
@@ -333,9 +333,20 @@ export default function ProfessorScreen() {
           <Text style={estilos.titulo}>Área do professor</Text>
           <Text style={estilos.subtitulo}>Chamada e acompanhamento</Text>
         </View>
-        <PressaoAnimada style={estilos.botaoSair} onPress={logout}>
-          <Text style={estilos.sair}>Sair</Text>
-        </PressaoAnimada>
+        <View style={estilos.acoesTopo}>
+          <PressaoAnimada style={estilos.botaoFila} onPress={() => navigation.navigate('Agenda')}>
+            <Text style={estilos.fila}>Agenda</Text>
+          </PressaoAnimada>
+          <PressaoAnimada style={estilos.botaoFila} onPress={() => navigation.navigate('Relatorios')}>
+            <Text style={estilos.fila}>Resumo</Text>
+          </PressaoAnimada>
+          <PressaoAnimada style={estilos.botaoFila} onPress={() => navigation.navigate('Sincronizacao')}>
+            <Text style={estilos.fila}>Fila</Text>
+          </PressaoAnimada>
+          <PressaoAnimada style={estilos.botaoSair} onPress={logout}>
+            <Text style={estilos.sair}>Sair</Text>
+          </PressaoAnimada>
+        </View>
       </AparecerEm>
 
       {offline ? (
@@ -563,11 +574,14 @@ const estilos = StyleSheet.create({
   container: { flex: 1, backgroundColor: cores.paper },
   conteudo: { padding: 20, paddingTop: 58, paddingBottom: 44 },
   topo: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  acoesTopo: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   rotuloTopo: { color: cores.azul, fontSize: 11.5, fontWeight: '800', letterSpacing: 0.6 },
   titulo: { fontSize: 25, fontWeight: '800', color: cores.ink, marginTop: 4, letterSpacing: -0.5 },
   subtitulo: { color: cores.inkSoft, marginTop: 4, fontSize: 13.5 },
   botaoSair: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: raio.pill, backgroundColor: cores.surface, borderWidth: 1, borderColor: cores.linha },
   sair: { color: cores.inkSoft, fontWeight: '700', fontSize: 12.5 },
+  botaoFila: { paddingHorizontal: 10, paddingVertical: 8, borderRadius: raio.pill, backgroundColor: cores.azulSoft },
+  fila: { color: cores.azul, fontWeight: '800', fontSize: 12.5 },
   rotulo: { color: cores.inkSoft, fontSize: 12.5, fontWeight: '700', marginBottom: 8, marginTop: 16 },
   turmas: { marginBottom: 6 },
   turma: {

@@ -278,6 +278,9 @@ async function avisosDoAluno(alunoIdsPermitidos, alunoId) {
     .andWhere(function condicaoFilial() {
       this.whereNull('filial_id').orWhere('filial_id', aluno.filial_id);
     })
+    .andWhere(function condicaoTurma() {
+      this.whereNull('turma_id').orWhere('turma_id', aluno.turma_id);
+    })
     .orderBy('publicado_em', 'desc')
     .limit(30);
 }

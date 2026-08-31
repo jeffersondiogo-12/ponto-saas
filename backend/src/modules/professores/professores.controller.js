@@ -4,6 +4,10 @@ async function minhasTurmas(req, res, next) {
   try { res.json({ turmas: await service.listarMinhasTurmas(req.empresaId, req.usuario.id) }); } catch (err) { next(err); }
 }
 
+async function resumoMinhasTurmas(req, res, next) {
+  try { res.json({ resumo: await service.resumoMinhasTurmas(req.empresaId, req.usuario.id) }); } catch (err) { next(err); }
+}
+
 async function alunosDaTurma(req, res, next) {
   try { res.json({ alunos: await service.listarAlunos(req.empresaId, req.usuario.id, req.params.turmaId, req.query.atribuicao_id) }); } catch (err) { next(err); }
 }
@@ -43,4 +47,4 @@ async function listarGrade(req, res, next) {
   try { res.json(await service.listarGradeTurma(req.empresaId, req.params.turmaId)); } catch (err) { next(err); }
 }
 
-module.exports = { minhasTurmas, alunosDaTurma, registrarPresencas, criarNota, criarObservacao, historicoDoAluno, atribuirProfessor, listarProfessores, listarGrade };
+module.exports = { minhasTurmas, resumoMinhasTurmas, alunosDaTurma, registrarPresencas, criarNota, criarObservacao, historicoDoAluno, atribuirProfessor, listarProfessores, listarGrade };

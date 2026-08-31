@@ -18,6 +18,31 @@ async function listar(req, res, next) {
   }
 }
 
+async function buscar(req, res, next) {
+  try {
+    res.json({ aviso: await service.buscar(req.empresaId, req.params.id) });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function atualizar(req, res, next) {
+  try {
+    res.json({ aviso: await service.atualizar(req.empresaId, req.params.id, req.body) });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function remover(req, res, next) {
+  try {
+    await service.remover(req.empresaId, req.params.id);
+    res.status(204).send();
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function ativar(req, res, next) {
   try {
     const aviso = await service.definirAtivo(req.empresaId, req.params.id, true);
@@ -36,4 +61,4 @@ async function desativar(req, res, next) {
   }
 }
 
-module.exports = { criar, listar, ativar, desativar };
+module.exports = { criar, listar, buscar, atualizar, remover, ativar, desativar };

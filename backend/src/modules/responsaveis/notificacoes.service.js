@@ -74,7 +74,7 @@ async function notificarFaltaEmSala({ alunoId, turmaId, atribuicaoId, materia, d
   })));
 }
   const vinculos = await db('responsavel_alunos').where({ aluno_id: alunoId });
-module.exports = { notificarBatidaDeAluno, notificarFaltaEmSala };
+module.exports = { enviarPush, notificarBatidaDeAluno, notificarFaltaEmSala };
 
   const tokens = await db('push_tokens').whereIn(
     'responsavel_id',

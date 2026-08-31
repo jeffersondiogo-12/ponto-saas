@@ -9,6 +9,9 @@ import HomeScreen from './src/screens/HomeScreen';
 import AlunoDetalheScreen from './src/screens/AlunoDetalheScreen';
 import AdicionarFilhoScreen from './src/screens/AdicionarFilhoScreen';
 import ProfessorScreen from './src/screens/ProfessorScreen';
+import SincronizacaoScreen from './src/screens/SincronizacaoScreen';
+import AgendaScreen from './src/screens/AgendaScreen';
+import RelatoriosScreen from './src/screens/RelatoriosScreen';
 import { ouvirNotificacoes, registrarParaNotificacoes } from './src/notifications';
 import { conectarRealtime } from './src/realtime';
 import { processarFilaOffline } from './src/api';
@@ -76,9 +79,17 @@ function Navegacao() {
               component={AdicionarFilhoScreen}
               options={{ title: 'Adicionar filho' }}
             />
+            <Stack.Screen name="Sincronizacao" component={SincronizacaoScreen} options={{ title: '' }} />
+            <Stack.Screen name="Agenda" component={AgendaScreen} options={{ title: '' }} />
+            <Stack.Screen name="Relatorios" component={RelatoriosScreen} options={{ title: '' }} />
           </>
         ) : ehProfessor ? (
-          <Stack.Screen name="Professor" component={ProfessorScreen} options={{ headerShown: false }} />
+          <>
+            <Stack.Screen name="Professor" component={ProfessorScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="Sincronizacao" component={SincronizacaoScreen} options={{ title: '' }} />
+            <Stack.Screen name="Agenda" component={AgendaScreen} options={{ title: '' }} />
+            <Stack.Screen name="Relatorios" component={RelatoriosScreen} options={{ title: '' }} />
+          </>
         ) : (
           <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
         )}
