@@ -6,6 +6,8 @@
     "web"
   ],
   "scripts": {
+    "start": "npm run start --workspace=backend",
+    "build": "npm run build --workspace=web",
     "dev:backend": "npm run dev --workspace=backend",
     "dev:web": "npm run dev --workspace=web",
     "migrate": "npm run migrate --workspace=backend",
