@@ -1,4 +1,6 @@
 require('dotenv').config();
+const fs = require('fs');
+const path = require('path');
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -90,7 +92,16 @@ app.use('/api/professores', professoresRoutes);
 app.use('/api/avisos', avisosRoutes);
 app.use('/api/auditoria', auditoriaRoutes);
 
-app.get('/', (req, res) => res.json({ ok: true, servico: 'ponto-saas-api' }));
+const caminhoFrontend = path.resolve(__dirname, '../../web/dist');
+const indexFrontend = path.join(caminhoFrontend, 'index.html');
+if (fs.existsSync(indexFrontend)) {
+  app.use(express.static(caminhoFrontend));
+  app.get(/^\/(?!api(?:\/|$)|pub(?:\/|$)|ws(?:\/|$)).*/, (req, res) => {
+    res.sendFile(indexFrontend);
+  });
+} else {
+  app.get('/', (req, res) => res.json({ ok: true, servico: 'ponto-saas-api' }));
+}
 
 app.use((req, res) => {
   res.status(404).json({ erro: 'Rota nao encontrada.' });

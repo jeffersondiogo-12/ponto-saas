@@ -1,4 +1,4 @@
-export const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+export const BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3000' : '');
 const CHAVE_TOKEN = 'ponto_saas_token';
 const CHAVE_EMPRESA_ID = 'ponto_saas_empresa_id';
 const CHAVE_EMPRESA_NOME = 'ponto_saas_empresa_nome';

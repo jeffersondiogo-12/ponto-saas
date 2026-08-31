@@ -11,6 +11,7 @@ import {
   Platform,
   ScrollView,
   Dimensions,
+  Switch,
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { AparecerEm, PressaoAnimada } from '../components/Animacoes';
@@ -23,6 +24,7 @@ export default function LoginScreen() {
   const [unidade, setUnidade] = useState('');
   const [erro, setErro] = useState(null);
   const [carregando, setCarregando] = useState(false);
+  const [manterLogin, setManterLogin] = useState(true);
   const { loginResponsavel, loginProfessor } = useAuth();
   const larguraTela = Dimensions.get('window').width;
   const larguraSeletor = Math.max(0, Math.min(larguraTela - 48, 420) - 8);
@@ -69,9 +71,9 @@ export default function LoginScreen() {
     setCarregando(true);
     try {
       if (papel === 'professor') {
-        await loginProfessor(email, senha, unidade);
+        await loginProfessor(email, senha, unidade, manterLogin);
       } else {
-        await loginResponsavel(email, senha);
+        await loginResponsavel(email, senha, manterLogin);
       }
     } catch (err) {
       setErro(err.message || 'Não foi possível entrar.');
@@ -215,6 +217,19 @@ export default function LoginScreen() {
             </AparecerEm>
           )}
 
+          <View style={estilos.manterLoginLinha}>
+            <View style={estilos.manterLoginTexto}>
+              <Text style={estilos.manterLoginTitulo}>Manter login salvo</Text>
+              <Text style={estilos.manterLoginAjuda}>Reabrir o app sem digitar a senha</Text>
+            </View>
+            <Switch
+              value={manterLogin}
+              onValueChange={setManterLogin}
+              trackColor={{ false: cores.linha, true: cores.verdeSoft }}
+              thumbColor={manterLogin ? cores.verde : cores.inkSoft}
+            />
+          </View>
+
           <PressaoAnimada
             style={[estilos.botao, papel === 'professor' && estilos.botaoVerde]}
             onPress={entrar}
@@ -317,6 +332,10 @@ const estilos = StyleSheet.create({
     marginBottom: 14,
   },
   ajuda: { color: cores.inkSoft, fontSize: 12, marginTop: -8, marginBottom: 14, lineHeight: 17 },
+  manterLoginLinha: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+  manterLoginTexto: { flex: 1, paddingRight: 12 },
+  manterLoginTitulo: { color: cores.ink, fontSize: 13.5, fontWeight: '700' },
+  manterLoginAjuda: { color: cores.inkSoft, fontSize: 11.5, marginTop: 3 },
   botao: {
     backgroundColor: cores.azul,
     borderRadius: raio.sm,

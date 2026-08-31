@@ -29,6 +29,12 @@
           "color": "#a8842b"
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "56e558be-3c69-4480-8367-9c12c7e1aea9"
+      }
+    },
+    "owner": "diogojefferson"
   }
 }

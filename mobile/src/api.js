@@ -10,25 +10,31 @@ const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.0.10:3000';
 
 const CHAVE_TOKEN = '@ponto_saas_responsavel_token';
 const CHAVE_SESSAO = '@ponto_saas_sessao';
+const CHAVE_MANTER_LOGIN = '@ponto_saas_manter_login';
 const CHAVE_ULTIMA_SINCRONIZACAO = '@ponto_saas_ultima_sincronizacao';
+let tokenDaSessao = null;
 
-export async function salvarToken(token) {
-  await AsyncStorage.setItem(CHAVE_TOKEN, token);
+export async function salvarToken(token, persistir = true) {
+  tokenDaSessao = token;
+  if (persistir) await AsyncStorage.setItem(CHAVE_TOKEN, token);
+  else await AsyncStorage.removeItem(CHAVE_TOKEN);
 }
 
 export async function obterToken() {
-  return AsyncStorage.getItem(CHAVE_TOKEN);
+  return tokenDaSessao || AsyncStorage.getItem(CHAVE_TOKEN);
 }
 
 export async function limparToken() {
+  tokenDaSessao = null;
   await AsyncStorage.removeItem(CHAVE_TOKEN);
 }
 
 // Nao existe endpoint "/me" no backend - o unico jeito de saber quem esta
 // logado (responsavel ou professor) ao reabrir o app e guardar aqui o
 // mesmo objeto que o login devolveu, e reler no boot (ver AuthContext.js).
-export async function salvarSessao(usuario) {
-  await AsyncStorage.setItem(CHAVE_SESSAO, JSON.stringify(usuario));
+export async function salvarSessao(usuario, persistir = true) {
+  if (persistir) await AsyncStorage.setItem(CHAVE_SESSAO, JSON.stringify(usuario));
+  else await AsyncStorage.removeItem(CHAVE_SESSAO);
 }
 
 export async function obterSessao() {
@@ -38,6 +44,15 @@ export async function obterSessao() {
 
 export async function limparSessao() {
   await AsyncStorage.removeItem(CHAVE_SESSAO);
+}
+
+export async function salvarPreferenciaManterLogin(valor) {
+  await AsyncStorage.setItem(CHAVE_MANTER_LOGIN, valor ? '1' : '0');
+}
+
+export async function obterPreferenciaManterLogin() {
+  const valor = await AsyncStorage.getItem(CHAVE_MANTER_LOGIN);
+  return valor === null ? true : valor === '1';
 }
 
 export async function obterUltimaSincronizacao() {

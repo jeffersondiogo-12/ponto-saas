@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react';
-import { api, salvarToken, limparToken, obterToken, salvarSessao, obterSessao, limparSessao } from '../api';
+import { api, salvarToken, limparToken, obterToken, salvarSessao, obterSessao, limparSessao, salvarPreferenciaManterLogin, obterPreferenciaManterLogin } from '../api';
 
 const AuthContext = createContext(null);
 
@@ -15,24 +15,26 @@ export function AuthProvider({ children }) {
   // guardou da ultima vez (ver salvarSessao em api.js). Se o token tiver
   // expirado, as chamadas seguintes falham com 401 e a tela cai pro login.
   useEffect(() => {
-    Promise.all([obterToken(), obterSessao()]).then(([token, sessao]) => {
-      if (token && sessao) setUsuario(sessao);
+    Promise.all([obterToken(), obterSessao(), obterPreferenciaManterLogin()]).then(([token, sessao, manterLogin]) => {
+      if (manterLogin && token && sessao) setUsuario(sessao);
       setCarregandoSessao(false);
     });
   }, []);
 
-  async function loginResponsavel(email, senha) {
+  async function loginResponsavel(email, senha, manterLogin = true) {
     const { token, responsavel } = await api.login(email, senha);
-    await salvarToken(token);
-    await salvarSessao(responsavel);
+    await salvarPreferenciaManterLogin(manterLogin);
+    await salvarToken(token, manterLogin);
+    await salvarSessao(responsavel, manterLogin);
     setUsuario(responsavel);
     return responsavel;
   }
 
-  async function loginProfessor(email, senha, unidade) {
+  async function loginProfessor(email, senha, unidade, manterLogin = true) {
     const { token, usuario: dados } = await api.loginProfessor(email, senha, unidade);
-    await salvarToken(token);
-    await salvarSessao(dados);
+    await salvarPreferenciaManterLogin(manterLogin);
+    await salvarToken(token, manterLogin);
+    await salvarSessao(dados, manterLogin);
     setUsuario(dados);
     return dados;
   }
