@@ -25,23 +25,11 @@ export default function LoginScreen() {
   const [carregando, setCarregando] = useState(false);
   const [manterLogin, setManterLogin] = useState(true);
   const { loginResponsavel, loginProfessor } = useAuth();
-  const [larguraSeletor, setLarguraSeletor] = useState(0);
 
-  // Marcador deslizante do seletor Responsavel/Professor.
-  const seletor = useRef(new Animated.Value(0)).current;
   // Orbes de fundo em movimento lento.
   const orbe = useRef(new Animated.Value(0)).current;
   // Tremida da caixa de erro.
   const tremor = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    Animated.spring(seletor, {
-      toValue: papel === 'responsavel' ? 0 : 1,
-      friction: 8,
-      tension: 120,
-      useNativeDriver: true,
-    }).start();
-  }, [papel, seletor]);
 
   useEffect(() => {
     const laco = Animated.loop(
@@ -86,28 +74,34 @@ export default function LoginScreen() {
       style={estilos.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <Animated.View
-        style={[
-          estilos.orbeAzul,
-          {
-            transform: [
-              { translateY: orbe.interpolate({ inputRange: [0, 1], outputRange: [0, 26] }) },
-              { scale: orbe.interpolate({ inputRange: [0, 1], outputRange: [1, 1.12] }) },
-            ],
-          },
-        ]}
-      />
-      <Animated.View
-        style={[
-          estilos.orbeVerde,
-          {
-            transform: [
-              { translateY: orbe.interpolate({ inputRange: [0, 1], outputRange: [0, -22] }) },
-              { scale: orbe.interpolate({ inputRange: [0, 1], outputRange: [1.08, 1] }) },
-            ],
-          },
-        ]}
-      />
+      <View pointerEvents="none" style={estilos.orbeArea}>
+        <View style={estilos.orbeAzulWrapper}>
+          <Animated.View
+            style={[
+              estilos.orbeAzul,
+              {
+                transform: [
+                  { translateY: orbe.interpolate({ inputRange: [0, 1], outputRange: [0, 26] }) },
+                  { scale: orbe.interpolate({ inputRange: [0, 1], outputRange: [1, 1.12] }) },
+                ],
+              },
+            ]}
+          />
+        </View>
+        <View style={estilos.orbeVerdeWrapper}>
+          <Animated.View
+            style={[
+              estilos.orbeVerde,
+              {
+                transform: [
+                  { translateY: orbe.interpolate({ inputRange: [0, 1], outputRange: [0, -22] }) },
+                  { scale: orbe.interpolate({ inputRange: [0, 1], outputRange: [1.08, 1] }) },
+                ],
+              },
+            ]}
+          />
+        </View>
+      </View>
 
       <ScrollView
         contentContainerStyle={estilos.conteudo}
@@ -131,33 +125,30 @@ export default function LoginScreen() {
         </AparecerEm>
 
         <AparecerEm style={estilos.cartao} atraso={120}>
-          <View
-            style={estilos.seletor}
-            onLayout={(evento) => setLarguraSeletor(evento.nativeEvent.layout.width)}
-          >
-            <Animated.View
-              style={[
-                estilos.marcador,
-                {
-                  backgroundColor: papel === 'professor' ? cores.verde : cores.azul,
-                  transform: [
-                    {
-                      translateX: seletor.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [0, Math.max(0, (larguraSeletor - 8) / 2)],
-                      }),
-                    },
-                  ],
-                },
-              ]}
-            />
-            <PressaoAnimada style={estilos.opcao} onPress={() => setPapel('responsavel')} escala={0.95}>
-              <Text numberOfLines={1} adjustsFontSizeToFit style={[estilos.opcaoTexto, papel === 'responsavel' && estilos.opcaoTextoAtivo]}>
+          <View style={estilos.seletor}>
+            <PressaoAnimada
+              style={[estilos.opcao, papel === 'responsavel' ? estilos.opcaoAtivaResponsavel : estilos.opcaoInativa]}
+              onPress={() => setPapel('responsavel')}
+              escala={0.95}
+            >
+              <Text
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                style={[estilos.opcaoTexto, papel === 'responsavel' && estilos.opcaoTextoAtivo]}
+              >
                 Responsável
               </Text>
             </PressaoAnimada>
-            <PressaoAnimada style={estilos.opcao} onPress={() => setPapel('professor')} escala={0.95}>
-              <Text numberOfLines={1} adjustsFontSizeToFit style={[estilos.opcaoTexto, papel === 'professor' && estilos.opcaoTextoAtivo]}>
+            <PressaoAnimada
+              style={[estilos.opcao, papel === 'professor' ? estilos.opcaoAtivaProfessor : estilos.opcaoInativa]}
+              onPress={() => setPapel('professor')}
+              escala={0.95}
+            >
+              <Text
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                style={[estilos.opcaoTexto, papel === 'professor' && estilos.opcaoTextoAtivo]}
+              >
                 Professor
               </Text>
             </PressaoAnimada>
@@ -256,18 +247,12 @@ const estilos = StyleSheet.create({
   container: { flex: 1, backgroundColor: cores.ink },
   conteudo: { flexGrow: 1, justifyContent: 'center', padding: 24, paddingVertical: 36 },
   orbeAzul: {
-    position: 'absolute',
-    top: -130,
-    right: -90,
     width: 320,
     height: 320,
     borderRadius: 160,
     backgroundColor: 'rgba(15,98,254,0.32)',
   },
   orbeVerde: {
-    position: 'absolute',
-    bottom: -140,
-    left: -110,
     width: 300,
     height: 300,
     borderRadius: 150,
@@ -289,6 +274,23 @@ const estilos = StyleSheet.create({
   seloTexto: { color: cores.claroSuave, fontSize: 11.5, fontWeight: '700', letterSpacing: 0.3 },
   marca: { fontSize: 32, fontWeight: '800', color: cores.claro, letterSpacing: -0.8 },
   subtitulo: { fontSize: 14, color: cores.claroSuave, marginTop: 8, lineHeight: 20 },
+  orbeArea: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  orbeAzulWrapper: {
+    position: 'absolute',
+    top: -130,
+    right: -90,
+  },
+  orbeVerdeWrapper: {
+    position: 'absolute',
+    bottom: -140,
+    left: -110,
+  },
   cartao: {
     backgroundColor: cores.surface,
     borderRadius: raio.lg,
@@ -300,25 +302,56 @@ const estilos = StyleSheet.create({
   },
   seletor: {
     flexDirection: 'row',
+    width: '100%',
     backgroundColor: cores.paper,
-    borderRadius: raio.sm,
-    padding: 4,
-    height: 52,
+    borderRadius: raio.md,
+    padding: 6,
+    minHeight: 64,
     marginBottom: 20,
-    position: 'relative',
     overflow: 'hidden',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    gap: 8,
   },
-  marcador: {
-    position: 'absolute',
-    top: 4,
-    left: 4,
-    width: '50%',
-    bottom: 4,
-    borderRadius: raio.sm - 3,
-    marginRight: 4,
+  opcao: {
+    flex: 1,
+    minHeight: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: raio.sm,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
-  opcao: { flex: 1, minWidth: 0, height: 44, alignItems: 'center', justifyContent: 'center', zIndex: 1 },
-  opcaoTexto: { color: cores.inkSoft, fontWeight: '700', fontSize: 12.5, maxWidth: '100%' },
+  opcaoInativa: {
+    backgroundColor: 'rgba(255,255,255,0.02)',
+    borderColor: 'rgba(255,255,255,0.05)',
+  },
+  opcaoAtivaResponsavel: {
+    backgroundColor: cores.azul,
+    borderColor: 'rgba(255,255,255,0.2)',
+    shadowColor: cores.azul,
+    shadowOpacity: 0.18,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 6 },
+  },
+  opcaoAtivaProfessor: {
+    backgroundColor: cores.verde,
+    borderColor: 'rgba(255,255,255,0.2)',
+    shadowColor: cores.verde,
+    shadowOpacity: 0.18,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 6 },
+  },
+  opcaoTexto: {
+    color: cores.inkSoft,
+    fontWeight: '800',
+    fontSize: 15,
+    textAlign: 'center',
+    letterSpacing: 0.2,
+  },
   opcaoTextoAtivo: { color: cores.claro },
   rotulo: { color: cores.inkSoft, fontSize: 12.5, fontWeight: '700', marginBottom: 6 },
   input: {

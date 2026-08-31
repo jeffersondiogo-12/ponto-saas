@@ -313,6 +313,9 @@ export default function ProfessorScreen({ navigation }) {
 
   const alunoSelecionado = alunos.find((item) => item.id === alunoId);
   const totalPresentes = alunos.filter((aluno) => presencas[aluno.id]).length;
+  const resumoFila = pendentes.length
+    ? `${pendentes.length} ação${pendentes.length > 1 ? 'ões' : 'ão'} em fila`
+    : 'Tudo sincronizado';
 
   return (
     <ScrollView
@@ -334,6 +337,15 @@ export default function ProfessorScreen({ navigation }) {
           <Text style={estilos.subtitulo}>Chamada e acompanhamento</Text>
         </View>
         <View style={estilos.acoesTopo}>
+          <PressaoAnimada
+            style={estilos.botaoSair}
+            onPress={() => Alert.alert('Sair', 'Deseja voltar para a tela de login?', [
+              { text: 'Cancelar', style: 'cancel' },
+              { text: 'Voltar ao login', style: 'destructive', onPress: logout },
+            ])}
+          >
+            <Text style={estilos.sair}>Sair</Text>
+          </PressaoAnimada>
           <PressaoAnimada style={estilos.botaoFila} onPress={() => navigation.navigate('Agenda')}>
             <Text style={estilos.fila}>Agenda</Text>
           </PressaoAnimada>
@@ -342,9 +354,11 @@ export default function ProfessorScreen({ navigation }) {
           </PressaoAnimada>
           <PressaoAnimada style={estilos.botaoFila} onPress={() => navigation.navigate('Sincronizacao')}>
             <Text style={estilos.fila}>Fila</Text>
-          </PressaoAnimada>
-          <PressaoAnimada style={estilos.botaoSair} onPress={logout}>
-            <Text style={estilos.sair}>Sair</Text>
+            {pendentes.length > 0 ? (
+              <View style={estilos.filaBadge}>
+                <Text style={estilos.filaBadgeTexto}>{pendentes.length}</Text>
+              </View>
+            ) : null}
           </PressaoAnimada>
         </View>
       </AparecerEm>
@@ -356,6 +370,20 @@ export default function ProfessorScreen({ navigation }) {
           </Text>
         </Pulsar>
       ) : null}
+      <PressaoAnimada
+        style={[estilos.resumoFila, pendentes.length > 0 ? estilos.resumoFilaPendente : estilos.resumoFilaLimpo]}
+        onPress={() => navigation.navigate('Sincronizacao')}
+      >
+        <View style={estilos.resumoFilaCabecalho}>
+          <Text style={estilos.resumoFilaTitulo}>Sincronização em fila</Text>
+          {pendentes.length > 0 ? (
+            <View style={estilos.resumoFilaBadge}>
+              <Text style={estilos.resumoFilaBadgeTexto}>{pendentes.length}</Text>
+            </View>
+          ) : null}
+        </View>
+        <Text style={estilos.resumoFilaValor}>{resumoFila}</Text>
+      </PressaoAnimada>
       {pendentes.length > 0 ? (
         <Pulsar style={estilos.faixaPendente}>
           <Text style={estilos.faixaPendenteTexto}>
@@ -381,6 +409,15 @@ export default function ProfessorScreen({ navigation }) {
           <Text style={estilos.vazio}>
             Nenhuma turma foi atribuída pelo gestor ainda.{'\n'}Puxe a tela para baixo para atualizar.
           </Text>
+          <PressaoAnimada
+            style={estilos.botaoVoltarLogin}
+            onPress={() => Alert.alert('Sair', 'Deseja voltar para a tela de login?', [
+              { text: 'Cancelar', style: 'cancel' },
+              { text: 'Voltar ao login', style: 'destructive', onPress: logout },
+            ])}
+          >
+            <Text style={estilos.botaoVoltarLoginTexto}>Voltar ao login</Text>
+          </PressaoAnimada>
         </AparecerEm>
       ) : (
         <>
@@ -573,15 +610,53 @@ const estilos = StyleSheet.create({
   carregandoTurma: { marginTop: 28 },
   container: { flex: 1, backgroundColor: cores.paper },
   conteudo: { padding: 20, paddingTop: 58, paddingBottom: 44 },
-  topo: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  acoesTopo: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  topo: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 },
+  acoesTopo: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 7 },
   rotuloTopo: { color: cores.azul, fontSize: 11.5, fontWeight: '800', letterSpacing: 0.6 },
   titulo: { fontSize: 25, fontWeight: '800', color: cores.ink, marginTop: 4, letterSpacing: -0.5 },
   subtitulo: { color: cores.inkSoft, marginTop: 4, fontSize: 13.5 },
-  botaoSair: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: raio.pill, backgroundColor: cores.surface, borderWidth: 1, borderColor: cores.linha },
-  sair: { color: cores.inkSoft, fontWeight: '700', fontSize: 12.5 },
-  botaoFila: { paddingHorizontal: 10, paddingVertical: 8, borderRadius: raio.pill, backgroundColor: cores.azulSoft },
+  botaoSair: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: raio.pill,
+    backgroundColor: cores.vermelhoSoft,
+    borderWidth: 1,
+    borderColor: '#F7C8C2',
+  },
+  sair: { color: cores.vermelho, fontWeight: '800', fontSize: 12.5 },
+  botaoVoltarLogin: {
+    alignSelf: 'center',
+    marginTop: 18,
+    paddingHorizontal: 18,
+    paddingVertical: 11,
+    borderRadius: raio.pill,
+    backgroundColor: cores.vermelhoSoft,
+    borderWidth: 1,
+    borderColor: '#F7C8C2',
+  },
+  botaoVoltarLoginTexto: { color: cores.vermelho, fontWeight: '800', fontSize: 13 },
+  botaoFila: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: raio.pill,
+    backgroundColor: cores.azulSoft,
+    borderWidth: 1,
+    borderColor: '#CFE2FF',
+  },
   fila: { color: cores.azul, fontWeight: '800', fontSize: 12.5 },
+  filaBadge: {
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: cores.azul,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 5,
+  },
+  filaBadgeTexto: { color: cores.claro, fontSize: 11, fontWeight: '800' },
   rotulo: { color: cores.inkSoft, fontSize: 12.5, fontWeight: '700', marginBottom: 8, marginTop: 16 },
   turmas: { marginBottom: 6 },
   turma: {
@@ -685,6 +760,39 @@ const estilos = StyleSheet.create({
     backgroundColor: cores.verdeSoft,
   },
   botaoSecundarioTexto: { color: cores.verdeEscuro, fontWeight: '800', fontSize: 14.5 },
+  resumoFila: {
+    marginTop: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: raio.md,
+    borderWidth: 1,
+    borderColor: cores.linha,
+    backgroundColor: cores.surface,
+    ...sombra.cartao,
+  },
+  resumoFilaPendente: {
+    backgroundColor: cores.azulSoft,
+    borderLeftWidth: 4,
+    borderLeftColor: cores.azul,
+  },
+  resumoFilaLimpo: {
+    backgroundColor: cores.surface,
+    borderLeftWidth: 4,
+    borderLeftColor: cores.verde,
+  },
+  resumoFilaCabecalho: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  resumoFilaTitulo: { color: cores.inkSoft, fontSize: 11.5, fontWeight: '800', letterSpacing: 0.4 },
+  resumoFilaBadge: {
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: cores.azul,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+  },
+  resumoFilaBadgeTexto: { color: cores.claro, fontSize: 11, fontWeight: '800' },
+  resumoFilaValor: { color: cores.ink, fontSize: 15, fontWeight: '800', marginTop: 4 },
   faixaOffline: {
     backgroundColor: cores.surface,
     borderLeftWidth: 3,
