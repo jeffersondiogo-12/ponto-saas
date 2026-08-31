@@ -80,6 +80,7 @@ async function resolverPorMatriculaDispositivo(empresaId, filialId, matriculaDis
 
 async function criar(empresaId, dados) {
   const cpf = await normalizarCpfOpcional(dados.cpf);
+  const matricula = String(dados.matricula || '').trim() || null;
 
   const filial = await db('filiais').where({ id: dados.filial_id, empresa_id: empresaId }).first();
   if (!filial) throw new AppError('Unidade nao encontrada.', 404);
@@ -98,10 +99,12 @@ async function criar(empresaId, dados) {
     if (!horario) throw new AppError('Horario escolar nao encontrado.', 404);
   }
 
-  const matriculaExistente = await db('alunos')
-    .where({ empresa_id: empresaId, matricula: dados.matricula })
-    .first();
-  if (matriculaExistente) throw new AppError('Já existe um aluno com esta matrícula.', 409);
+  if (matricula) {
+    const matriculaExistente = await db('alunos')
+      .where({ empresa_id: empresaId, matricula })
+      .first();
+    if (matriculaExistente) throw new AppError('Já existe um aluno com esta matrícula.', 409);
+  }
 
   const [aluno] = await db('alunos')
     .insert({
@@ -109,7 +112,7 @@ async function criar(empresaId, dados) {
       filial_id: dados.filial_id,
       turma_id: dados.turma_id || null,
       horario_aluno_id: horarioAlunoId,
-      matricula: dados.matricula,
+      matricula,
       nome: dados.nome,
       cpf,
       data_nascimento: dados.data_nascimento || null,
@@ -124,6 +127,7 @@ async function criar(empresaId, dados) {
 async function atualizar(empresaId, alunoId, dados) {
   const alunoAtual = await buscarPorId(empresaId, alunoId);
   const cpf = await normalizarCpfOpcional(dados.cpf);
+  const matricula = String(dados.matricula || '').trim() || null;
 
   if (dados.turma_id) {
     const turma = await db('turmas').where({ id: dados.turma_id, empresa_id: empresaId, filial_id: alunoAtual.filial_id, ativo: true }).first();
@@ -136,9 +140,18 @@ async function atualizar(empresaId, alunoId, dados) {
     if (!horario) throw new AppError('Horario escolar nao encontrado.', 404);
   }
 
+  if (matricula) {
+    const matriculaExistente = await db('alunos')
+      .where({ empresa_id: empresaId, matricula })
+      .whereNot('id', alunoId)
+      .first();
+    if (matriculaExistente) throw new AppError('Já existe um aluno com esta matrícula.', 409);
+  }
+
   const [aluno] = await db('alunos')
     .where({ id: alunoId, empresa_id: empresaId })
     .update({
+      matricula,
       turma_id: dados.turma_id || null,
       horario_aluno_id: horarioAlunoId,
       nome: dados.nome,

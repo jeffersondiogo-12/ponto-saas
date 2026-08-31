@@ -53,6 +53,7 @@ export default function App() {
             <Route path="/funcionarios" element={<RotaProtegida><FuncionariosLista /></RotaProtegida>} />
             <Route path="/alunos" element={<RotaProtegida><AlunosLista /></RotaProtegida>} />
             <Route path="/alunos/novo" element={<RotaProtegida><AlunoForm /></RotaProtegida>} />
+            <Route path="/alunos/:id/editar" element={<RotaProtegida><AlunoForm /></RotaProtegida>} />
             <Route path="/usuarios" element={<RotaProtegida><UsuariosLista /></RotaProtegida>} />
             <Route path="/usuarios/novo" element={<RotaProtegida><UsuarioForm /></RotaProtegida>} />
             <Route path="/turmas" element={<RotaProtegida><TurmasLista /></RotaProtegida>} />

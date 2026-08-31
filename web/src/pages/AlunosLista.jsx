@@ -32,11 +32,16 @@ export default function AlunosLista() {
           ) : (
             <table className="tabela">
               <thead>
-                <tr><th>Nome</th><th>Matrícula</th><th>Turma</th></tr>
+                <tr><th>Nome</th><th>Matrícula</th><th>Turma</th><th>Ações</th></tr>
               </thead>
               <tbody>
                 {alunos.map((a) => (
-                  <tr key={a.id}><td>{a.nome}</td><td className="mono">{a.matricula}</td><td>{a.turma_nome || ''}</td></tr>
+                  <tr key={a.id}>
+                    <td>{a.nome}</td>
+                    <td className="mono">{a.matricula || '—'}</td>
+                    <td>{a.turma_nome || ''}</td>
+                    <td><button className="btn btn-secundario" onClick={() => navigate(`/alunos/${a.id}/editar`)}>Editar</button></td>
+                  </tr>
                 ))}
               </tbody>
             </table>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import Layout from '../components/Layout';
 import Selecao from '../components/Selecao';
 import { api } from '../api';
@@ -24,6 +24,8 @@ const VAZIO = {
 export default function AlunoForm() {
   const { filialSelecionada, empresaSelecionada, usuario } = useAuth();
   const navigate = useNavigate();
+  const { id } = useParams();
+  const editando = Boolean(id);
 
   const [dados, setDados] = useState(VAZIO);
   const [escolas, setEscolas] = useState([]);
@@ -37,7 +39,11 @@ export default function AlunoForm() {
   useEffect(() => {
     let ativo = true;
     (async () => {
-      const [unid, turm] = await Promise.allSettled([api.listarUnidades(), api.listarTurmas()]);
+      const [unid, turm, alunoResposta] = await Promise.allSettled([
+        api.listarUnidades(),
+        api.listarTurmas(),
+        id ? api.buscarAluno(id) : Promise.resolve(null),
+      ]);
       if (!ativo) return;
 
       if (unid.status === 'fulfilled') {
@@ -52,9 +58,22 @@ export default function AlunoForm() {
         }
       }
       if (turm.status === 'fulfilled') setTurmas(turm.value.turmas || []);
+      if (alunoResposta.status === 'fulfilled' && alunoResposta.value?.aluno) {
+        const aluno = alunoResposta.value.aluno;
+        setDados({
+          nome: aluno.nome || '',
+          cpf: mascaraCpf(aluno.cpf || ''),
+          data_nascimento: aluno.data_nascimento ? String(aluno.data_nascimento).slice(0, 10) : '',
+          matricula: aluno.matricula || '',
+          filial_id: aluno.filial_id || '',
+          turma_id: aluno.turma_id || '',
+          nome_responsavel: aluno.nome_responsavel || '',
+          contato_responsavel: aluno.contato_responsavel || '',
+        });
+      }
     })();
     return () => { ativo = false; };
-  }, [empresaSelecionada, filialSelecionada, escolheFilial]);
+  }, [empresaSelecionada, filialSelecionada, escolheFilial, id]);
 
   const turmasDaEscola = turmas.filter((t) => !dados.filial_id || t.filial_id === dados.filial_id);
 
@@ -80,7 +99,7 @@ export default function AlunoForm() {
 
     setCarregando(true);
     try {
-      await api.criarAluno({
+      const payload = {
         nome: dados.nome.trim(),
         cpf: soDigitos(dados.cpf),
         data_nascimento: dados.data_nascimento,
@@ -91,7 +110,9 @@ export default function AlunoForm() {
         turma_id: dados.turma_id || null,
         nome_responsavel: dados.nome_responsavel.trim() || null,
         contato_responsavel: dados.contato_responsavel.trim() || null,
-      });
+      };
+      if (editando) await api.atualizarAluno(id, payload);
+      else await api.criarAluno(payload);
       navigate('/alunos');
     } catch (err) {
       /**
@@ -111,7 +132,7 @@ export default function AlunoForm() {
   return (
     <Layout>
       <Link to="/alunos" className="link-topo">&larr; Alunos</Link>
-      <h1 className="titulo-pagina">Cadastrar aluno</h1>
+      <h1 className="titulo-pagina">{editando ? 'Editar aluno' : 'Cadastrar aluno'}</h1>
       <p className="subtitulo-pagina">
         Nome, escola, nascimento e CPF são obrigatórios. A matrícula pode ficar para depois.
       </p>
@@ -238,7 +259,7 @@ export default function AlunoForm() {
         <div className="acoes-form">
           <Link to="/alunos" className="btn btn-secundario">Cancelar</Link>
           <button type="submit" className="btn btn-primario" disabled={carregando || !escolas.length}>
-            {carregando ? 'Salvando...' : 'Cadastrar aluno'}
+            {carregando ? 'Salvando...' : editando ? 'Salvar alterações' : 'Cadastrar aluno'}
           </button>
         </div>
       </form>
