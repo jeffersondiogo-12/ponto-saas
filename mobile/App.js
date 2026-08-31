@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { AppState } from 'react-native';
+import * as Updates from 'expo-updates';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -98,9 +99,21 @@ function Navegacao() {
   );
 }
 
+function AtualizarAplicativo() {
+  useEffect(() => {
+    if (__DEV__) return;
+    Updates.checkForUpdateAsync()
+      .then((resultado) => resultado.isAvailable ? Updates.fetchUpdateAsync() : null)
+      .then((resultado) => resultado?.isNew === true ? Updates.reloadAsync() : null)
+      .catch(() => {});
+  }, []);
+  return null;
+}
+
 export default function App() {
   return (
     <AuthProvider>
+      <AtualizarAplicativo />
       <Navegacao />
       <StatusBar style="light" />
     </AuthProvider>

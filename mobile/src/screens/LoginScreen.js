@@ -10,7 +10,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Dimensions,
   Switch,
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
@@ -26,8 +25,7 @@ export default function LoginScreen() {
   const [carregando, setCarregando] = useState(false);
   const [manterLogin, setManterLogin] = useState(true);
   const { loginResponsavel, loginProfessor } = useAuth();
-  const larguraTela = Dimensions.get('window').width;
-  const larguraSeletor = Math.max(0, Math.min(larguraTela - 48, 420) - 8);
+  const [larguraSeletor, setLarguraSeletor] = useState(0);
 
   // Marcador deslizante do seletor Responsavel/Professor.
   const seletor = useRef(new Animated.Value(0)).current;
@@ -133,7 +131,10 @@ export default function LoginScreen() {
         </AparecerEm>
 
         <AparecerEm style={estilos.cartao} atraso={120}>
-          <View style={estilos.seletor}>
+          <View
+            style={estilos.seletor}
+            onLayout={(evento) => setLarguraSeletor(evento.nativeEvent.layout.width)}
+          >
             <Animated.View
               style={[
                 estilos.marcador,
@@ -143,7 +144,7 @@ export default function LoginScreen() {
                     {
                       translateX: seletor.interpolate({
                         inputRange: [0, 1],
-                        outputRange: [0, larguraSeletor / 2],
+                        outputRange: [0, Math.max(0, (larguraSeletor - 8) / 2)],
                       }),
                     },
                   ],
@@ -151,12 +152,12 @@ export default function LoginScreen() {
               ]}
             />
             <PressaoAnimada style={estilos.opcao} onPress={() => setPapel('responsavel')} escala={0.95}>
-              <Text style={[estilos.opcaoTexto, papel === 'responsavel' && estilos.opcaoTextoAtivo]}>
+              <Text numberOfLines={1} adjustsFontSizeToFit style={[estilos.opcaoTexto, papel === 'responsavel' && estilos.opcaoTextoAtivo]}>
                 Responsável
               </Text>
             </PressaoAnimada>
             <PressaoAnimada style={estilos.opcao} onPress={() => setPapel('professor')} escala={0.95}>
-              <Text style={[estilos.opcaoTexto, papel === 'professor' && estilos.opcaoTextoAtivo]}>
+              <Text numberOfLines={1} adjustsFontSizeToFit style={[estilos.opcaoTexto, papel === 'professor' && estilos.opcaoTextoAtivo]}>
                 Professor
               </Text>
             </PressaoAnimada>
@@ -305,6 +306,7 @@ const estilos = StyleSheet.create({
     height: 52,
     marginBottom: 20,
     position: 'relative',
+    overflow: 'hidden',
   },
   marcador: {
     position: 'absolute',
@@ -315,8 +317,8 @@ const estilos = StyleSheet.create({
     borderRadius: raio.sm - 3,
     marginRight: 4,
   },
-  opcao: { flex: 1, height: 44, alignItems: 'center', justifyContent: 'center', zIndex: 1 },
-  opcaoTexto: { color: cores.inkSoft, fontWeight: '700', fontSize: 13.5 },
+  opcao: { flex: 1, minWidth: 0, height: 44, alignItems: 'center', justifyContent: 'center', zIndex: 1 },
+  opcaoTexto: { color: cores.inkSoft, fontWeight: '700', fontSize: 12.5, maxWidth: '100%' },
   opcaoTextoAtivo: { color: cores.claro },
   rotulo: { color: cores.inkSoft, fontSize: 12.5, fontWeight: '700', marginBottom: 6 },
   input: {

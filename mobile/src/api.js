@@ -6,44 +6,68 @@ import { enfileirar, obterFila, removerDaFila, marcarFalhaNaFila } from './filaO
 // "localhost" - no celular/emulador isso resolveria para o proprio
 // dispositivo, nao para o computador rodando o backend). Em producao,
 // aponte para o dominio real da API.
-const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.0.10:3000';
+const BASE_URL = process.env.EXPO_PUBLIC_API_URL
+  || (__DEV__ ? 'http://192.168.0.10:3000' : 'https://ponto-saas-u8zf.onrender.com');
 
-const CHAVE_TOKEN = '@ponto_saas_responsavel_token';
-const CHAVE_SESSAO = '@ponto_saas_sessao';
+const CHAVES_PERFIL = {
+  responsavel: { token: '@ponto_saas_responsavel_token', sessao: '@ponto_saas_responsavel_sessao' },
+  professor: { token: '@ponto_saas_professor_token', sessao: '@ponto_saas_professor_sessao' },
+};
+const CHAVE_PERFIL_ATIVO = '@ponto_saas_perfil_ativo';
 const CHAVE_MANTER_LOGIN = '@ponto_saas_manter_login';
 const CHAVE_ULTIMA_SINCRONIZACAO = '@ponto_saas_ultima_sincronizacao';
 let tokenDaSessao = null;
+let perfilAtivo = null;
 
-export async function salvarToken(token, persistir = true) {
+function chavesDoPerfil(perfil = perfilAtivo || 'responsavel') {
+  return CHAVES_PERFIL[perfil] || CHAVES_PERFIL.responsavel;
+}
+
+export async function salvarToken(token, persistir = true, perfil = perfilAtivo) {
+  perfilAtivo = perfil || 'responsavel';
   tokenDaSessao = token;
-  if (persistir) await AsyncStorage.setItem(CHAVE_TOKEN, token);
-  else await AsyncStorage.removeItem(CHAVE_TOKEN);
+  const { token: chave } = chavesDoPerfil(perfilAtivo);
+  if (persistir) await AsyncStorage.setItem(chave, token);
+  else await AsyncStorage.removeItem(chave);
 }
 
-export async function obterToken() {
-  return tokenDaSessao || AsyncStorage.getItem(CHAVE_TOKEN);
+export async function obterToken(perfil = perfilAtivo) {
+  const { token: chave } = chavesDoPerfil(perfil);
+  return tokenDaSessao || AsyncStorage.getItem(chave);
 }
 
-export async function limparToken() {
+export async function limparToken(perfil = perfilAtivo) {
   tokenDaSessao = null;
-  await AsyncStorage.removeItem(CHAVE_TOKEN);
+  await AsyncStorage.removeItem(chavesDoPerfil(perfil).token);
 }
 
 // Nao existe endpoint "/me" no backend - o unico jeito de saber quem esta
 // logado (responsavel ou professor) ao reabrir o app e guardar aqui o
 // mesmo objeto que o login devolveu, e reler no boot (ver AuthContext.js).
-export async function salvarSessao(usuario, persistir = true) {
-  if (persistir) await AsyncStorage.setItem(CHAVE_SESSAO, JSON.stringify(usuario));
-  else await AsyncStorage.removeItem(CHAVE_SESSAO);
+export async function salvarSessao(usuario, persistir = true, perfil = perfilAtivo) {
+  const { sessao } = chavesDoPerfil(perfil);
+  if (persistir) await AsyncStorage.setItem(sessao, JSON.stringify(usuario));
+  else await AsyncStorage.removeItem(sessao);
 }
 
-export async function obterSessao() {
-  const bruto = await AsyncStorage.getItem(CHAVE_SESSAO);
+export async function obterSessao(perfil = perfilAtivo) {
+  const bruto = await AsyncStorage.getItem(chavesDoPerfil(perfil).sessao);
   return bruto ? JSON.parse(bruto) : null;
 }
 
-export async function limparSessao() {
-  await AsyncStorage.removeItem(CHAVE_SESSAO);
+export async function limparSessao(perfil = perfilAtivo) {
+  await AsyncStorage.removeItem(chavesDoPerfil(perfil).sessao);
+}
+
+export async function salvarPerfilAtivo(perfil) {
+  perfilAtivo = perfil;
+  tokenDaSessao = null;
+  await AsyncStorage.setItem(CHAVE_PERFIL_ATIVO, perfil);
+}
+
+export async function obterPerfilAtivo() {
+  perfilAtivo = (await AsyncStorage.getItem(CHAVE_PERFIL_ATIVO)) || 'responsavel';
+  return perfilAtivo;
 }
 
 export async function salvarPreferenciaManterLogin(valor) {
