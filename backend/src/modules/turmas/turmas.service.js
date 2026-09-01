@@ -80,4 +80,12 @@ async function removerHorario(empresaId, turmaId, horarioId) {
   if (!removidos) throw new AppError('Horario da turma nao encontrado.', 404);
 }
 
-module.exports = { listar, buscarPorId, criar, atualizar, listarHorarios, salvarHorario, removerHorario };
+async function excluir(empresaId, turmaId) {
+  const turma = await buscarPorId(empresaId, turmaId);
+
+  await db('turmas').where({ id: turmaId, empresa_id: empresaId }).del();
+
+  return turma;
+}
+
+module.exports = { listar, buscarPorId, criar, atualizar, excluir, listarHorarios, salvarHorario, removerHorario };

@@ -119,4 +119,12 @@ async function vincularDispositivo(empresaId, funcionarioId, dispositivoId, idNo
   return vinculo;
 }
 
-module.exports = { listar, buscarPorId, criar, atualizar, vincularDispositivo };
+async function excluir(empresaId, funcionarioId) {
+  const funcionario = await buscarPorId(empresaId, funcionarioId);
+
+  await db('funcionarios').where({ id: funcionarioId, empresa_id: empresaId }).del();
+
+  return funcionario;
+}
+
+module.exports = { listar, buscarPorId, criar, atualizar, vincularDispositivo, excluir };

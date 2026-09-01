@@ -95,6 +95,15 @@ async function obterAlunoIdsVinculados(responsavelId) {
   return vinculos.map((v) => v.aluno_id);
 }
 
+async function buscarPorId(empresaId, responsavelId) {
+  const responsavel = await db('responsaveis')
+    .where({ id: responsavelId, empresa_id: empresaId })
+    .first();
+
+  if (!responsavel) throw new AppError('Responsavel nao encontrado.', 404);
+  return responsavel;
+}
+
 async function login(email, senha) {
   const responsavel = await db('responsaveis').where({ email: email.toLowerCase().trim() }).first();
 
@@ -167,6 +176,14 @@ async function vincularAluno(empresaId, responsavelId, matriculaAluno, parentesc
     .returning('*');
 
   return vinculo;
+}
+
+async function excluir(empresaId, responsavelId) {
+  const responsavel = await buscarPorId(empresaId, responsavelId);
+
+  await db('responsaveis').where({ id: responsavelId, empresa_id: empresaId }).del();
+
+  return responsavel;
 }
 
 function validarAcessoAoAluno(alunoIdsPermitidos, alunoId) {
@@ -396,4 +413,6 @@ module.exports = {
   avisosDoAluno,
   registrarPushToken,
   obterAlunoIdsVinculados,
+  buscarPorId,
+  excluir,
 };

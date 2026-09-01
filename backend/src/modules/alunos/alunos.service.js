@@ -239,11 +239,20 @@ async function frequencia(empresaId, alunoId, { de, ate } = {}) {
   return query;
 }
 
+async function excluir(empresaId, alunoId) {
+  const aluno = await buscarPorId(empresaId, alunoId);
+
+  await db('alunos').where({ id: alunoId, empresa_id: empresaId }).del();
+
+  return aluno;
+}
+
 module.exports = {
   listar,
   buscarPorId,
   criar,
   atualizar,
+  excluir,
   vincularDispositivo,
   frequencia,
   resolverPorMatriculaDispositivo,

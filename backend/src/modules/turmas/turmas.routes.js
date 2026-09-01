@@ -14,5 +14,6 @@ router.put('/:id/horarios', exigirPapel('super_admin', 'admin', 'gestor'), turma
 router.delete('/:id/horarios/:horarioId', exigirPapel('super_admin', 'admin', 'gestor'), turmasController.removerHorario);
 router.post('/', exigirPapel('super_admin', 'admin', 'rh'), turmasController.criar);
 router.put('/:id', exigirPapel('super_admin', 'admin', 'rh'), turmasController.atualizar);
+router.delete('/:id', exigirPapel('super_admin', 'admin', 'rh'), turmasController.excluir);
 
 module.exports = router;

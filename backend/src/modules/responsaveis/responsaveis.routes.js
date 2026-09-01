@@ -49,4 +49,13 @@ router.post(
   responsaveisController.vincularAluno
 );
 
+router.delete(
+  '/:id',
+  autenticar,
+  exigirTipo('staff'),
+  resolverTenant,
+  exigirPapel('super_admin', 'admin', 'rh'),
+  responsaveisController.excluir
+);
+
 module.exports = router;

@@ -36,6 +36,15 @@ async function atualizar(req, res, next) {
   }
 }
 
+async function excluir(req, res, next) {
+  try {
+    await turmasService.excluir(req.empresaId, req.params.id);
+    res.status(204).send();
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function listarHorarios(req, res, next) {
   try { res.json({ horarios: await turmasService.listarHorarios(req.empresaId, req.params.id) }); } catch (err) { next(err); }
 }
@@ -48,4 +57,4 @@ async function removerHorario(req, res, next) {
   try { await turmasService.removerHorario(req.empresaId, req.params.id, req.params.horarioId); res.status(204).end(); } catch (err) { next(err); }
 }
 
-module.exports = { listar, buscar, criar, atualizar, listarHorarios, salvarHorario, removerHorario };
+module.exports = { listar, buscar, criar, atualizar, excluir, listarHorarios, salvarHorario, removerHorario };
