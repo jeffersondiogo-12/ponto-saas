@@ -25,6 +25,9 @@ function mascaraCpf(v) {
 const VAZIO = {
   nome: '', cpf: '', data_nascimento: '', matricula: '',
   filial_id: '', turma_id: '', nome_responsavel: '', contato_responsavel: '',
+  criar_acesso_responsavel: true,
+  responsavel_email: '', responsavel_parentesco: '',
+  responsavel_senha: '', responsavel_confirmacao_senha: '',
   ativo: true, horario_aluno_id: null,
 };
 
@@ -76,6 +79,11 @@ export default function AlunoForm() {
           turma_id: aluno.turma_id || '',
           nome_responsavel: aluno.nome_responsavel || '',
           contato_responsavel: aluno.contato_responsavel || '',
+          criar_acesso_responsavel: false,
+          responsavel_email: '',
+          responsavel_parentesco: '',
+          responsavel_senha: '',
+          responsavel_confirmacao_senha: '',
           ativo: aluno.ativo !== undefined ? aluno.ativo : true,
           horario_aluno_id: aluno.horario_aluno_id || null,
         });
@@ -104,6 +112,26 @@ export default function AlunoForm() {
       return;
     }
 
+    if (!editando && dados.criar_acesso_responsavel) {
+      const emailResponsavel = dados.responsavel_email.trim();
+      if (!dados.nome_responsavel.trim()) {
+        setErro('Informe o nome do responsavel.');
+        return;
+      }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailResponsavel)) {
+        setErro('Informe um email valido para o responsavel.');
+        return;
+      }
+      if (dados.responsavel_senha.length < 8) {
+        setErro('A senha do responsavel deve ter no minimo 8 caracteres.');
+        return;
+      }
+      if (dados.responsavel_senha !== dados.responsavel_confirmacao_senha) {
+        setErro('A senha e a confirmacao do responsavel nao conferem.');
+        return;
+      }
+    }
+
     const matricula = dados.matricula.trim();
 
     setCarregando(true);
@@ -122,20 +150,30 @@ export default function AlunoForm() {
         horario_aluno_id: dados.horario_aluno_id,
         ativo: dados.ativo,
       };
-      if (editando) await api.atualizarAluno(id, payload);
-      else await api.criarAluno(payload);
+      if (!editando && dados.criar_acesso_responsavel) {
+        payload.nome_responsavel = dados.nome_responsavel.trim();
+        payload.contato_responsavel = dados.contato_responsavel.trim()
+          || dados.responsavel_email.trim().toLowerCase();
+        payload.responsavel = {
+          nome: dados.nome_responsavel.trim(),
+          email: dados.responsavel_email.trim().toLowerCase(),
+          telefone: dados.contato_responsavel.trim() || null,
+          parentesco: dados.responsavel_parentesco.trim() || null,
+          senha: dados.responsavel_senha,
+        };
+      }
+
+      if (editando) {
+        await api.atualizarAluno(id, payload);
+      } else {
+        const resposta = await api.criarAluno(payload);
+        if (resposta.responsavel && !resposta.responsavel.conta_criada) {
+          window.alert('Este responsavel ja possuia uma conta. O aluno foi vinculado, mas a senha existente foi mantida.');
+        }
+      }
       navigate('/alunos');
     } catch (err) {
-      /**
-       * O backend confere matrícula duplicada com `where({ matricula })`, o que
-       * em SQL vira `matricula is null` quando ela vem vazia — então o segundo
-       * aluno sem matrícula "colide" com o primeiro e recebe este 409. Sem esta
-       * tradução a mensagem acusa duplicidade de algo que a pessoa nem digitou.
-       */
-      const duplicidadeFalsa = !matricula && /matr[íi]cula/i.test(err.message || '');
-      setErro(duplicidadeFalsa
-        ? 'O cadastro sem matrícula só aceita um aluno por enquanto (limitação do servidor). Informe uma matrícula para seguir.'
-        : (err.message || 'Erro ao criar aluno.'));
+      setErro(err.message || (editando ? 'Erro ao atualizar aluno.' : 'Erro ao criar aluno.'));
       setCarregando(false);
     }
   }
@@ -247,22 +285,102 @@ export default function AlunoForm() {
           <div className="eyebrow">Responsável</div>
           <div className="card-corpo">
             <p className="texto-apoio" style={{ marginTop: 0 }}>
-              Opcional aqui — o responsável também pode se vincular pelo app.
+              {editando
+                ? 'A edicao do aluno nao altera as credenciais de acesso do responsavel.'
+                : 'Cadastre as credenciais que o responsavel usara para entrar no aplicativo.'}
             </p>
+
+            {!editando && (
+              <label className="campo" style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <input
+                  type="checkbox"
+                  checked={dados.criar_acesso_responsavel}
+                  onChange={(e) => set('criar_acesso_responsavel', e.target.checked)}
+                  style={{ width: 'auto' }}
+                />
+                Criar acesso ao aplicativo
+              </label>
+            )}
+
             <div className="grid-form">
               <div className="campo">
-                <label htmlFor="al-resp">Nome do responsável</label>
-                <input id="al-resp" value={dados.nome_responsavel} onChange={(e) => set('nome_responsavel', e.target.value)} />
+                <label htmlFor="al-resp">
+                  Nome do responsável
+                  {!editando && dados.criar_acesso_responsavel && <span className="obrigatorio"> *</span>}
+                </label>
+                <input
+                  id="al-resp"
+                  value={dados.nome_responsavel}
+                  onChange={(e) => set('nome_responsavel', e.target.value)}
+                  required={!editando && dados.criar_acesso_responsavel}
+                  maxLength={150}
+                />
               </div>
               <div className="campo">
-                <label htmlFor="al-contato">Contato</label>
+                <label htmlFor="al-contato">
+                  {!editando && dados.criar_acesso_responsavel ? 'Telefone' : 'Contato'}
+                </label>
                 <input
                   id="al-contato"
                   value={dados.contato_responsavel}
                   onChange={(e) => set('contato_responsavel', e.target.value)}
-                  placeholder="telefone ou e-mail"
+                  placeholder={!editando && dados.criar_acesso_responsavel ? '(81) 99999-9999' : 'telefone ou e-mail'}
+                  maxLength={!editando && dados.criar_acesso_responsavel ? 20 : 100}
                 />
               </div>
+
+              {!editando && dados.criar_acesso_responsavel && (
+                <>
+                  <div className="campo">
+                    <label htmlFor="al-resp-email">E-mail de acesso <span className="obrigatorio">*</span></label>
+                    <input
+                      id="al-resp-email"
+                      type="email"
+                      value={dados.responsavel_email}
+                      onChange={(e) => set('responsavel_email', e.target.value)}
+                      placeholder="responsavel@email.com"
+                      autoComplete="email"
+                      maxLength={150}
+                      required
+                    />
+                  </div>
+                  <div className="campo">
+                    <label htmlFor="al-resp-parentesco">Parentesco</label>
+                    <input
+                      id="al-resp-parentesco"
+                      value={dados.responsavel_parentesco}
+                      onChange={(e) => set('responsavel_parentesco', e.target.value)}
+                      placeholder="pai, mae, avo, tutor..."
+                      maxLength={40}
+                    />
+                  </div>
+                  <div className="campo">
+                    <label htmlFor="al-resp-senha">Senha <span className="obrigatorio">*</span></label>
+                    <input
+                      id="al-resp-senha"
+                      type="password"
+                      value={dados.responsavel_senha}
+                      onChange={(e) => set('responsavel_senha', e.target.value)}
+                      autoComplete="new-password"
+                      minLength={8}
+                      required
+                    />
+                    <span className="ajuda">Use pelo menos 8 caracteres.</span>
+                  </div>
+                  <div className="campo">
+                    <label htmlFor="al-resp-confirmar">Confirmar senha <span className="obrigatorio">*</span></label>
+                    <input
+                      id="al-resp-confirmar"
+                      type="password"
+                      value={dados.responsavel_confirmacao_senha}
+                      onChange={(e) => set('responsavel_confirmacao_senha', e.target.value)}
+                      autoComplete="new-password"
+                      minLength={8}
+                      required
+                    />
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>

@@ -1,5 +1,6 @@
 const db = require('../../config/db');
 const { AppError } = require('../../middlewares/errorHandler');
+const responsaveisService = require('../responsaveis/responsaveis.service');
 
 async function listar(empresaId, { turmaId, ativo } = {}) {
   const query = db('alunos as a')
@@ -81,47 +82,67 @@ async function resolverPorMatriculaDispositivo(empresaId, filialId, matriculaDis
 async function criar(empresaId, dados) {
   const cpf = await normalizarCpfOpcional(dados.cpf);
   const matricula = String(dados.matricula || '').trim() || null;
-
-  const filial = await db('filiais').where({ id: dados.filial_id, empresa_id: empresaId }).first();
-  if (!filial) throw new AppError('Unidade nao encontrada.', 404);
-  if (filial.tipo !== 'escola') {
-    throw new AppError('Alunos só podem ser cadastrados em unidades do tipo escola.', 400);
-  }
-
-  if (dados.turma_id) {
-    const turma = await db('turmas').where({ id: dados.turma_id, empresa_id: empresaId, filial_id: dados.filial_id, ativo: true }).first();
-    if (!turma) throw new AppError('Turma nao encontrada nesta filial.', 404);
-  }
-
   const horarioAlunoId = dados.horario_aluno_id || null;
-  if (horarioAlunoId) {
-    const horario = await db('horarios_alunos').where({ id: horarioAlunoId }).first();
-    if (!horario) throw new AppError('Horario escolar nao encontrado.', 404);
-  }
 
-  if (matricula) {
-    const matriculaExistente = await db('alunos')
-      .where({ empresa_id: empresaId, matricula })
-      .first();
-    if (matriculaExistente) throw new AppError('Já existe um aluno com esta matrícula.', 409);
-  }
+  return db.transaction(async (trx) => {
+    const filial = await trx('filiais').where({ id: dados.filial_id, empresa_id: empresaId }).first();
+    if (!filial) throw new AppError('Unidade nao encontrada.', 404);
+    if (filial.tipo !== 'escola') {
+      throw new AppError('Alunos so podem ser cadastrados em unidades do tipo escola.', 400);
+    }
 
-  const [aluno] = await db('alunos')
-    .insert({
-      empresa_id: empresaId,
-      filial_id: dados.filial_id,
-      turma_id: dados.turma_id || null,
-      horario_aluno_id: horarioAlunoId,
-      matricula,
-      nome: dados.nome,
-      cpf,
-      data_nascimento: dados.data_nascimento || null,
-      nome_responsavel: dados.nome_responsavel || null,
-      contato_responsavel: dados.contato_responsavel || null,
-    })
-    .returning('*');
+    if (dados.turma_id) {
+      const turma = await trx('turmas')
+        .where({ id: dados.turma_id, empresa_id: empresaId, filial_id: dados.filial_id, ativo: true })
+        .first();
+      if (!turma) throw new AppError('Turma nao encontrada nesta filial.', 404);
+    }
 
-  return aluno;
+    if (horarioAlunoId) {
+      const horario = await trx('horarios_alunos').where({ id: horarioAlunoId }).first();
+      if (!horario) throw new AppError('Horario escolar nao encontrado.', 404);
+    }
+
+    if (matricula) {
+      const matriculaExistente = await trx('alunos')
+        .where({ empresa_id: empresaId, matricula })
+        .first();
+      if (matriculaExistente) throw new AppError('Ja existe um aluno com esta matricula.', 409);
+    }
+
+    const nomeResponsavel = String(dados.responsavel?.nome || dados.nome_responsavel || '').trim() || null;
+    const contatoResponsavel = String(
+      dados.responsavel
+        ? (dados.responsavel.telefone || dados.responsavel.email || '')
+        : (dados.contato_responsavel || '')
+    ).trim() || null;
+
+    const [aluno] = await trx('alunos')
+      .insert({
+        empresa_id: empresaId,
+        filial_id: dados.filial_id,
+        turma_id: dados.turma_id || null,
+        horario_aluno_id: horarioAlunoId,
+        matricula,
+        nome: dados.nome,
+        cpf,
+        data_nascimento: dados.data_nascimento || null,
+        nome_responsavel: nomeResponsavel,
+        contato_responsavel: contatoResponsavel,
+      })
+      .returning('*');
+
+    if (!dados.responsavel) return { aluno, responsavel: null, vinculo: null };
+
+    const acesso = await responsaveisService.criarOuVincularAoAluno(
+      trx,
+      empresaId,
+      aluno.id,
+      dados.responsavel
+    );
+
+    return { aluno, ...acesso };
+  });
 }
 
 async function atualizar(empresaId, alunoId, dados) {

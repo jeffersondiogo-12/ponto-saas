@@ -3,6 +3,93 @@ const jwt = require('jsonwebtoken');
 const db = require('../../config/db');
 const { AppError } = require('../../middlewares/errorHandler');
 
+function normalizarDadosDeAcesso(dados = {}) {
+  const nome = String(dados.nome || '').trim();
+  const email = String(dados.email || '').trim().toLowerCase();
+  const senha = String(dados.senha || '');
+  const telefone = String(dados.telefone || '').trim() || null;
+  const parentesco = String(dados.parentesco || '').trim() || null;
+
+  if (!nome) throw new AppError('Informe o nome do responsavel.', 400);
+  if (nome.length > 150) throw new AppError('O nome do responsavel deve ter no maximo 150 caracteres.', 400);
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    throw new AppError('Informe um email valido para o responsavel.', 400);
+  }
+  if (email.length > 150) throw new AppError('O email do responsavel deve ter no maximo 150 caracteres.', 400);
+  if (senha.length < 8) throw new AppError('A senha do responsavel deve ter no minimo 8 caracteres.', 400);
+  if (telefone && telefone.length > 20) {
+    throw new AppError('O telefone do responsavel deve ter no maximo 20 caracteres.', 400);
+  }
+  if (parentesco && parentesco.length > 40) {
+    throw new AppError('O parentesco deve ter no maximo 40 caracteres.', 400);
+  }
+
+  return { nome, email, senha, telefone, parentesco };
+}
+
+/**
+ * Cria o acesso do responsavel ou reutiliza uma conta da mesma empresa e
+ * garante o vinculo com o aluno. A transacao vem do chamador para que aluno,
+ * conta e vinculo sejam confirmados ou revertidos juntos.
+ */
+async function criarOuVincularAoAluno(trx, empresaId, alunoId, dados) {
+  const responsavelDados = normalizarDadosDeAcesso(dados);
+  let responsavel = await trx('responsaveis').where({ email: responsavelDados.email }).first();
+  let contaCriada = false;
+
+  if (responsavel && String(responsavel.empresa_id) !== String(empresaId)) {
+    throw new AppError('Ja existe uma conta com este email em outra empresa.', 409);
+  }
+  if (responsavel && !responsavel.ativo) {
+    throw new AppError('A conta deste responsavel esta inativa.', 409);
+  }
+
+  if (!responsavel) {
+    const senha_hash = await bcrypt.hash(responsavelDados.senha, 12);
+    const [novaConta] = await trx('responsaveis')
+      .insert({
+        empresa_id: empresaId,
+        nome: responsavelDados.nome,
+        email: responsavelDados.email,
+        senha_hash,
+        telefone: responsavelDados.telefone,
+      })
+      .onConflict(['email'])
+      .ignore()
+      .returning('*');
+
+    responsavel = novaConta || await trx('responsaveis').where({ email: responsavelDados.email }).first();
+    if (String(responsavel?.empresa_id) !== String(empresaId)) {
+      throw new AppError('Ja existe uma conta com este email em outra empresa.', 409);
+    }
+    if (!responsavel?.ativo) throw new AppError('A conta deste responsavel esta inativa.', 409);
+    contaCriada = Boolean(novaConta);
+  }
+
+  const [vinculo] = await trx('responsavel_alunos')
+    .insert({
+      responsavel_id: responsavel.id,
+      aluno_id: alunoId,
+      parentesco: responsavelDados.parentesco,
+    })
+    .onConflict(['responsavel_id', 'aluno_id'])
+    .merge({ parentesco: responsavelDados.parentesco })
+    .returning('*');
+
+  return {
+    responsavel: {
+      id: responsavel.id,
+      empresa_id: responsavel.empresa_id,
+      nome: responsavel.nome,
+      email: responsavel.email,
+      telefone: responsavel.telefone,
+      ativo: responsavel.ativo,
+      conta_criada: contaCriada,
+    },
+    vinculo,
+  };
+}
+
 async function obterAlunoIdsVinculados(responsavelId) {
   const vinculos = await db('responsavel_alunos').where({ responsavel_id: responsavelId });
   return vinculos.map((v) => v.aluno_id);
@@ -298,6 +385,7 @@ async function registrarPushToken(responsavelId, token, plataforma) {
 module.exports = {
   login,
   cadastrar,
+  criarOuVincularAoAluno,
   vincularAluno,
   vincularNovoFilho,
   listarAlunosVinculados,

@@ -24,8 +24,8 @@ async function buscar(req, res, next) {
 
 async function criar(req, res, next) {
   try {
-    const aluno = await alunosService.criar(req.empresaId, req.body);
-    res.status(201).json({ aluno });
+    const resultado = await alunosService.criar(req.empresaId, req.body);
+    res.status(201).json(resultado);
   } catch (err) {
     next(err);
   }
