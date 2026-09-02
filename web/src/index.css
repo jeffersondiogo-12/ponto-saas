@@ -548,6 +548,38 @@ table.tabela tbody tr:hover td { background: var(--azul-fraco); }
 .item-filial:hover { border-color: var(--azul); background: var(--azul-fraco); }
 .item-filial .texto-apoio { margin-top: 2px; }
 
+/* Confirmacao de exclusao permanente de aluno.
+   Tres blocos, tres consequencias diferentes — e a cor separa o que some do
+   que fica orfao do que trava. Vermelho so no que apaga de verdade e no
+   proprio cabecalho do modal: aqui e falha em potencial, nao pendencia. */
+.modal-perigo { border-top: 3px solid var(--vermelho); }
+.modal-perigo h2 { color: var(--vermelho); }
+
+.risco {
+  border: 1px solid var(--borda);
+  border-left: 3px solid var(--borda-forte);
+  border-radius: var(--raio-p);
+  padding: 11px 14px;
+  margin-top: 12px;
+  background: var(--fundo-2);
+}
+.risco h3 {
+  margin: 0 0 5px;
+  font-size: 12px; font-weight: 600;
+  letter-spacing: .05em; text-transform: uppercase;
+}
+.risco p { margin: 0; font-size: 13.5px; color: var(--tinta-fraca); }
+.risco ul { margin: 0; padding-left: 18px; font-size: 13.5px; color: var(--tinta-fraca); }
+.risco li + li { margin-top: 4px; }
+.risco strong { color: var(--tinta); }
+
+.risco-apaga { border-left-color: var(--vermelho); background: var(--vermelho-fraco); }
+.risco-apaga h3 { color: var(--vermelho); }
+.risco-orfao { border-left-color: var(--ambar); background: var(--ambar-fraco); }
+.risco-orfao h3 { color: var(--ambar); }
+.risco-bloqueia { border-left-color: var(--azul); background: var(--azul-fraco); }
+.risco-bloqueia h3 { color: var(--azul-forte); }
+
 /* ---------- Responsivo ---------- */
 
 @media (max-width: 860px) {
