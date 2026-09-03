@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   DeviceEventEmitter,
   ScrollView,
+  Pressable,
 } from 'react-native';
 import { api } from '../api';
 import { AparecerEm, PressaoAnimada, Pulsar } from '../components/Animacoes';
@@ -281,11 +282,14 @@ export default function AlunoDetalheScreen({ route }) {
           }
           renderItem={({ item, index }) => (
             <AparecerEm atraso={index * 55}>
-              <View style={[estilos.cartao, estilos.cartaoAviso]}>
+              <Pressable
+                style={[estilos.cartao, estilos.cartaoAviso]}
+                onPress={() => api.registrarLeituraAviso(item.id).catch(() => {})}
+              >
                 <Text style={estilos.cartaoTitulo}>{item.titulo}</Text>
                 <Text style={estilos.cartaoTexto}>{item.mensagem}</Text>
                 <Text style={estilos.cartaoRodape}>{formatarDataHora(item.publicado_em)}</Text>
-              </View>
+              </Pressable>
             </AparecerEm>
           )}
         />

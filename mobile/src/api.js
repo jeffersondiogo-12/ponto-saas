@@ -207,6 +207,7 @@ export const api = {
   observacoesDoAluno: (alunoId) => requisitar(`/api/responsaveis/alunos/${alunoId}/observacoes`),
   presencaSalaDoAluno: (alunoId) => requisitar(`/api/responsaveis/alunos/${alunoId}/presenca-sala`),
   avisosDoAluno: (alunoId) => requisitar(`/api/responsaveis/alunos/${alunoId}/avisos`),
+  registrarLeituraAviso: (avisoId) => requisitar(`/api/responsaveis/avisos/${avisoId}/lido`, { method: 'POST' }),
   vincularFilho: (dados) =>
     requisitar('/api/responsaveis/alunos/vincular', {
       method: 'POST',

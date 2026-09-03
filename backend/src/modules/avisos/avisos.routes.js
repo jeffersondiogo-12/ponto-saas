@@ -16,5 +16,6 @@ router.put('/:id', ...staff, exigirPermissao('avisos', 'atualizar'), controller.
 router.delete('/:id', ...staff, exigirPermissao('avisos', 'deletar'), controller.remover);
 router.patch('/:id/ativar', ...staff, exigirPermissao('avisos', 'atualizar'), controller.ativar);
 router.patch('/:id/desativar', ...staff, exigirPermissao('avisos', 'atualizar'), controller.desativar);
+router.post('/:id/duplicar', ...staff, exigirPermissao('avisos', 'adicionar'), controller.duplicar);
 
 module.exports = router;

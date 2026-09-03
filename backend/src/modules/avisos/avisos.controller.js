@@ -61,4 +61,13 @@ async function desativar(req, res, next) {
   }
 }
 
-module.exports = { criar, listar, buscar, atualizar, remover, ativar, desativar };
+async function duplicar(req, res, next) {
+  try {
+    const aviso = await service.duplicar(req.empresaId, req.params.id, req.body, req.filialId);
+    res.status(201).json({ aviso });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { criar, listar, buscar, atualizar, remover, ativar, desativar, duplicar };

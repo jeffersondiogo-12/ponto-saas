@@ -11,6 +11,7 @@
     "migrate:make": "knex migrate:make",
     "seed": "knex seed:run",
     "coleta:worker": "node src/jobs/coletaScheduler.js",
+    "avisos:worker": "node src/jobs/avisosScheduler.js",
     "simular:evo-facial": "node scripts/simular-evo-facial.js"
   },
   "dependencies": {

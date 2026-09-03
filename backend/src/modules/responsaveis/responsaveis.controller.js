@@ -90,6 +90,20 @@ async function avisosDoAluno(req, res, next) {
   }
 }
 
+async function registrarLeituraAviso(req, res, next) {
+  try {
+    const leitura = await responsaveisService.registrarLeituraAviso(
+      req.usuario.empresa_id,
+      req.params.avisoId,
+      req.usuario.responsavelId,
+      req.usuario.alunoIds
+    );
+    res.status(201).json({ leitura });
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function registrarPushToken(req, res, next) {
   try {
     const { token, plataforma } = req.body;
@@ -128,6 +142,7 @@ module.exports = {
   observacoesDoAluno,
   presencaSalaDoAluno,
   avisosDoAluno,
+  registrarLeituraAviso,
   registrarPushToken,
   vincularAluno,
   vincularNovoFilho,

@@ -379,14 +379,39 @@ async function avisosDoAluno(alunoIdsPermitidos, alunoId) {
   return db('avisos_escola')
     .select('id', 'titulo', 'mensagem', 'publicado_em')
     .where({ empresa_id: aluno.empresa_id, ativo: true })
+    .andWhere('publicado_em', '<=', db.fn.now())
     .andWhere(function condicaoFilial() {
-      this.whereNull('filial_id').orWhere('filial_id', aluno.filial_id);
-    })
-    .andWhere(function condicaoTurma() {
-      this.whereNull('turma_id').orWhere('turma_id', aluno.turma_id);
+      this.where(function legado() {
+        this.whereNotExists(db('aviso_alvos').select(db.raw('1')).whereRaw('aviso_alvos.aviso_id = avisos_escola.id'))
+          .andWhere(function alvoLegado() {
+            this.whereNull('filial_id').orWhere('filial_id', aluno.filial_id);
+          })
+          .andWhere(function turmaLegada() {
+            this.whereNull('turma_id').orWhere('turma_id', aluno.turma_id);
+          });
+      }).orWhereExists(db('aviso_alvos').select(db.raw('1')).whereRaw('aviso_alvos.aviso_id = avisos_escola.id').andWhere(function alvoMultiplo() {
+        this.where('filial_id', aluno.filial_id).orWhere('turma_id', aluno.turma_id);
+      }));
     })
     .orderBy('publicado_em', 'desc')
     .limit(30);
+}
+
+async function registrarLeituraAviso(empresaId, avisoId, responsavelId, alunoIdsPermitidos) {
+  const aviso = await db('avisos_escola').where({ id: avisoId, empresa_id: empresaId, ativo: true }).first();
+  if (!aviso || !aviso.enviado_em) throw new AppError('Aviso nao encontrado.', 404);
+  const aluno = await db('alunos').whereIn('id', alunoIdsPermitidos).where({ empresa_id: empresaId }).first();
+  if (!aluno) throw new AppError('Voce nao possui alunos vinculados nesta empresa.', 403);
+  const alvoLegado = (!aviso.filial_id || aviso.filial_id === aluno.filial_id) && (!aviso.turma_id || aviso.turma_id === aluno.turma_id);
+  const alvoMultiplo = await db('aviso_alvos').where('aviso_id', avisoId).andWhere(function alvoCompativel() {
+    this.where('filial_id', aluno.filial_id).orWhere('turma_id', aluno.turma_id);
+  }).first('id');
+  const possuiAlvoMultiplo = await db('aviso_alvos').where('aviso_id', avisoId).first('id');
+  if ((possuiAlvoMultiplo && !alvoMultiplo) || (!possuiAlvoMultiplo && !alvoLegado)) {
+    throw new AppError('Voce nao tem acesso a este aviso.', 403);
+  }
+  const [leitura] = await db('aviso_leituras').insert({ aviso_id: avisoId, responsavel_id: responsavelId }).onConflict(['aviso_id', 'responsavel_id']).ignore().returning('*');
+  return leitura || db('aviso_leituras').where({ aviso_id: avisoId, responsavel_id: responsavelId }).first();
 }
 
 async function registrarPushToken(responsavelId, token, plataforma) {
@@ -411,6 +436,7 @@ module.exports = {
   observacoesDoAluno,
   presencaSalaDoAluno,
   avisosDoAluno,
+  registrarLeituraAviso,
   registrarPushToken,
   obterAlunoIdsVinculados,
   buscarPorId,
