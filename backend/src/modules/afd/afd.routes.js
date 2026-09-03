@@ -2,10 +2,11 @@ const express = require('express');
 const afdService = require('./afd.service');
 const { autenticar, exigirPapel, exigirTipo } = require('../../middlewares/auth');
 const { resolverTenant } = require('../../middlewares/tenant');
+const { exigirPermissao } = require('../../middlewares/permissions');
 
 const router = express.Router();
 
-router.use(autenticar, exigirTipo('staff'), resolverTenant, exigirPapel('super_admin', 'admin', 'rh'));
+router.use(autenticar, exigirTipo('staff'), resolverTenant, exigirPermissao('afd', 'ver'));
 
 router.get('/', async (req, res, next) => {
   try {

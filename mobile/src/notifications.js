@@ -67,6 +67,15 @@ export async function registrarParaNotificacoes() {
     return null;
   }
 
+  if (Platform.OS === 'android') {
+    await Notifications.setNotificationChannelAsync('default', {
+      name: 'default',
+      importance: Notifications.AndroidImportance.MAX,
+      vibrationPattern: [0, 250, 250, 250],
+      lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+    });
+  }
+
   const projectId = Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
   if (!projectId) {
     console.warn(
@@ -77,13 +86,6 @@ export async function registrarParaNotificacoes() {
 
   try {
     const { data: token } = await Notifications.getExpoPushTokenAsync({ projectId });
-
-    if (Platform.OS === 'android') {
-      await Notifications.setNotificationChannelAsync('default', {
-        name: 'default',
-        importance: Notifications.AndroidImportance.MAX,
-      });
-    }
 
     await api.registrarPushToken(token, Platform.OS);
     return token;

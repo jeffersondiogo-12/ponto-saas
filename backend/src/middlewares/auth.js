@@ -30,6 +30,7 @@ function autenticar(req, res, next) {
  */
 function exigirPapel(...papeisPermitidos) {
   return (req, res, next) => {
+    if (req.usuario?.papel === 'super_admin') return next();
     if (!req.usuario || !papeisPermitidos.includes(req.usuario.papel)) {
       return res.status(403).json({ erro: 'Voce nao tem permissao para esta acao.' });
     }

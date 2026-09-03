@@ -5,6 +5,7 @@ async function listar(req, res, next) {
     const { ativo } = req.query;
     const funcionarios = await funcionariosService.listar(req.empresaId, {
       ativo: ativo === undefined ? undefined : ativo === 'true',
+      filialId: req.filialId,
     });
     res.json({ funcionarios });
   } catch (err) {

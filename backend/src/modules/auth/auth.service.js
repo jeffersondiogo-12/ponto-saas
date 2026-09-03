@@ -163,12 +163,14 @@ async function login(email, senha, unidade) {
     throw new AppError("Email ou senha invalidos.", 401);
   }
 
-  // Login deve selecionar um AMBIENTE (empresa) — nao uma filial. Procuramos
-  // explicitamente pela empresa correspondente ao termo fornecido.
-  const unidadeEncontrada = await localizarEmpresa(unidade);
+  const unidadeEncontrada = await localizarUnidade(unidade);
 
-  let empresaIdUnidade = unidadeEncontrada.registro.id;
-  const selectedFilialId = null;
+  const empresaIdUnidade = unidadeEncontrada.tipo === 'filial'
+    ? unidadeEncontrada.registro.empresa_id
+    : unidadeEncontrada.registro.id;
+  let selectedFilialId = unidadeEncontrada.tipo === 'filial'
+    ? unidadeEncontrada.registro.id
+    : usuario.filial_id || null;
 
   if (usuario.papel !== "super_admin") {
     const empresaIdUsuario = usuario.empresa_id;
@@ -179,6 +181,10 @@ async function login(email, senha, unidade) {
     if (!empresaIdUsuario || empresaIdUsuario !== empresaIdUnidade) {
       throw new AppError("Unidade não corresponde ao usuário.", 403);
     }
+    if (usuario.filial_id && selectedFilialId && usuario.filial_id !== selectedFilialId) {
+      throw new AppError('Filial nao corresponde ao usuario.', 403);
+    }
+    selectedFilialId = usuario.filial_id || selectedFilialId;
   }
 
   await db("usuarios")
@@ -188,6 +194,7 @@ async function login(email, senha, unidade) {
   const payload = {
     tipo: "staff",
     id: usuario.id,
+    usuario_id: usuario.id,
     empresa_id: empresaIdUnidade,
     filial_id: selectedFilialId,
     papel: usuario.papel,
@@ -213,8 +220,31 @@ async function criarUsuario({
   nome,
   email,
   senha,
-  papel = "super_admin",
+  papel = "professor",
+  criador,
 }) {
+  const papeisPermitidos = criador?.papel === 'super_admin'
+    ? ['super_admin', 'admin', 'gestor', 'professor', 'rh']
+    : ['gestor', 'professor', 'rh'];
+  if (!papeisPermitidos.includes(papel)) {
+    throw new AppError('Este usuario nao pode criar usuarios com o papel informado.', 403);
+  }
+
+  if (criador?.papel !== 'super_admin' && empresa_id !== criador?.empresa_id) {
+    throw new AppError('Usuario fora da empresa do criador.', 403);
+  }
+
+  if (filial_id) {
+    const filial = await db('filiais').where({ id: filial_id, empresa_id }).first();
+    if (!filial) throw new AppError('Filial nao pertence a empresa informada.', 400);
+    if (criador?.papel === 'admin' && criador.filial_id && criador.filial_id !== filial_id) {
+      throw new AppError('Admin nao pode criar usuario em outra filial.', 403);
+    }
+  }
+  if (criador?.papel !== 'super_admin' && criador?.filial_id && !filial_id) {
+    filial_id = criador.filial_id;
+  }
+
   const existente = await db("usuarios")
     .where({ email: email.toLowerCase().trim() })
     .first();
@@ -238,8 +268,8 @@ async function criarUsuario({
   return usuario;
 }
 
-async function listarUsuarios(empresaId) {
-  return db("usuarios as u")
+async function listarUsuarios(empresaId, filialId = null) {
+  const query = db("usuarios as u")
     .select(
       "u.id",
       "u.nome",
@@ -250,8 +280,9 @@ async function listarUsuarios(empresaId) {
       "f.nome as filial_nome",
     )
     .leftJoin("filiais as f", "f.id", "u.filial_id")
-    .where("u.empresa_id", empresaId)
-    .orderBy("u.nome");
+    .where("u.empresa_id", empresaId);
+  if (filialId) query.where('u.filial_id', filialId);
+  return query.orderBy("u.nome");
 }
 
 module.exports = { login, criarUsuario, listarUsuarios };

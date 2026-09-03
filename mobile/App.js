@@ -40,6 +40,12 @@ function Navegacao() {
       pararNotificacoes = ouvirNotificacoes();
     }
 
+    const assinaturaAppState = ehResponsavel
+      ? AppState.addEventListener('change', (estado) => {
+          if (estado === 'active') registrarParaNotificacoes();
+        })
+      : null;
+
     let ativo = true;
     let pararConexao = () => {};
     conectarRealtime().then((parar) => {
@@ -51,6 +57,7 @@ function Navegacao() {
       ativo = false;
       pararConexao();
       pararNotificacoes();
+      assinaturaAppState?.remove();
     };
   }, [ehResponsavel, ehProfessor]);
 

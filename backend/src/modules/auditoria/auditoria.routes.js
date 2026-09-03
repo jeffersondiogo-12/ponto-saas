@@ -1,6 +1,7 @@
 const express = require('express');
 const auditoriaController = require('./auditoria.controller');
-const { autenticar, exigirPapel, exigirTipo } = require('../../middlewares/auth');
+const { autenticar, exigirTipo } = require('../../middlewares/auth');
+const { exigirPermissao } = require('../../middlewares/permissions');
 const { resolverTenant } = require('../../middlewares/tenant');
 
 const router = express.Router();
@@ -10,7 +11,7 @@ router.use(
   autenticar,
   exigirTipo('staff'),
   resolverTenant,
-  exigirPapel('super_admin', 'admin', 'gestor')
+  exigirPermissao('auditoria', 'ver')
 );
 
 router.get('/', auditoriaController.listar);

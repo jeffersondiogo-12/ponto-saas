@@ -39,9 +39,11 @@ function sanitizar(dispositivo) {
   };
 }
 
-async function listar(empresaId) {
-  const dispositivos = await db("dispositivos")
-    .where({ empresa_id: empresaId })
+async function listar(empresaId, filialId = null) {
+  const query = db("dispositivos")
+    .where({ empresa_id: empresaId });
+  if (filialId) query.where({ filial_id: filialId });
+  const dispositivos = await query
     .orderBy("descricao");
   return dispositivos.map(sanitizar);
 }

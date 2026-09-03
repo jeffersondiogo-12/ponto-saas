@@ -12,7 +12,7 @@ async function login(req, res, next) {
 
 async function listarUsuarios(req, res, next) {
   try {
-    const usuarios = await authService.listarUsuarios(req.empresaId);
+    const usuarios = await authService.listarUsuarios(req.empresaId, req.filialId);
     res.json({ usuarios });
   } catch (err) {
     next(err);
@@ -21,7 +21,11 @@ async function listarUsuarios(req, res, next) {
 
 async function criarUsuario(req, res, next) {
   try {
-    const usuario = await authService.criarUsuario({ ...req.body, empresa_id: req.empresaId });
+    const usuario = await authService.criarUsuario({
+      ...req.body,
+      empresa_id: req.empresaId,
+      criador: req.usuario,
+    });
     res.status(201).json({ usuario });
   } catch (err) {
     next(err);

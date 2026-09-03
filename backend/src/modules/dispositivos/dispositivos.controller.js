@@ -3,7 +3,7 @@ const pontoService = require('../ponto/ponto.service');
 
 async function listar(req, res, next) {
   try {
-    const dispositivos = await dispositivosService.listar(req.empresaId);
+    const dispositivos = await dispositivosService.listar(req.empresaId, req.filialId);
     res.json({ dispositivos });
   } catch (err) {
     next(err);

@@ -1,28 +1,29 @@
 const express = require('express');
 const dispositivosController = require('./dispositivos.controller');
-const { autenticar, exigirPapel, exigirTipo } = require('../../middlewares/auth');
+const { autenticar, exigirTipo } = require('../../middlewares/auth');
+const { exigirPermissao } = require('../../middlewares/permissions');
 const { resolverTenant } = require('../../middlewares/tenant');
 
 const router = express.Router();
 
 router.use(autenticar, exigirTipo('staff'), resolverTenant);
 
-router.get('/', dispositivosController.listar);
-router.get('/:id', dispositivosController.buscar);
-router.post('/', exigirPapel('super_admin', 'admin'), dispositivosController.criar);
-router.put('/:id', exigirPapel('super_admin', 'admin'), dispositivosController.atualizar);
-router.post('/:id/testar-conexao', exigirPapel('super_admin', 'admin'), dispositivosController.testarConexao);
-router.post('/:id/forcar-coleta', exigirPapel('super_admin', 'admin'), dispositivosController.forcarColeta);
+router.get('/', exigirPermissao('dispositivos', 'ver'), dispositivosController.listar);
+router.get('/:id', exigirPermissao('dispositivos', 'ver'), dispositivosController.buscar);
+router.post('/', exigirPermissao('dispositivos', 'adicionar'), dispositivosController.criar);
+router.put('/:id', exigirPermissao('dispositivos', 'atualizar'), dispositivosController.atualizar);
+router.post('/:id/testar-conexao', exigirPermissao('dispositivos', 'atualizar'), dispositivosController.testarConexao);
+router.post('/:id/forcar-coleta', exigirPermissao('dispositivos', 'atualizar'), dispositivosController.forcarColeta);
 router.get(
   '/:id/usuarios-no-equipamento',
-  exigirPapel('super_admin', 'admin'),
+  exigirPermissao('dispositivos', 'ver'),
   dispositivosController.usuariosNoEquipamento
 );
 router.post(
   '/:id/cadastrar-face',
-  exigirPapel('super_admin', 'admin', 'rh'),
+  exigirPermissao('dispositivos', 'atualizar'),
   dispositivosController.cadastrarFace
 );
-router.post('/:id/remover-face', exigirPapel('super_admin', 'admin', 'rh'), dispositivosController.removerFace);
+router.post('/:id/remover-face', exigirPermissao('dispositivos', 'atualizar'), dispositivosController.removerFace);
 
 module.exports = router;

@@ -2,10 +2,11 @@ const express = require('express');
 const db = require('../../config/db');
 const { autenticar, exigirTipo } = require('../../middlewares/auth');
 const { resolverTenant } = require('../../middlewares/tenant');
+const { exigirPermissao } = require('../../middlewares/permissions');
 
 const router = express.Router();
 
-router.use(autenticar, exigirTipo('staff'), resolverTenant);
+router.use(autenticar, exigirTipo('staff'), resolverTenant, exigirPermissao('relatorios', 'ver'));
 
 /**
  * Espelho de ponto: um funcionario, um periodo, todos os apontamentos diarios.

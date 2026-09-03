@@ -2,7 +2,7 @@ const db = require('../../config/db');
 const { AppError } = require('../../middlewares/errorHandler');
 const responsaveisService = require('../responsaveis/responsaveis.service');
 
-async function listar(empresaId, { turmaId, ativo } = {}) {
+async function listar(empresaId, { turmaId, filialId, ativo } = {}) {
   const query = db('alunos as a')
     .select(
       'a.*',
@@ -16,6 +16,7 @@ async function listar(empresaId, { turmaId, ativo } = {}) {
     .orderBy('a.nome');
 
   if (turmaId) query.where('a.turma_id', turmaId);
+  if (filialId) query.where('a.filial_id', filialId);
   if (ativo !== undefined) query.where('a.ativo', ativo);
 
   return query;

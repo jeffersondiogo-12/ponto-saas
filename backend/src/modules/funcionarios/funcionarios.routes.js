@@ -1,21 +1,22 @@
 const express = require('express');
 const funcionariosController = require('./funcionarios.controller');
-const { autenticar, exigirPapel, exigirTipo } = require('../../middlewares/auth');
+const { autenticar, exigirTipo } = require('../../middlewares/auth');
+const { exigirPermissao } = require('../../middlewares/permissions');
 const { resolverTenant } = require('../../middlewares/tenant');
 
 const router = express.Router();
 
 router.use(autenticar, exigirTipo('staff'), resolverTenant);
 
-router.get('/', funcionariosController.listar);
-router.get('/:id', funcionariosController.buscar);
-router.post('/', exigirPapel('super_admin', 'admin', 'rh'), funcionariosController.criar);
-router.put('/:id', exigirPapel('super_admin', 'admin', 'rh'), funcionariosController.atualizar);
+router.get('/', exigirPermissao('funcionarios', 'ver'), funcionariosController.listar);
+router.get('/:id', exigirPermissao('funcionarios', 'ver'), funcionariosController.buscar);
+router.post('/', exigirPermissao('funcionarios', 'adicionar'), funcionariosController.criar);
+router.put('/:id', exigirPermissao('funcionarios', 'atualizar'), funcionariosController.atualizar);
 router.post(
   '/:id/dispositivos',
-  exigirPapel('super_admin', 'admin', 'rh'),
+  exigirPermissao('funcionarios', 'atualizar'),
   funcionariosController.vincularDispositivo
 );
-router.delete('/:id', exigirPapel('super_admin', 'admin', 'rh'), funcionariosController.excluir);
+router.delete('/:id', exigirPermissao('funcionarios', 'deletar'), funcionariosController.excluir);
 
 module.exports = router;

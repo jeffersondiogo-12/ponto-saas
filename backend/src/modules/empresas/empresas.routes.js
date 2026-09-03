@@ -1,18 +1,19 @@
 const express = require('express');
 const empresasController = require('./empresas.controller');
-const { autenticar, exigirPapel, exigirTipo } = require('../../middlewares/auth');
+const { autenticar, exigirTipo } = require('../../middlewares/auth');
+const { exigirPermissao } = require('../../middlewares/permissions');
 
 const router = express.Router();
 
 router.use(autenticar, exigirTipo('staff'));
 
 // Listar/criar empresas e operacao de plataforma (apenas super_admin).
-router.get('/', exigirPapel('super_admin'), empresasController.listar);
-router.post('/', exigirPapel('super_admin'), empresasController.criar);
+router.get('/', exigirPermissao('empresas', 'ver'), empresasController.listar);
+router.post('/', exigirPermissao('empresas', 'adicionar'), empresasController.criar);
 
 // Ver/editar a propria empresa e permitido para admin/rh tambem.
-router.get('/:id', empresasController.buscar);
-router.put('/:id', exigirPapel('super_admin', 'admin'), empresasController.atualizar);
-router.delete('/:id', exigirPapel('super_admin'), empresasController.excluir);
+router.get('/:id', exigirPermissao('empresas', 'ver'), empresasController.buscar);
+router.put('/:id', exigirPermissao('empresas', 'atualizar'), empresasController.atualizar);
+router.delete('/:id', exigirPermissao('empresas', 'deletar'), empresasController.excluir);
 
 module.exports = router;

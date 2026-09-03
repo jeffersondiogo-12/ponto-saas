@@ -1,7 +1,7 @@
 const db = require('../../config/db');
 const { AppError } = require('../../middlewares/errorHandler');
 
-async function listar(empresaId, { ativo } = {}) {
+async function listar(empresaId, { ativo, filialId } = {}) {
   const query = db('funcionarios as f')
     .select(
       'f.*',
@@ -18,6 +18,7 @@ async function listar(empresaId, { ativo } = {}) {
   if (ativo !== undefined) {
     query.where('f.ativo', ativo);
   }
+  if (filialId) query.where('f.filial_id', filialId);
 
   return query;
 }

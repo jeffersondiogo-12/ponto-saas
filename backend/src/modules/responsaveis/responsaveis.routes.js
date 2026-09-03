@@ -1,6 +1,7 @@
 const express = require('express');
 const responsaveisController = require('./responsaveis.controller');
-const { autenticar, exigirTipo, exigirPapel } = require('../../middlewares/auth');
+const { autenticar, exigirTipo } = require('../../middlewares/auth');
+const { exigirPermissao } = require('../../middlewares/permissions');
 const { resolverTenant } = require('../../middlewares/tenant');
 
 const router = express.Router();
@@ -43,9 +44,9 @@ router.post('/push-token', autenticar, exigirTipo('responsavel'), responsaveisCo
 router.post(
   '/vincular',
   autenticar,
-  exigirTipo('gestor'),
+  exigirTipo('staff'),
   resolverTenant,
-  exigirPapel('super_admin', 'admin', 'gestor'),
+  exigirPermissao('responsaveis', 'adicionar'),
   responsaveisController.vincularAluno
 );
 
@@ -54,7 +55,7 @@ router.delete(
   autenticar,
   exigirTipo('staff'),
   resolverTenant,
-  exigirPapel('super_admin', 'admin', 'rh'),
+  exigirPermissao('responsaveis', 'deletar'),
   responsaveisController.excluir
 );
 
