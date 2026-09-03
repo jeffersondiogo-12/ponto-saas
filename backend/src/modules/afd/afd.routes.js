@@ -10,7 +10,7 @@ router.use(autenticar, exigirTipo('staff'), resolverTenant, exigirPermissao('afd
 
 router.get('/', async (req, res, next) => {
   try {
-    const exportacoes = await afdService.listarExportacoes(req.empresaId);
+    const exportacoes = await afdService.listarExportacoes(req.empresaId, req.filialId);
     res.json({ exportacoes });
   } catch (err) {
     next(err);
@@ -24,6 +24,7 @@ router.post('/gerar', async (req, res, next) => {
       periodoInicio: periodo_inicio,
       periodoFim: periodo_fim,
       geradoPorUsuarioId: req.usuario.id,
+      filialId: req.filialId,
     });
     res.status(201).json(resultado);
   } catch (err) {
@@ -34,7 +35,7 @@ router.post('/gerar', async (req, res, next) => {
 router.get('/:id/download', async (req, res, next) => {
   try {
     const exportacao = await require('../../config/db')('afd_exports')
-      .where({ id: req.params.id, empresa_id: req.empresaId })
+      .where({ id: req.params.id, empresa_id: req.empresaId, ...(req.filialId ? { filial_id: req.filialId } : {}) })
       .first();
     if (!exportacao) return res.status(404).json({ erro: 'Exportacao nao encontrada.' });
     res.download(exportacao.arquivo_path);

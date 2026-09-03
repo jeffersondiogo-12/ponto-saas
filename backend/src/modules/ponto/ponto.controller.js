@@ -3,7 +3,7 @@ const bancoHorasService = require('./bancoHoras.service');
 
 async function obterFoto(req, res, next) {
   try {
-    const caminho = await pontoService.buscarFoto(req.empresaId, req.params.id);
+    const caminho = await pontoService.buscarFoto(req.empresaId, req.params.id, req.filialId);
     res.sendFile(caminho, (err) => {
       // sendFile ja pode ter mandado headers antes de falhar (ex: arquivo
       // sumiu do disco entre a consulta no banco e o envio) - so repassa
@@ -23,6 +23,7 @@ async function registrarBatidaManual(req, res, next) {
       tipoBatida: req.body.tipo_batida,
       observacao: req.body.observacao,
       criadoPorUsuarioId: req.usuario.id,
+      filialId: req.filialId,
     });
     res.status(201).json({ registro });
   } catch (err) {
@@ -33,7 +34,7 @@ async function registrarBatidaManual(req, res, next) {
 async function processarDia(req, res, next) {
   try {
     const { funcionario_id, data } = req.body;
-    const apontamento = await pontoService.processarDia(req.empresaId, funcionario_id, data, req.usuario.id);
+    const apontamento = await pontoService.processarDia(req.empresaId, funcionario_id, data, req.usuario.id, req.filialId);
     res.json({ apontamento });
   } catch (err) {
     next(err);
@@ -47,6 +48,7 @@ async function listarApontamentos(req, res, next) {
       funcionarioId: funcionario_id,
       de,
       ate,
+      filialId: req.filialId,
     });
     res.json({ apontamentos });
   } catch (err) {
@@ -56,7 +58,7 @@ async function listarApontamentos(req, res, next) {
 
 async function listarNaoResolvidos(req, res, next) {
   try {
-    const registros = await pontoService.listarRegistrosNaoResolvidos(req.empresaId);
+    const registros = await pontoService.listarRegistrosNaoResolvidos(req.empresaId, req.filialId);
     res.json({ registros });
   } catch (err) {
     next(err);
@@ -68,7 +70,7 @@ async function listarRegistrosAlunos(req, res, next) {
     const { aluno_id, filial_id, turma_id, de, ate, limite } = req.query;
     const registros = await pontoService.listarRegistrosAlunos(req.empresaId, {
       alunoId: aluno_id,
-      filialId: filial_id,
+      filialId: req.filialId || filial_id,
       turmaId: turma_id,
       de,
       ate,
@@ -84,8 +86,8 @@ async function extratoBancoHoras(req, res, next) {
   try {
     const { de, ate } = req.query;
     const [lancamentos, saldoAtual] = await Promise.all([
-      bancoHorasService.extrato(req.empresaId, req.params.funcionarioId, { de, ate }),
-      bancoHorasService.obterSaldoAtual(req.params.funcionarioId),
+      bancoHorasService.extrato(req.empresaId, req.params.funcionarioId, { de, ate }, req.filialId),
+      bancoHorasService.obterSaldoAtual(req.params.funcionarioId, req.filialId),
     ]);
     res.json({ lancamentos, saldo_atual_minutos: saldoAtual });
   } catch (err) {
@@ -101,6 +103,7 @@ async function lancamentoManualBancoHoras(req, res, next) {
       minutos,
       observacao,
       criadoPorUsuarioId: req.usuario.id,
+      filialId: req.filialId,
     });
     res.status(201).json({ lancamento });
   } catch (err) {

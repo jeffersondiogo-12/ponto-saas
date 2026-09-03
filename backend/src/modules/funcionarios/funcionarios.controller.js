@@ -15,7 +15,7 @@ async function listar(req, res, next) {
 
 async function buscar(req, res, next) {
   try {
-    const funcionario = await funcionariosService.buscarPorId(req.empresaId, req.params.id);
+    const funcionario = await funcionariosService.buscarPorId(req.empresaId, req.params.id, req.filialId);
     res.json({ funcionario });
   } catch (err) {
     next(err);
@@ -24,7 +24,7 @@ async function buscar(req, res, next) {
 
 async function criar(req, res, next) {
   try {
-    const funcionario = await funcionariosService.criar(req.empresaId, req.body);
+    const funcionario = await funcionariosService.criar(req.empresaId, req.body, req.filialId);
     res.status(201).json({ funcionario });
   } catch (err) {
     next(err);
@@ -33,7 +33,7 @@ async function criar(req, res, next) {
 
 async function atualizar(req, res, next) {
   try {
-    const funcionario = await funcionariosService.atualizar(req.empresaId, req.params.id, req.body);
+    const funcionario = await funcionariosService.atualizar(req.empresaId, req.params.id, req.body, req.filialId);
     res.json({ funcionario });
   } catch (err) {
     next(err);
@@ -47,7 +47,8 @@ async function vincularDispositivo(req, res, next) {
       req.empresaId,
       req.params.id,
       dispositivo_id,
-      id_no_dispositivo
+      id_no_dispositivo,
+      req.filialId
     );
     res.status(201).json({ vinculo });
   } catch (err) {
@@ -57,7 +58,7 @@ async function vincularDispositivo(req, res, next) {
 
 async function excluir(req, res, next) {
   try {
-    await funcionariosService.excluir(req.empresaId, req.params.id);
+    await funcionariosService.excluir(req.empresaId, req.params.id, req.filialId);
     res.status(204).send();
   } catch (err) {
     next(err);

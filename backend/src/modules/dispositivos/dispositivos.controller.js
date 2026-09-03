@@ -12,7 +12,7 @@ async function listar(req, res, next) {
 
 async function buscar(req, res, next) {
   try {
-    const dispositivo = await dispositivosService.buscarPorId(req.empresaId, req.params.id);
+    const dispositivo = await dispositivosService.buscarPorId(req.empresaId, req.params.id, req.filialId);
     res.json({ dispositivo: dispositivosService.sanitizar(dispositivo) });
   } catch (err) {
     next(err);
@@ -21,7 +21,7 @@ async function buscar(req, res, next) {
 
 async function criar(req, res, next) {
   try {
-    const dispositivo = await dispositivosService.criar(req.empresaId, req.body);
+    const dispositivo = await dispositivosService.criar(req.empresaId, req.body, req.filialId);
     res.status(201).json({ dispositivo });
   } catch (err) {
     next(err);
@@ -30,7 +30,7 @@ async function criar(req, res, next) {
 
 async function atualizar(req, res, next) {
   try {
-    const dispositivo = await dispositivosService.atualizar(req.empresaId, req.params.id, req.body);
+    const dispositivo = await dispositivosService.atualizar(req.empresaId, req.params.id, req.body, req.filialId);
     res.json({ dispositivo });
   } catch (err) {
     next(err);
@@ -39,7 +39,7 @@ async function atualizar(req, res, next) {
 
 async function testarConexao(req, res, next) {
   try {
-    const resultado = await dispositivosService.testarConexao(req.empresaId, req.params.id);
+    const resultado = await dispositivosService.testarConexao(req.empresaId, req.params.id, req.filialId);
     res.json(resultado);
   } catch (err) {
     // Falha de conexao com hardware e esperada durante validacao do protocolo -
@@ -51,7 +51,7 @@ async function testarConexao(req, res, next) {
 
 async function forcarColeta(req, res, next) {
   try {
-    const { dispositivo, registros } = await dispositivosService.forcarColeta(req.empresaId, req.params.id);
+    const { dispositivo, registros } = await dispositivosService.forcarColeta(req.empresaId, req.params.id, req.filialId);
     const resumo = await pontoService.ingerirRegistros(req.empresaId, dispositivo, registros);
     res.json({ ok: true, ...resumo });
   } catch (err) {
@@ -61,7 +61,7 @@ async function forcarColeta(req, res, next) {
 
 async function usuariosNoEquipamento(req, res, next) {
   try {
-    const usuarios = await dispositivosService.listarUsuariosNoEquipamento(req.empresaId, req.params.id);
+    const usuarios = await dispositivosService.listarUsuariosNoEquipamento(req.empresaId, req.params.id, req.filialId);
     res.json({ usuarios });
   } catch (err) {
     // Mesmo padrao de testarConexao/forcarColeta: equipamento offline ou
@@ -79,7 +79,7 @@ async function cadastrarFace(req, res, next) {
       idNoDispositivo: id_no_dispositivo,
       nome,
       fotoBase64: foto_base64,
-    });
+    }, req.filialId);
     res.status(201).json({ ok: true, ...resultado });
   } catch (err) {
     res.status(200).json({ ok: false, erro: err.message });
@@ -89,7 +89,7 @@ async function cadastrarFace(req, res, next) {
 async function removerFace(req, res, next) {
   try {
     const { tipo, pessoa_id } = req.body;
-    await dispositivosService.removerFace(req.empresaId, req.params.id, { tipo, pessoaId: pessoa_id });
+    await dispositivosService.removerFace(req.empresaId, req.params.id, { tipo, pessoaId: pessoa_id }, req.filialId);
     res.json({ ok: true });
   } catch (err) {
     res.status(200).json({ ok: false, erro: err.message });

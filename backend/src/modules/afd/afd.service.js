@@ -80,7 +80,7 @@ function montarLinhaRegistro(registro) {
   ]);
 }
 
-async function gerarAFD(empresaId, { periodoInicio, periodoFim, geradoPorUsuarioId }) {
+async function gerarAFD(empresaId, { periodoInicio, periodoFim, geradoPorUsuarioId, filialId = null }) {
   const empresa = await db('empresas').where({ id: empresaId }).first();
   if (!empresa) throw new AppError('Empresa nao encontrada.', 404);
 
@@ -98,6 +98,7 @@ async function gerarAFD(empresaId, { periodoInicio, periodoFim, geradoPorUsuario
     .select('r.nsr', 'r.data_hora', 'f.cpf', 'f.pis')
     .join('funcionarios as f', 'f.id', 'r.funcionario_id')
     .where('r.empresa_id', empresaId)
+    .modify((query) => { if (filialId) query.where('f.filial_id', filialId); })
     .whereNotNull('r.nsr')
     .whereBetween('r.data_hora', [inicioUtc, fimUtc])
     .orderBy('r.nsr', 'asc');
@@ -128,6 +129,7 @@ async function gerarAFD(empresaId, { periodoInicio, periodoFim, geradoPorUsuario
   const [exportacao] = await db('afd_exports')
     .insert({
       empresa_id: empresaId,
+      filial_id: filialId,
       periodo_inicio: periodoInicio,
       periodo_fim: periodoFim,
       nsr_inicial: registros[0].nsr,
@@ -141,8 +143,10 @@ async function gerarAFD(empresaId, { periodoInicio, periodoFim, geradoPorUsuario
   return { exportacao, caminhoArquivo: caminhoCompleto };
 }
 
-async function listarExportacoes(empresaId) {
-  return db('afd_exports').where({ empresa_id: empresaId }).orderBy('gerado_em', 'desc');
+async function listarExportacoes(empresaId, filialId = null) {
+  const query = db('afd_exports').where({ empresa_id: empresaId });
+  if (filialId) query.where('filial_id', filialId);
+  return query.orderBy('gerado_em', 'desc');
 }
 
 module.exports = { gerarAFD, listarExportacoes };

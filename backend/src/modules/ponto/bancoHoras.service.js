@@ -5,9 +5,10 @@ const db = require('../../config/db');
  * Sempre le do ledger, nunca de um campo "saldo atual" cacheado em
  * funcionarios - isso elimina uma classe inteira de bug de saldo divergente.
  */
-async function obterSaldoAtual(funcionarioId, trx = db) {
+async function obterSaldoAtual(funcionarioId, filialId = null, trx = db) {
   const ultimo = await trx('banco_horas_lancamentos')
     .where({ funcionario_id: funcionarioId })
+    .modify((query) => { if (filialId) query.whereIn('funcionario_id', trx('funcionarios').select('id').where({ id: funcionarioId, filial_id: filialId })); })
     .orderBy('id', 'desc')
     .first();
   return ultimo ? ultimo.saldo_acumulado_apos : 0;
@@ -36,7 +37,7 @@ async function lancarPorApontamento(trx, { empresaId, funcionarioId, apontamento
   const delta = saldoMinutosDoDia - totalJaLancado;
   if (delta === 0) return null;
 
-  const saldoAnterior = await obterSaldoAtual(funcionarioId, trx);
+  const saldoAnterior = await obterSaldoAtual(funcionarioId, null, trx);
   const saldoNovo = saldoAnterior + delta;
 
   const [lancamento] = await trx('banco_horas_lancamentos')
@@ -55,9 +56,11 @@ async function lancarPorApontamento(trx, { empresaId, funcionarioId, apontamento
   return lancamento;
 }
 
-async function lancamentoManual(empresaId, { funcionarioId, minutos, observacao, criadoPorUsuarioId }) {
+async function lancamentoManual(empresaId, { funcionarioId, minutos, observacao, criadoPorUsuarioId, filialId }) {
   return db.transaction(async (trx) => {
-    const saldoAnterior = await obterSaldoAtual(funcionarioId, trx);
+    const funcionario = await trx('funcionarios').where({ id: funcionarioId, empresa_id: empresaId, ...(filialId ? { filial_id: filialId } : {}) }).first('id');
+    if (!funcionario) throw new Error('Funcionario nao encontrado no escopo da filial.');
+    const saldoAnterior = await obterSaldoAtual(funcionarioId, filialId, trx);
     const saldoNovo = saldoAnterior + Number(minutos);
 
     const [lancamento] = await trx('banco_horas_lancamentos')
@@ -77,9 +80,10 @@ async function lancamentoManual(empresaId, { funcionarioId, minutos, observacao,
   });
 }
 
-async function extrato(empresaId, funcionarioId, { de, ate } = {}) {
+async function extrato(empresaId, funcionarioId, { de, ate } = {}, filialId = null) {
   const query = db('banco_horas_lancamentos')
     .where({ empresa_id: empresaId, funcionario_id: funcionarioId })
+    .modify((builder) => { if (filialId) builder.whereIn('funcionario_id', db('funcionarios').select('id').where({ id: funcionarioId, filial_id: filialId })); })
     .orderBy('data_referencia', 'desc')
     .orderBy('id', 'desc');
 

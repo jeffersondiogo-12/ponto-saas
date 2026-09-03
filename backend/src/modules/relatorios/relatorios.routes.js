@@ -17,7 +17,7 @@ router.get('/espelho-ponto/:funcionarioId', async (req, res, next) => {
   try {
     const { de, ate } = req.query;
     const funcionario = await db('funcionarios')
-      .where({ id: req.params.funcionarioId, empresa_id: req.empresaId })
+      .where({ id: req.params.funcionarioId, empresa_id: req.empresaId, ...(req.filialId ? { filial_id: req.filialId } : {}) })
       .first();
     if (!funcionario) return res.status(404).json({ erro: 'Funcionario nao encontrado.' });
 
@@ -74,6 +74,7 @@ router.get('/resumo-periodo', async (req, res, next) => {
       )
       .join('funcionarios as f', 'f.id', 'a.funcionario_id')
       .where('a.empresa_id', req.empresaId)
+      .modify((query) => { if (req.filialId) query.where('f.filial_id', req.filialId); })
       .groupBy('f.id', 'f.nome', 'f.matricula')
       .orderBy('f.nome');
 

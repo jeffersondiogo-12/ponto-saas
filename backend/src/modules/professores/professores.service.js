@@ -41,11 +41,12 @@ function validarAulaNoMomento(atribuicao, timeZone, data, permitirGestor = false
   }
 }
 
-async function buscarAtribuicao(empresaId, professorId, turmaId, atribuicaoId, permitirGestor = false) {
+async function buscarAtribuicao(empresaId, professorId, turmaId, atribuicaoId, permitirGestor = false, filialId = null) {
   if (!atribuicaoId) throw new AppError('atribuicao_id e obrigatorio.', 400);
   const atribuicao = await db('turma_professores as tp')
     .join('turmas as t', 't.id', 'tp.turma_id')
     .where({ 'tp.empresa_id': empresaId, 'tp.turma_id': turmaId, 'tp.ativo': true })
+    .modify((query) => { if (filialId) query.where('t.filial_id', filialId); })
     .modify((query) => { if (!permitirGestor) query.where('tp.professor_id', professorId); })
     .modify((query) => { if (atribuicaoId) query.where('tp.id', atribuicaoId); })
     .first('tp.*', 't.filial_id', 't.nome as turma_nome');
@@ -53,21 +54,23 @@ async function buscarAtribuicao(empresaId, professorId, turmaId, atribuicaoId, p
   return atribuicao;
 }
 
-async function listarMinhasTurmas(empresaId, professorId) {
+async function listarMinhasTurmas(empresaId, professorId, filialId = null) {
   return db('turma_professores as tp')
     .join('turmas as t', 't.id', 'tp.turma_id')
     .select('tp.id as atribuicao_id', 'tp.turma_id', 't.nome', 't.ano_letivo', 't.turno', 'tp.materia', 'tp.dias_semana', 'tp.hora_inicio', 'tp.hora_fim')
     .select(db.raw(`COALESCE((SELECT json_agg(ht ORDER BY ht.dia_semana) FROM horarios_turmas ht WHERE ht.turma_id = t.id AND ht.ativo = true), '[]'::json) AS horarios_turma`))
     .where({ 'tp.empresa_id': empresaId, 'tp.professor_id': professorId, 'tp.ativo': true, 't.ativo': true })
+    .modify((query) => { if (filialId) query.where('t.filial_id', filialId); })
     .orderBy('t.nome');
 }
 
-async function resumoMinhasTurmas(empresaId, professorId) {
+async function resumoMinhasTurmas(empresaId, professorId, filialId = null) {
   const atribuicoes = await db('turma_professores as tp')
     .join('turmas as t', 't.id', 'tp.turma_id')
     .join('filiais as f', 'f.id', 't.filial_id')
     .select('tp.id as atribuicao_id', 'tp.turma_id', 'tp.materia', 'tp.hora_inicio', 'tp.hora_fim', 'f.fuso_horario', 't.nome as turma_nome')
     .where({ 'tp.empresa_id': empresaId, 'tp.professor_id': professorId, 'tp.ativo': true, 't.ativo': true });
+  if (filialId) atribuicoes.where('t.filial_id', filialId);
 
   return Promise.all(atribuicoes.map(async (atribuicao) => {
     const hoje = new Intl.DateTimeFormat('en-CA', { timeZone: atribuicao.fuso_horario || 'America/Sao_Paulo' }).format(new Date());
@@ -91,8 +94,8 @@ async function resumoMinhasTurmas(empresaId, professorId) {
   }));
 }
 
-async function listarAlunos(empresaId, professorId, turmaId, atribuicaoId) {
-  const atribuicao = await buscarAtribuicao(empresaId, professorId, turmaId, atribuicaoId);
+async function listarAlunos(empresaId, professorId, turmaId, atribuicaoId, filialId = null) {
+  const atribuicao = await buscarAtribuicao(empresaId, professorId, turmaId, atribuicaoId, false, filialId);
   const filial = await db('filiais').where({ id: atribuicao.filial_id, empresa_id: empresaId }).first();
   const timeZone = filial?.fuso_horario || 'America/Sao_Paulo';
   const hoje = new Intl.DateTimeFormat('en-CA', { timeZone }).format(new Date());
@@ -111,8 +114,8 @@ async function listarAlunos(empresaId, professorId, turmaId, atribuicaoId) {
     .orderBy('a.nome');
 }
 
-async function registrarPresencas(empresaId, professorId, turmaId, data, presencas, atribuicaoId, permitirGestor = false, usuarioId = null) {
-  const atribuicao = await buscarAtribuicao(empresaId, professorId, turmaId, atribuicaoId, permitirGestor);
+async function registrarPresencas(empresaId, professorId, turmaId, data, presencas, atribuicaoId, permitirGestor = false, usuarioId = null, filialId = null) {
+  const atribuicao = await buscarAtribuicao(empresaId, professorId, turmaId, atribuicaoId, permitirGestor, filialId);
   if (!Array.isArray(presencas) || presencas.length === 0) throw new AppError('Informe ao menos uma presenca.', 400);
 
   const filial = await db('filiais').where({ id: atribuicao.filial_id, empresa_id: empresaId }).first();
@@ -163,8 +166,8 @@ async function registrarPresencas(empresaId, professorId, turmaId, data, presenc
   return salvos;
 }
 
-async function criarNota(empresaId, professorId, turmaId, dados) {
-  const atribuicao = await buscarAtribuicao(empresaId, professorId, turmaId, dados.atribuicao_id);
+async function criarNota(empresaId, professorId, turmaId, dados, filialId = null) {
+  const atribuicao = await buscarAtribuicao(empresaId, professorId, turmaId, dados.atribuicao_id, false, filialId);
   await validarAluno(empresaId, turmaId, dados.aluno_id);
   const bimestre = Number(dados.bimestre);
   const valor = Number(dados.nota);
@@ -186,12 +189,12 @@ async function criarNota(empresaId, professorId, turmaId, dados) {
   return nota;
 }
 
-async function criarObservacao(empresaId, professorId, turmaId, dados) {
+async function criarObservacao(empresaId, professorId, turmaId, dados, filialId = null) {
   if (!dados || typeof dados !== 'object') throw new AppError('Dados da observacao invalidos.', 400);
   if (!dados.atribuicao_id) throw new AppError('atribuicao_id e obrigatorio.', 400);
   if (!dados.aluno_id) throw new AppError('aluno_id e obrigatorio.', 400);
 
-  const atribuicao = await buscarAtribuicao(empresaId, professorId, turmaId, dados.atribuicao_id);
+  const atribuicao = await buscarAtribuicao(empresaId, professorId, turmaId, dados.atribuicao_id, false, filialId);
   await validarAluno(empresaId, turmaId, dados.aluno_id);
 
   const titulo = String(dados.titulo || '').trim();
@@ -228,8 +231,8 @@ async function validarAluno(empresaId, turmaId, alunoId) {
  * observacoes_alunos (ver migration 20260822000001) - notas sao filtradas
  * pela materia da atribuicao atual, observacoes vem todas do aluno.
  */
-async function historicoDoAluno(empresaId, professorId, turmaId, alunoId, atribuicaoId) {
-  const atribuicao = await buscarAtribuicao(empresaId, professorId, turmaId, atribuicaoId);
+async function historicoDoAluno(empresaId, professorId, turmaId, alunoId, atribuicaoId, filialId = null) {
+  const atribuicao = await buscarAtribuicao(empresaId, professorId, turmaId, atribuicaoId, false, filialId);
   await validarAluno(empresaId, turmaId, alunoId);
 
   const [notas, observacoes] = await Promise.all([
@@ -248,8 +251,10 @@ async function historicoDoAluno(empresaId, professorId, turmaId, alunoId, atribu
   return { notas, observacoes };
 }
 
-async function atribuirProfessor(empresaId, turmaId, dados) {
-  const turma = await db('turmas').where({ id: turmaId, empresa_id: empresaId }).first();
+async function atribuirProfessor(empresaId, turmaId, dados, filialId = null) {
+  const turmaQuery = db('turmas').where({ id: turmaId, empresa_id: empresaId });
+  if (filialId) turmaQuery.where('filial_id', filialId);
+  const turma = await turmaQuery.first();
   if (!turma) throw new AppError('Turma nao encontrada.', 404);
   const professor = await db('usuarios').where({ id: dados.professor_id, empresa_id: empresaId, papel: 'professor', ativo: true }).first();
   if (!professor) throw new AppError('Usuario professor nao encontrado.', 404);
@@ -287,8 +292,10 @@ async function atribuirProfessor(empresaId, turmaId, dados) {
   return atribuicao;
 }
 
-async function listarProfessoresDaTurma(empresaId, turmaId) {
-  return db('turma_professores as tp').join('usuarios as u', 'u.id', 'tp.professor_id').where({ 'tp.empresa_id': empresaId, 'tp.turma_id': turmaId, 'tp.ativo': true }).select('tp.*', 'u.nome as professor_nome', 'u.email as professor_email');
+async function listarProfessoresDaTurma(empresaId, turmaId, filialId = null) {
+  const query = db('turma_professores as tp').join('usuarios as u', 'u.id', 'tp.professor_id').join('turmas as t', 't.id', 'tp.turma_id').where({ 'tp.empresa_id': empresaId, 'tp.turma_id': turmaId, 'tp.ativo': true }).select('tp.*', 'u.nome as professor_nome', 'u.email as professor_email');
+  if (filialId) query.where('t.filial_id', filialId);
+  return query;
 }
 
 async function listarGradeTurma(empresaId, turmaId) {

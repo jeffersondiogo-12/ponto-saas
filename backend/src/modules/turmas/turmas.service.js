@@ -14,13 +14,16 @@ async function listar(empresaId, { filialId } = {}) {
   return query;
 }
 
-async function buscarPorId(empresaId, turmaId) {
-  const turma = await db('turmas').where({ id: turmaId, empresa_id: empresaId }).first();
+async function buscarPorId(empresaId, turmaId, filialId = null) {
+  const query = db('turmas').where({ id: turmaId, empresa_id: empresaId });
+  if (filialId) query.where('filial_id', filialId);
+  const turma = await query.first();
   if (!turma) throw new AppError('Turma nao encontrada.', 404);
   return turma;
 }
 
-async function criar(empresaId, dados) {
+async function criar(empresaId, dados, filialId = null) {
+  if (filialId && dados.filial_id !== filialId) throw new AppError('Turma deve pertencer a filial do usuario.', 403);
   const filial = await db('filiais').where({ id: dados.filial_id, empresa_id: empresaId }).first();
   if (!filial) throw new AppError('Unidade nao encontrada.', 404);
   if (filial.tipo !== 'escola') {
@@ -40,8 +43,8 @@ async function criar(empresaId, dados) {
   return turma;
 }
 
-async function atualizar(empresaId, turmaId, dados) {
-  const turmaAtual = await buscarPorId(empresaId, turmaId);
+async function atualizar(empresaId, turmaId, dados, filialId = null) {
+  const turmaAtual = await buscarPorId(empresaId, turmaId, filialId);
 
   const [turma] = await db('turmas')
     .where({ id: turmaAtual.id, empresa_id: empresaId })
@@ -56,13 +59,13 @@ async function atualizar(empresaId, turmaId, dados) {
   return turma;
 }
 
-async function listarHorarios(empresaId, turmaId) {
-  await buscarPorId(empresaId, turmaId);
+async function listarHorarios(empresaId, turmaId, filialId = null) {
+  await buscarPorId(empresaId, turmaId, filialId);
   return db('horarios_turmas').where({ empresa_id: empresaId, turma_id: turmaId }).limit(1);
 }
 
-async function salvarHorario(empresaId, turmaId, dados) {
-  await buscarPorId(empresaId, turmaId);
+async function salvarHorario(empresaId, turmaId, dados, filialId = null) {
+  await buscarPorId(empresaId, turmaId, filialId);
   if (!dados.hora_entrada || !dados.hora_saida || dados.hora_saida <= dados.hora_entrada) {
     throw new AppError('Horario de entrada e saida invalido.', 400);
   }
@@ -74,16 +77,18 @@ async function salvarHorario(empresaId, turmaId, dados) {
   return horario;
 }
 
-async function removerHorario(empresaId, turmaId, horarioId) {
-  await buscarPorId(empresaId, turmaId);
+async function removerHorario(empresaId, turmaId, horarioId, filialId = null) {
+  await buscarPorId(empresaId, turmaId, filialId);
   const removidos = await db('horarios_turmas').where({ id: horarioId, empresa_id: empresaId, turma_id: turmaId }).del();
   if (!removidos) throw new AppError('Horario da turma nao encontrado.', 404);
 }
 
-async function excluir(empresaId, turmaId) {
-  const turma = await buscarPorId(empresaId, turmaId);
+async function excluir(empresaId, turmaId, filialId = null) {
+  const turma = await buscarPorId(empresaId, turmaId, filialId);
 
-  await db('turmas').where({ id: turmaId, empresa_id: empresaId }).del();
+  const query = db('turmas').where({ id: turmaId, empresa_id: empresaId });
+  if (filialId) query.where('filial_id', filialId);
+  await query.del();
 
   return turma;
 }

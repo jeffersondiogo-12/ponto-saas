@@ -22,8 +22,10 @@ async function listar(empresaId, { turmaId, filialId, ativo } = {}) {
   return query;
 }
 
-async function buscarPorId(empresaId, alunoId) {
-  const aluno = await db('alunos').where({ id: alunoId, empresa_id: empresaId }).first();
+async function buscarPorId(empresaId, alunoId, filialId = null) {
+  const query = db('alunos').where({ id: alunoId, empresa_id: empresaId });
+  if (filialId) query.where('filial_id', filialId);
+  const aluno = await query.first();
   if (!aluno) throw new AppError('Aluno nao encontrado.', 404);
   return aluno;
 }
@@ -80,7 +82,8 @@ async function resolverPorMatriculaDispositivo(empresaId, filialId, matriculaDis
   return db('alunos').where({ empresa_id: empresaId, matricula }).first();
 }
 
-async function criar(empresaId, dados) {
+async function criar(empresaId, dados, filialId = null) {
+  if (filialId && dados.filial_id !== filialId) throw new AppError('Aluno deve pertencer a filial do usuario.', 403);
   const cpf = await normalizarCpfOpcional(dados.cpf);
   const matricula = String(dados.matricula || '').trim() || null;
   const horarioAlunoId = dados.horario_aluno_id || null;
@@ -146,8 +149,8 @@ async function criar(empresaId, dados) {
   });
 }
 
-async function atualizar(empresaId, alunoId, dados) {
-  const alunoAtual = await buscarPorId(empresaId, alunoId);
+async function atualizar(empresaId, alunoId, dados, filialId = null) {
+  const alunoAtual = await buscarPorId(empresaId, alunoId, filialId);
   const cpf = await normalizarCpfOpcional(dados.cpf);
   const matricula = String(dados.matricula || '').trim() || null;
 
@@ -194,8 +197,8 @@ async function atualizar(empresaId, alunoId, dados) {
  * (funcionario_dispositivos), so que numa tabela separada porque um aluno e
  * um funcionario sao cadastros diferentes.
  */
-async function vincularDispositivo(empresaId, alunoId, dispositivoId, idNoDispositivo) {
-  const aluno = await buscarPorId(empresaId, alunoId);
+async function vincularDispositivo(empresaId, alunoId, dispositivoId, idNoDispositivo, filialId = null) {
+  const aluno = await buscarPorId(empresaId, alunoId, filialId);
 
   const dispositivo = await db('dispositivos').where({ id: dispositivoId, empresa_id: empresaId }).first();
   if (!dispositivo) throw new AppError('Dispositivo nao encontrado.', 404);
@@ -226,8 +229,8 @@ async function vincularDispositivo(empresaId, alunoId, dispositivoId, idNoDispos
  * calculo de atraso/banco de horas - isso nao se aplica a alunos, so a
  * funcionarios sob CLT (ver README).
  */
-async function frequencia(empresaId, alunoId, { de, ate } = {}) {
-  await buscarPorId(empresaId, alunoId);
+async function frequencia(empresaId, alunoId, { de, ate } = {}, filialId = null) {
+  await buscarPorId(empresaId, alunoId, filialId);
 
   const query = db('registros_ponto')
     .select('data_hora', 'origem')
@@ -240,10 +243,12 @@ async function frequencia(empresaId, alunoId, { de, ate } = {}) {
   return query;
 }
 
-async function excluir(empresaId, alunoId) {
-  const aluno = await buscarPorId(empresaId, alunoId);
+async function excluir(empresaId, alunoId, filialId = null) {
+  const aluno = await buscarPorId(empresaId, alunoId, filialId);
 
-  await db('alunos').where({ id: alunoId, empresa_id: empresaId }).del();
+  const query = db('alunos').where({ id: alunoId, empresa_id: empresaId });
+  if (filialId) query.where('filial_id', filialId);
+  await query.del();
 
   return aluno;
 }

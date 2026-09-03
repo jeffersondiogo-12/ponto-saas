@@ -165,7 +165,7 @@ async function login(email, senha, unidade) {
 
   const unidadeEncontrada = await localizarUnidade(unidade);
 
-  const empresaIdUnidade = unidadeEncontrada.tipo === 'filial'
+  let empresaIdUnidade = unidadeEncontrada.tipo === 'filial'
     ? unidadeEncontrada.registro.empresa_id
     : unidadeEncontrada.registro.id;
   let selectedFilialId = unidadeEncontrada.tipo === 'filial'

@@ -11,7 +11,7 @@ async function listar(req, res, next) {
 
 async function buscar(req, res, next) {
   try {
-    const turma = await turmasService.buscarPorId(req.empresaId, req.params.id);
+    const turma = await turmasService.buscarPorId(req.empresaId, req.params.id, req.filialId);
     res.json({ turma });
   } catch (err) {
     next(err);
@@ -20,7 +20,7 @@ async function buscar(req, res, next) {
 
 async function criar(req, res, next) {
   try {
-    const turma = await turmasService.criar(req.empresaId, req.body);
+    const turma = await turmasService.criar(req.empresaId, req.body, req.filialId);
     res.status(201).json({ turma });
   } catch (err) {
     next(err);
@@ -29,7 +29,7 @@ async function criar(req, res, next) {
 
 async function atualizar(req, res, next) {
   try {
-    const turma = await turmasService.atualizar(req.empresaId, req.params.id, req.body);
+    const turma = await turmasService.atualizar(req.empresaId, req.params.id, req.body, req.filialId);
     res.json({ turma });
   } catch (err) {
     next(err);
@@ -38,7 +38,7 @@ async function atualizar(req, res, next) {
 
 async function excluir(req, res, next) {
   try {
-    await turmasService.excluir(req.empresaId, req.params.id);
+    await turmasService.excluir(req.empresaId, req.params.id, req.filialId);
     res.status(204).send();
   } catch (err) {
     next(err);
@@ -46,15 +46,15 @@ async function excluir(req, res, next) {
 }
 
 async function listarHorarios(req, res, next) {
-  try { res.json({ horarios: await turmasService.listarHorarios(req.empresaId, req.params.id) }); } catch (err) { next(err); }
+  try { res.json({ horarios: await turmasService.listarHorarios(req.empresaId, req.params.id, req.filialId) }); } catch (err) { next(err); }
 }
 
 async function salvarHorario(req, res, next) {
-  try { res.json({ horario: await turmasService.salvarHorario(req.empresaId, req.params.id, req.body) }); } catch (err) { next(err); }
+  try { res.json({ horario: await turmasService.salvarHorario(req.empresaId, req.params.id, req.body, req.filialId) }); } catch (err) { next(err); }
 }
 
 async function removerHorario(req, res, next) {
-  try { await turmasService.removerHorario(req.empresaId, req.params.id, req.params.horarioId); res.status(204).end(); } catch (err) { next(err); }
+  try { await turmasService.removerHorario(req.empresaId, req.params.id, req.params.horarioId, req.filialId); res.status(204).end(); } catch (err) { next(err); }
 }
 
 module.exports = { listar, buscar, criar, atualizar, excluir, listarHorarios, salvarHorario, removerHorario };

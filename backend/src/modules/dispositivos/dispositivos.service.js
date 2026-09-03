@@ -48,15 +48,16 @@ async function listar(empresaId, filialId = null) {
   return dispositivos.map(sanitizar);
 }
 
-async function buscarPorId(empresaId, dispositivoId) {
-  const dispositivo = await db("dispositivos")
-    .where({ id: dispositivoId, empresa_id: empresaId })
-    .first();
+async function buscarPorId(empresaId, dispositivoId, filialId = null) {
+  const query = db("dispositivos").where({ id: dispositivoId, empresa_id: empresaId });
+  if (filialId) query.where('filial_id', filialId);
+  const dispositivo = await query.first();
   if (!dispositivo) throw new AppError("Dispositivo nao encontrado.", 404);
   return dispositivo; // versao NAO sanitizada, uso interno (ex: forcarColeta)
 }
 
-async function criar(empresaId, dados) {
+async function criar(empresaId, dados, filialId = null) {
+  if (filialId && dados.filial_id !== filialId) throw new AppError('Dispositivo deve pertencer a filial do usuario.', 403);
   if (!dados.filial_id)
     throw new AppError("Selecione a filial do dispositivo.", 400);
   const filial = await db("filiais")
@@ -100,8 +101,9 @@ async function criar(empresaId, dados) {
   return sanitizar(dispositivo);
 }
 
-async function atualizar(empresaId, dispositivoId, dados) {
-  await buscarPorId(empresaId, dispositivoId);
+async function atualizar(empresaId, dispositivoId, dados, filialId = null) {
+  await buscarPorId(empresaId, dispositivoId, filialId);
+  if (filialId && dados.filial_id !== filialId) throw new AppError('Dispositivo deve pertencer a filial do usuario.', 403);
   if (!dados.filial_id)
     throw new AppError("Selecione a filial do dispositivo.", 400);
   const filial = await db("filiais")
@@ -133,7 +135,7 @@ async function atualizar(empresaId, dispositivoId, dados) {
   }
 
   const [dispositivo] = await db("dispositivos")
-    .where({ id: dispositivoId, empresa_id: empresaId })
+    .where({ id: dispositivoId, empresa_id: empresaId, ...(filialId ? { filial_id: filialId } : {}) })
     .update(patch)
     .returning("*");
 
@@ -144,8 +146,8 @@ async function atualizar(empresaId, dispositivoId, dados) {
  * Monta um adapter pronto para uso, com a senha ja descriptografada em
  * memoria (nunca loga isso, nunca retorna via API).
  */
-async function obterAdapter(empresaId, dispositivoId) {
-  const dispositivo = await buscarPorId(empresaId, dispositivoId);
+async function obterAdapter(empresaId, dispositivoId, filialId = null) {
+  const dispositivo = await buscarPorId(empresaId, dispositivoId, filialId);
   const dispositivoComSenha = {
     ...dispositivo,
     senha_dispositivo: decrypt(dispositivo.senha_dispositivo_cifrada),
@@ -153,8 +155,8 @@ async function obterAdapter(empresaId, dispositivoId) {
   return criarAdapter(dispositivoComSenha);
 }
 
-async function testarConexao(empresaId, dispositivoId) {
-  const adapter = await obterAdapter(empresaId, dispositivoId);
+async function testarConexao(empresaId, dispositivoId, filialId = null) {
+  const adapter = await obterAdapter(empresaId, dispositivoId, filialId);
   return adapter.testarConexao();
 }
 
@@ -164,9 +166,9 @@ async function testarConexao(empresaId, dispositivoId) {
  * brutos (quem grava no banco e o modulo de ponto, para manter este service
  * focado soh na comunicacao com o hardware).
  */
-async function forcarColeta(empresaId, dispositivoId) {
-  const dispositivo = await buscarPorId(empresaId, dispositivoId);
-  const adapter = await obterAdapter(empresaId, dispositivoId);
+async function forcarColeta(empresaId, dispositivoId, filialId = null) {
+  const dispositivo = await buscarPorId(empresaId, dispositivoId, filialId);
+  const adapter = await obterAdapter(empresaId, dispositivoId, filialId);
 
   await adapter.conectar();
   let registros;
@@ -180,8 +182,8 @@ async function forcarColeta(empresaId, dispositivoId) {
 }
 
 /** Lista o que o EQUIPAMENTO acha que tem cadastrado (reconciliacao com o nosso banco). */
-async function listarUsuariosNoEquipamento(empresaId, dispositivoId) {
-  const adapter = await obterAdapter(empresaId, dispositivoId);
+async function listarUsuariosNoEquipamento(empresaId, dispositivoId, filialId = null) {
+  const adapter = await obterAdapter(empresaId, dispositivoId, filialId);
   return adapter.listarUsuarios();
 }
 
@@ -198,6 +200,7 @@ async function cadastrarFace(
   empresaId,
   dispositivoId,
   { tipo, pessoaId, idNoDispositivo, nome, fotoBase64 },
+  filialId = null,
 ) {
   if (!TABELA_VINCULO[tipo])
     throw new AppError('tipo deve ser "funcionario" ou "aluno".', 400);
@@ -207,7 +210,7 @@ async function cadastrarFace(
       400,
     );
 
-  const adapter = await obterAdapter(empresaId, dispositivoId);
+  const adapter = await obterAdapter(empresaId, dispositivoId, filialId);
   const resultado = await adapter.cadastrarFace({
     enrollId: idNoDispositivo,
     nome,
@@ -220,6 +223,7 @@ async function cadastrarFace(
       pessoaId,
       dispositivoId,
       resultado.enrollId,
+      filialId,
     );
   } else {
     await alunosService.vincularDispositivo(
@@ -227,6 +231,7 @@ async function cadastrarFace(
       pessoaId,
       dispositivoId,
       resultado.enrollId,
+      filialId,
     );
   }
 
@@ -234,12 +239,12 @@ async function cadastrarFace(
 }
 
 /** Remove a face do equipamento e desfaz o vinculo local, nessa ordem (so desvincula se o equipamento confirmar). */
-async function removerFace(empresaId, dispositivoId, { tipo, pessoaId }) {
+async function removerFace(empresaId, dispositivoId, { tipo, pessoaId }, filialId = null) {
   const tabela = TABELA_VINCULO[tipo];
   if (!tabela)
     throw new AppError('tipo deve ser "funcionario" ou "aluno".', 400);
 
-  await buscarPorId(empresaId, dispositivoId); // valida que o dispositivo e desta empresa
+  await buscarPorId(empresaId, dispositivoId, filialId); // valida que o dispositivo e desta empresa
 
   const vinculo = await db(tabela)
     .where({ dispositivo_id: dispositivoId, [COLUNA_PESSOA[tipo]]: pessoaId })
@@ -250,7 +255,7 @@ async function removerFace(empresaId, dispositivoId, { tipo, pessoaId }) {
       404,
     );
 
-  const adapter = await obterAdapter(empresaId, dispositivoId);
+  const adapter = await obterAdapter(empresaId, dispositivoId, filialId);
   await adapter.removerFace(vinculo.id_no_dispositivo);
 
   await db(tabela).where({ id: vinculo.id }).del();

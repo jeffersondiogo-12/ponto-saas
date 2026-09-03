@@ -225,8 +225,10 @@ async function ingerirRegistros(empresaId, dispositivo, registros) {
   return { totalRecebidos: registros.length, totalNovos, totalNaoResolvidos };
 }
 
-async function registrarBatidaManual(empresaId, { funcionarioId, dataHora, tipoBatida, observacao, criadoPorUsuarioId }) {
-  const funcionario = await db('funcionarios').where({ id: funcionarioId, empresa_id: empresaId }).first();
+async function registrarBatidaManual(empresaId, { funcionarioId, dataHora, tipoBatida, observacao, criadoPorUsuarioId, filialId }) {
+  const funcionarioQuery = db('funcionarios').where({ id: funcionarioId, empresa_id: empresaId });
+  if (filialId) funcionarioQuery.where('filial_id', filialId);
+  const funcionario = await funcionarioQuery.first();
   if (!funcionario) throw new AppError('Funcionario nao encontrado.', 404);
 
   const [registro] = await db('registros_ponto')
@@ -261,12 +263,13 @@ async function registrarBatidaManual(empresaId, { funcionarioId, dataHora, tipoB
  * registradas (dispositivo + manuais). Pode ser chamado sob demanda ou por
  * um job noturno para o dia anterior.
  */
-async function processarDia(empresaId, funcionarioId, data, usuarioId = null) {
-  const funcionario = await db('funcionarios as f')
+async function processarDia(empresaId, funcionarioId, data, usuarioId = null, filialId = null) {
+  const funcionarioQuery = db('funcionarios as f')
     .select('f.*', 'fi.fuso_horario as filial_fuso_horario')
     .leftJoin('filiais as fi', 'fi.id', 'f.filial_id')
-    .where({ 'f.id': funcionarioId, 'f.empresa_id': empresaId })
-    .first();
+    .where({ 'f.id': funcionarioId, 'f.empresa_id': empresaId });
+  if (filialId) funcionarioQuery.where('f.filial_id', filialId);
+  const funcionario = await funcionarioQuery.first();
   if (!funcionario) throw new AppError('Funcionario nao encontrado.', 404);
 
   const timeZone = funcionario.filial_fuso_horario || FUSO_PADRAO;
@@ -350,11 +353,12 @@ async function processarDia(empresaId, funcionarioId, data, usuarioId = null) {
   });
 }
 
-async function listarApontamentos(empresaId, { funcionarioId, de, ate }) {
+async function listarApontamentos(empresaId, { funcionarioId, de, ate, filialId }) {
   const query = db('apontamentos_diarios as a')
     .select('a.*', 'f.nome as funcionario_nome', 'f.matricula')
     .join('funcionarios as f', 'f.id', 'a.funcionario_id')
     .where('a.empresa_id', empresaId)
+    .modify((query) => { if (filialId) query.where('f.filial_id', filialId); })
     .orderBy('a.data', 'desc');
 
   if (funcionarioId) query.where('a.funcionario_id', funcionarioId);
@@ -372,19 +376,22 @@ async function listarApontamentos(empresaId, { funcionarioId, de, ate }) {
  * AFD (dado de fiscalizacao trabalhista, nunca publico - ver README secao
  * 5) e uma foto de uma pessoa batendo ponto e, em si, dado sensivel.
  */
-async function buscarFoto(empresaId, registroId) {
-  const registro = await db('registros_ponto').where({ id: registroId, empresa_id: empresaId }).first();
+async function buscarFoto(empresaId, registroId, filialId = null) {
+  const query = db('registros_ponto').where({ id: registroId, empresa_id: empresaId });
+  if (filialId) query.where('filial_id', filialId);
+  const registro = await query.first();
   if (!registro || !registro.foto_url) throw new AppError('Foto nao encontrada.', 404);
   return caminhoAbsoluto(registro.foto_url);
 }
 
-async function listarRegistrosNaoResolvidos(empresaId) {
+async function listarRegistrosNaoResolvidos(empresaId, filialId = null) {
   return db('registros_ponto as r')
     .select('r.*', 'd.descricao as dispositivo_descricao')
     .leftJoin('dispositivos as d', 'd.id', 'r.dispositivo_id')
     .where('r.empresa_id', empresaId)
     .whereNull('r.funcionario_id')
     .whereNull('r.aluno_id')
+    .modify((query) => { if (filialId) query.where('r.filial_id', filialId); })
     .orderBy('r.data_hora', 'desc');
 }
 

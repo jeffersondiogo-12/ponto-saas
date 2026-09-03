@@ -23,16 +23,17 @@ async function listar(empresaId, { ativo, filialId } = {}) {
   return query;
 }
 
-async function buscarPorId(empresaId, funcionarioId) {
-  const funcionario = await db('funcionarios')
-    .where({ id: funcionarioId, empresa_id: empresaId })
-    .first();
+async function buscarPorId(empresaId, funcionarioId, filialId = null) {
+  const query = db('funcionarios').where({ id: funcionarioId, empresa_id: empresaId });
+  if (filialId) query.where('filial_id', filialId);
+  const funcionario = await query.first();
 
   if (!funcionario) throw new AppError('Funcionario nao encontrado.', 404);
   return funcionario;
 }
 
-async function criar(empresaId, dados) {
+async function criar(empresaId, dados, filialId = null) {
+  if (filialId && dados.filial_id !== filialId) throw new AppError('Funcionario deve pertencer a filial do usuario.', 403);
   if (dados.filial_id) {
     const filial = await db('filiais').where({ id: dados.filial_id, empresa_id: empresaId }).first();
     if (!filial) throw new AppError('Filial nao encontrada.', 404);
@@ -66,8 +67,9 @@ async function criar(empresaId, dados) {
   return funcionario;
 }
 
-async function atualizar(empresaId, funcionarioId, dados) {
-  await buscarPorId(empresaId, funcionarioId);
+async function atualizar(empresaId, funcionarioId, dados, filialId = null) {
+  const atual = await buscarPorId(empresaId, funcionarioId, filialId);
+  if (filialId && dados.filial_id && dados.filial_id !== filialId) throw new AppError('Funcionario deve pertencer a filial do usuario.', 403);
 
   if (dados.filial_id) {
     const filial = await db('filiais').where({ id: dados.filial_id, empresa_id: empresaId }).first();
@@ -75,7 +77,7 @@ async function atualizar(empresaId, funcionarioId, dados) {
   }
 
   const [funcionario] = await db('funcionarios')
-    .where({ id: funcionarioId, empresa_id: empresaId })
+    .where({ id: atual.id, empresa_id: empresaId })
     .update({
       filial_id: dados.filial_id || null,
       departamento_id: dados.departamento_id || null,
@@ -96,8 +98,8 @@ async function atualizar(empresaId, funcionarioId, dados) {
  * proprio relogio usa para essa pessoa (necessario para resolver as batidas
  * brutas recebidas na coleta).
  */
-async function vincularDispositivo(empresaId, funcionarioId, dispositivoId, idNoDispositivo) {
-  const funcionario = await buscarPorId(empresaId, funcionarioId);
+async function vincularDispositivo(empresaId, funcionarioId, dispositivoId, idNoDispositivo, filialId = null) {
+  const funcionario = await buscarPorId(empresaId, funcionarioId, filialId);
 
   const dispositivo = await db('dispositivos')
     .where({ id: dispositivoId, empresa_id: empresaId })
@@ -120,10 +122,12 @@ async function vincularDispositivo(empresaId, funcionarioId, dispositivoId, idNo
   return vinculo;
 }
 
-async function excluir(empresaId, funcionarioId) {
-  const funcionario = await buscarPorId(empresaId, funcionarioId);
+async function excluir(empresaId, funcionarioId, filialId = null) {
+  const funcionario = await buscarPorId(empresaId, funcionarioId, filialId);
 
-  await db('funcionarios').where({ id: funcionarioId, empresa_id: empresaId }).del();
+  const query = db('funcionarios').where({ id: funcionarioId, empresa_id: empresaId });
+  if (filialId) query.where('filial_id', filialId);
+  await query.del();
 
   return funcionario;
 }
