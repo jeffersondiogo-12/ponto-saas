@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Easing,
+  Image,
   View,
   Text,
   TextInput,
@@ -30,6 +31,8 @@ export default function LoginScreen() {
   const orbe = useRef(new Animated.Value(0)).current;
   // Tremida da caixa de erro.
   const tremor = useRef(new Animated.Value(0)).current;
+  const logoEntrada = useRef(new Animated.Value(0)).current;
+  const logoPulso = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     const laco = Animated.loop(
@@ -41,6 +44,25 @@ export default function LoginScreen() {
     laco.start();
     return () => laco.stop();
   }, [orbe]);
+
+  useEffect(() => {
+    const entrada = Animated.spring(logoEntrada, {
+      toValue: 1,
+      friction: 7,
+      tension: 45,
+      useNativeDriver: true,
+    });
+    const pulso = Animated.loop(
+      Animated.sequence([
+        Animated.timing(logoPulso, { toValue: 1, duration: 2200, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(logoPulso, { toValue: 0, duration: 2200, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      ])
+    );
+
+    entrada.start();
+    pulso.start();
+    return () => pulso.stop();
+  }, [logoEntrada, logoPulso]);
 
   function sacudir() {
     tremor.setValue(0);
@@ -110,6 +132,30 @@ export default function LoginScreen() {
         showsVerticalScrollIndicator={false}
       >
         <AparecerEm style={estilos.cabecalho} deslocamento={20}>
+          <Animated.View
+            style={[
+              estilos.logoWrap,
+              {
+                opacity: logoEntrada,
+                transform: [
+                  { scale: logoEntrada.interpolate({ inputRange: [0, 1], outputRange: [0.72, 1] }) },
+                  { translateY: logoEntrada.interpolate({ inputRange: [0, 1], outputRange: [-18, 0] }) },
+                ],
+              },
+            ]}
+          >
+            <Animated.View
+              style={{
+                transform: [{ scale: logoPulso.interpolate({ inputRange: [0, 1], outputRange: [1, 1.045] }) }],
+              }}
+            >
+              <Image
+                source={require('../../assets/imagem.png')}{require('../../assets/imagem.png')}{require('../../assets/icon.png')}
+                accessibilityLabel="Logo Ponto SaaS"
+                style={estilos.logo}
+              />
+            </Animated.View>
+          </Animated.View>
           <View style={estilos.selo}>
             <View style={estilos.seloPonto} />
             <Text style={estilos.seloTexto}>Escola conectada</Text>
@@ -246,6 +292,8 @@ export default function LoginScreen() {
 const estilos = StyleSheet.create({
   container: { flex: 1, backgroundColor: cores.ink },
   conteudo: { flexGrow: 1, justifyContent: 'center', padding: 24, paddingVertical: 36 },
+  logoWrap: { alignItems: 'center', marginBottom: 18 },
+  logo: { width: 116, height: 116, borderRadius: 28 },
   orbeAzul: {
     width: 320,
     height: 320,
