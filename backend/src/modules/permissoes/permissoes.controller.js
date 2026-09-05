@@ -9,4 +9,74 @@ async function listar(req, res, next) {
   }
 }
 
-module.exports = { listar };
+async function listarMatrizPapeis(req, res, next) {
+  try {
+    const matriz = await permissoesService.listarMatrizPapeis();
+    res.json({ permissoes: matriz });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function definirPermissaoPapel(req, res, next) {
+  try {
+    const { papel } = req.params;
+    const { recurso, acao, permitido } = req.body;
+    await permissoesService.definirPermissaoPapel({ papel, recurso, acao, permitido });
+    res.status(204).end();
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function listarEfetivoPorUsuario(req, res, next) {
+  try {
+    const { usuarioId } = req.params;
+    const permissoes = await permissoesService.listarEfetivoPorUsuario(usuarioId, req.empresaId);
+    res.json({ permissoes });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function definirOverrideUsuario(req, res, next) {
+  try {
+    const { usuarioId } = req.params;
+    const { recurso, acao, permitido } = req.body;
+    await permissoesService.definirOverrideUsuario({
+      usuarioId,
+      empresaId: req.empresaId,
+      recurso,
+      acao,
+      permitido,
+    });
+    res.status(204).end();
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function removerOverrideUsuario(req, res, next) {
+  try {
+    const { usuarioId } = req.params;
+    const { recurso, acao } = req.body;
+    await permissoesService.removerOverrideUsuario({
+      usuarioId,
+      empresaId: req.empresaId,
+      recurso,
+      acao,
+    });
+    res.status(204).end();
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = {
+  listar,
+  listarMatrizPapeis,
+  definirPermissaoPapel,
+  listarEfetivoPorUsuario,
+  definirOverrideUsuario,
+  removerOverrideUsuario,
+};

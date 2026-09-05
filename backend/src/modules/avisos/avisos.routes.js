@@ -9,7 +9,7 @@ const staffGestao = [
 	autenticar,
 	exigirTipo('staff'),
 	resolverTenant,
-	exigirPapel('admin', 'super_admin'),
+	exigirPapel('admin','gestor','super_admin'),
 ];
 
 // Leitura pelos responsaveis fica em responsaveis.routes.js (avisosDoAluno),
