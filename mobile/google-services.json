@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "434279634590",
+    "project_id": "facial-app-1738c",
+    "storage_bucket": "facial-app-1738c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:434279634590:android:d1426274cc5192fc2c8d8f",
+        "android_client_info": {
+          "package_name": "com.diogojefferson.pontosaasresponsaveis"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBzUPxwlNgQlvt2pNopaRVQbyddaJToiNc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

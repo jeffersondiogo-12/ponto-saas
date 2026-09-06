@@ -150,7 +150,7 @@ export default function LoginScreen() {
               }}
             >
               <Image
-                source={require('../../assets/imagem.png')}{require('../../assets/imagem.png')}{require('../../assets/icon.png')}
+                source={require('../../assets/image.png')}
                 accessibilityLabel="Logo Ponto SaaS"
                 style={estilos.logo}
               />
