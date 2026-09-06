@@ -2,7 +2,12 @@ const permissoesService = require('./permissoes.service');
 
 async function listar(req, res, next) {
   try {
-    const permissoes = await permissoesService.listarPorPapel(req.usuario.papel);
+    // super_admin bypassa toda checagem de permissao (ve tudo, sempre) e nao
+    // tem empresa fixa - continua pelo caminho antigo, so por papel.
+    const permissoes = req.usuario.papel === 'super_admin'
+      ? await permissoesService.listarPorPapel(req.usuario.papel)
+      : await permissoesService.listarEfetivoAgrupado(req.usuario.usuario_id, req.empresaId);
+
     res.json({ permissoes });
   } catch (err) {
     next(err);

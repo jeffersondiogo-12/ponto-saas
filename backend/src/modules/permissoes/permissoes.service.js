@@ -131,11 +131,37 @@ async function removerOverrideUsuario({ usuarioId, empresaId, recurso, acao }) {
   await db('permissoes_usuarios').where({ usuario_id: usuarioId, recurso, acao }).del();
 }
 
+/**
+ * Mesmo resultado de listarEfetivoPorUsuario, mas agrupado no formato
+ * {recurso, acoes: [...]} que o front ja consome hoje (so as permitidas) -
+ * pra alimentar o proprio menu do usuario logado sem quebrar contrato.
+ */
+async function listarEfetivoAgrupado(usuarioId, empresaId) {
+  const efetivo = await listarEfetivoPorUsuario(usuarioId, empresaId);
+
+  const agrupadas = new Map();
+  for (const linha of efetivo) {
+    if (!linha.permitido) continue;
+    if (!agrupadas.has(linha.recurso)) agrupadas.set(linha.recurso, []);
+    if (!agrupadas.get(linha.recurso).includes(linha.acao)) {
+      agrupadas.get(linha.recurso).push(linha.acao);
+    }
+  }
+
+  return [...agrupadas.entries()]
+    .map(([recurso, acoes]) => ({
+      recurso,
+      acoes: ACOES.filter((acao) => acoes.includes(acao)),
+    }))
+    .filter((item) => item.acoes.length > 0);
+}
+
 module.exports = {
   listarPorPapel,
   listarMatrizPapeis,
   definirPermissaoPapel,
   listarEfetivoPorUsuario,
+  listarEfetivoAgrupado,
   definirOverrideUsuario,
   removerOverrideUsuario,
 };
