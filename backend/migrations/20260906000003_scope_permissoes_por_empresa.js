@@ -1,4 +1,13 @@
 exports.up = async function up(knex) {
+  const [{ count: empresas }] = await knex('empresas').count('* as count');
+  const [{ count: papeisSemEmpresa }] = await knex('permissoes_papeis').count('* as count');
+  const [{ count: usuariosSemEmpresa }] = await knex('permissoes_usuarios').count('* as count');
+  if (Number(empresas) === 0 && (Number(papeisSemEmpresa) > 0 || Number(usuariosSemEmpresa) > 0)) {
+    throw new Error(
+      'Nao foi possivel escopar permissoes: existem permissoes antigas, mas nenhuma empresa cadastrada. Cadastre/importe as empresas antes de executar esta migration.'
+    );
+  }
+
   await knex.schema.alterTable('permissoes_papeis', (table) => {
     table.uuid('empresa_id').nullable().references('id').inTable('empresas').onDelete('CASCADE');
     table.uuid('filial_id').nullable().references('id').inTable('filiais').onDelete('CASCADE');
@@ -85,27 +94,27 @@ exports.up = async function up(knex) {
 };
 
 exports.down = async function down(knex) {
+  const [{ count: empresasPapeis }] = await knex('permissoes_papeis').countDistinct('empresa_id as count');
+  const [{ count: empresasUsuarios }] = await knex('permissoes_usuarios').countDistinct('empresa_id as count');
+  const regraPapelEscopada = await knex('permissoes_papeis')
+    .whereNotNull('filial_id')
+    .orWhereNotNull('atribuicao_id')
+    .first('id');
+  const regraUsuarioEscopada = await knex('permissoes_usuarios')
+    .whereNotNull('filial_id')
+    .orWhereNotNull('atribuicao_id')
+    .first('id');
+
+  if (Number(empresasPapeis) > 1 || Number(empresasUsuarios) > 1 || regraPapelEscopada || regraUsuarioEscopada) {
+    throw new Error(
+      'Rollback bloqueado: existem permissoes por empresa, filial ou atribuicao que nao podem ser representadas com seguranca no modelo global antigo.'
+    );
+  }
+
   await knex.raw('DROP INDEX IF EXISTS permissoes_papeis_busca_escopo');
   await knex.raw('DROP INDEX IF EXISTS permissoes_usuarios_busca_escopo');
   await knex.raw('DROP INDEX IF EXISTS permissoes_papeis_escopo_unique');
   await knex.raw('DROP INDEX IF EXISTS permissoes_usuarios_escopo_unique');
-
-  await knex.raw(`
-    DELETE FROM permissoes_papeis a
-    USING permissoes_papeis b
-    WHERE a.id > b.id
-      AND a.papel = b.papel
-      AND a.recurso = b.recurso
-      AND a.acao = b.acao
-  `);
-  await knex.raw(`
-    DELETE FROM permissoes_usuarios a
-    USING permissoes_usuarios b
-    WHERE a.id > b.id
-      AND a.usuario_id = b.usuario_id
-      AND a.recurso = b.recurso
-      AND a.acao = b.acao
-  `);
 
   await knex.schema.alterTable('permissoes_papeis', (table) => {
     table.dropColumn('empresa_id');

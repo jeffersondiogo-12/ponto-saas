@@ -392,7 +392,7 @@ async function avisosDoAluno(alunoIdsPermitidos, alunoId) {
   if (!aluno) throw new AppError('Aluno nao encontrado.', 404);
 
   const avisos = await db('avisos_escola')
-    .select('id', 'titulo', 'mensagem', 'publicado_em')
+    .select('id', 'titulo', 'mensagem', 'publicado_em', 'filial_id', 'turma_id')
     .where({ empresa_id: aluno.empresa_id, ativo: true })
     .andWhere('publicado_em', '<=', db.fn.now())
     .andWhere(function condicaoFilial() {

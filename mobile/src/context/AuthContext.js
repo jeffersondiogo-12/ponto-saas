@@ -10,14 +10,19 @@ export function AuthProvider({ children }) {
   const [usuario, setUsuario] = useState(null);
   const [carregandoSessao, setCarregandoSessao] = useState(true);
 
-  // Nao existe endpoint "/me" no backend, entao ao reabrir o app o unico
-  // jeito de saber QUEM esta logado e com qual papel e reler o que o login
-  // guardou da ultima vez (ver salvarSessao em api.js). Se o token tiver
-  // expirado, as chamadas seguintes falham com 401 e a tela cai pro login.
   useEffect(() => {
     Promise.all([obterPerfilAtivo(), obterPreferenciaManterLogin()]).then(async ([perfil, manterLogin]) => {
       const [token, sessao] = await Promise.all([obterToken(perfil), obterSessao(perfil)]);
-      if (manterLogin && token && sessao) setUsuario(sessao);
+      if (manterLogin && token && sessao) {
+        try {
+          const resposta = await api.obterUsuarioAtual();
+          const atual = resposta.usuario || sessao;
+          await salvarSessao(atual, true, perfil);
+          setUsuario(atual);
+        } catch {
+          setUsuario(sessao);
+        }
+      }
       setCarregandoSessao(false);
     });
   }, []);

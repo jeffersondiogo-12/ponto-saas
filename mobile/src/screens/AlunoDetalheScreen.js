@@ -29,6 +29,11 @@ function formatarData(iso) {
 }
 
 const FUSO_BRASILIA = 'America/Sao_Paulo';
+const ROTULOS_ALCANCE = {
+  rede: 'Aviso da rede',
+  escola: 'Aviso da escola',
+  turma: 'Aviso da turma',
+};
 
 function diaNoFuso(iso) {
   return new Intl.DateTimeFormat('en-CA', { timeZone: FUSO_BRASILIA }).format(new Date(iso));
@@ -287,6 +292,7 @@ export default function AlunoDetalheScreen({ route }) {
                 onPress={() => api.registrarLeituraAviso(item.id).catch(() => {})}
               >
                 <Text style={estilos.cartaoTitulo}>{item.titulo}</Text>
+                {item.alcance ? <Text style={estilos.avisoAlcance}>{ROTULOS_ALCANCE[item.alcance] || 'Aviso'}</Text> : null}
                 <Text style={estilos.cartaoTexto}>{item.mensagem}</Text>
                 <Text style={estilos.cartaoRodape}>{formatarDataHora(item.publicado_em)}</Text>
               </Pressable>
@@ -375,6 +381,7 @@ const estilos = StyleSheet.create({
     ...sombra.cartao,
   },
   cartaoAviso: { borderLeftColor: cores.verde },
+  avisoAlcance: { color: cores.azul, fontWeight: '800', fontSize: 11.5, marginTop: 5, textTransform: 'uppercase' },
   cartaoTitulo: { color: cores.ink, fontWeight: '800', fontSize: 15 },
   cartaoTexto: { color: cores.ink, fontSize: 13.5, lineHeight: 19, marginTop: 6 },
   cartaoRodape: { color: cores.inkSoft, fontSize: 11.5, marginTop: 9 },

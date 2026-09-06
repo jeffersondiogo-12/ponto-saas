@@ -41,9 +41,6 @@ export async function limparToken(perfil = perfilAtivo) {
   await AsyncStorage.removeItem(chavesDoPerfil(perfil).token);
 }
 
-// Nao existe endpoint "/me" no backend - o unico jeito de saber quem esta
-// logado (responsavel ou professor) ao reabrir o app e guardar aqui o
-// mesmo objeto que o login devolveu, e reler no boot (ver AuthContext.js).
 export async function salvarSessao(usuario, persistir = true, perfil = perfilAtivo) {
   const { sessao } = chavesDoPerfil(perfil);
   if (persistir) await AsyncStorage.setItem(sessao, JSON.stringify(usuario));
@@ -196,6 +193,9 @@ async function requisitar(caminho, { method = 'GET', body, rotulo, permitirFila 
 }
 
 export const api = {
+  obterUsuarioAtual: () => requisitar('/api/auth/me'),
+  listarPermissoes: () => requisitar('/api/permissoes'),
+
   // --- Responsável ---
   login: (email, senha) =>
     requisitar('/api/responsaveis/login', { method: 'POST', body: { email, senha }, permitirFila: false }),
