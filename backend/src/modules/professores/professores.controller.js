@@ -44,7 +44,7 @@ async function listarProfessores(req, res, next) {
 }
 
 async function listarGrade(req, res, next) {
-  try { res.json(await service.listarGradeTurma(req.empresaId, req.params.turmaId)); } catch (err) { next(err); }
+  try { res.json(await service.listarGradeTurma(req.empresaId, req.params.turmaId, req.filialId)); } catch (err) { next(err); }
 }
 
 module.exports = { minhasTurmas, resumoMinhasTurmas, alunosDaTurma, registrarPresencas, criarNota, criarObservacao, historicoDoAluno, atribuirProfessor, listarProfessores, listarGrade };

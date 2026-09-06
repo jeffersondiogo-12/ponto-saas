@@ -1,12 +1,16 @@
 const db = require('../../config/db');
 const { AppError } = require('../../middlewares/errorHandler');
 
-async function listar(empresaId) {
-  return db('filiais').where({ empresa_id: empresaId }).orderBy('nome');
+async function listar(empresaId, filialId = null) {
+  const query = db('filiais').where({ empresa_id: empresaId }).orderBy('nome');
+  if (filialId) query.where('id', filialId);
+  return query;
 }
 
-async function buscarPorId(empresaId, filialId) {
-  const filial = await db('filiais').where({ id: filialId, empresa_id: empresaId }).first();
+async function buscarPorId(empresaId, filialId, filialPermitida = null) {
+  const query = db('filiais').where({ id: filialId, empresa_id: empresaId });
+  if (filialPermitida) query.where('id', filialPermitida);
+  const filial = await query.first();
   if (!filial) throw new AppError('Unidade nao encontrada.', 404);
   return filial;
 }

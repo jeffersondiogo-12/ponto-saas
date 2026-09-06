@@ -298,8 +298,10 @@ async function listarProfessoresDaTurma(empresaId, turmaId, filialId = null) {
   return query;
 }
 
-async function listarGradeTurma(empresaId, turmaId) {
-  const turma = await db('turmas').where({ id: turmaId, empresa_id: empresaId }).first();
+async function listarGradeTurma(empresaId, turmaId, filialId = null) {
+  const turmaQuery = db('turmas').where({ id: turmaId, empresa_id: empresaId });
+  if (filialId) turmaQuery.where('filial_id', filialId);
+  const turma = await turmaQuery.first();
   if (!turma) throw new AppError('Turma nao encontrada.', 404);
   const [janela, aulas] = await Promise.all([
     db('horarios_turmas').where({ empresa_id: empresaId, turma_id: turmaId, ativo: true }).first(),

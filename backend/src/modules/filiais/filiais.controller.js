@@ -2,7 +2,7 @@ const filiaisService = require('./filiais.service');
 
 async function listar(req, res, next) {
   try {
-    const filiais = await filiaisService.listar(req.empresaId);
+    const filiais = await filiaisService.listar(req.empresaId, req.filialId);
     res.json({ filiais });
   } catch (err) {
     next(err);
@@ -11,7 +11,7 @@ async function listar(req, res, next) {
 
 async function buscar(req, res, next) {
   try {
-    const filial = await filiaisService.buscarPorId(req.empresaId, req.params.id);
+    const filial = await filiaisService.buscarPorId(req.empresaId, req.params.id, req.filialId);
     res.json({ filial });
   } catch (err) {
     next(err);

@@ -2,7 +2,9 @@ const turmasService = require('./turmas.service');
 
 async function listar(req, res, next) {
   try {
-    const turmas = await turmasService.listar(req.empresaId, { filialId: req.query.filial_id });
+    const turmas = await turmasService.listar(req.empresaId, {
+      filialId: req.filialId || req.query.filial_id,
+    });
     res.json({ turmas });
   } catch (err) {
     next(err);
