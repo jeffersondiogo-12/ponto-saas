@@ -15,6 +15,7 @@ function exigirPermissao(recurso, acao) {
         req.empresaId || req.usuario?.empresa_id,
         recurso,
         acao,
+        req.filialId,
       );
       if (!permitido) {
         return res.status(403).json({ erro: 'Voce nao tem permissao para esta acao.' });

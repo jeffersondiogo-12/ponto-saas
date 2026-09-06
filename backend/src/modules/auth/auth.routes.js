@@ -7,6 +7,7 @@ const { exigirPermissao } = require('../../middlewares/permissions');
 const router = express.Router();
 
 router.post('/login', authController.login);
+router.get('/me', autenticar, authController.atual);
 
 router.get('/usuarios', autenticar, exigirTipo('staff'), resolverTenant, exigirPermissao('usuarios', 'ver'), authController.listarUsuarios);
 router.post(

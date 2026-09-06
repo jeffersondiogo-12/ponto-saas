@@ -6,9 +6,9 @@ async function listar(req, res, next) {
     // tem empresa fixa - continua pelo caminho antigo, so por papel.
     const permissoes = req.usuario.papel === 'super_admin'
       ? await permissoesService.listarPorPapel(req.usuario.papel, req.empresaId)
-      : await permissoesService.listarEfetivoAgrupado(req.usuario.usuario_id, req.empresaId);
+      : await permissoesService.listarEfetivoAgrupado(req.usuario.usuario_id, req.empresaId, req.filialId);
 
-    res.json({ permissoes });
+    res.json({ permissoes, alcance: permissoesService.listarAlcanceRecursos() });
   } catch (err) {
     next(err);
   }
@@ -17,7 +17,7 @@ async function listar(req, res, next) {
 async function listarMatrizPapeis(req, res, next) {
   try {
     const matriz = await permissoesService.listarMatrizPapeis(req.empresaId);
-    res.json({ permissoes: matriz });
+    res.json({ permissoes: matriz, alcance: permissoesService.listarAlcanceRecursos() });
   } catch (err) {
     next(err);
   }
@@ -35,6 +35,7 @@ async function definirPermissaoPapel(req, res, next) {
       recurso,
       acao,
       permitido,
+      auditoria: { usuarioId: req.usuario.usuario_id, ip: req.ip },
     });
     res.status(204).end();
   } catch (err) {
@@ -45,7 +46,7 @@ async function definirPermissaoPapel(req, res, next) {
 async function listarEfetivoPorUsuario(req, res, next) {
   try {
     const { usuarioId } = req.params;
-    const permissoes = await permissoesService.listarEfetivoPorUsuario(usuarioId, req.empresaId);
+    const permissoes = await permissoesService.listarEfetivoPorUsuario(usuarioId, req.empresaId, req.filialId);
     res.json({ permissoes });
   } catch (err) {
     next(err);
@@ -64,6 +65,7 @@ async function definirOverrideUsuario(req, res, next) {
       recurso,
       acao,
       permitido,
+      auditoria: { usuarioId: req.usuario.usuario_id, ip: req.ip },
     });
     res.status(204).end();
   } catch (err) {
@@ -82,6 +84,7 @@ async function removerOverrideUsuario(req, res, next) {
       atribuicaoId: req.body.atribuicao_id,
       recurso,
       acao,
+      auditoria: { usuarioId: req.usuario.usuario_id, ip: req.ip },
     });
     res.status(204).end();
   } catch (err) {

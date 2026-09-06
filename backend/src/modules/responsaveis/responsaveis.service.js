@@ -208,6 +208,21 @@ function colunaHorariosTurma() {
   ), '[]'::json) AS horarios_turma`);
 }
 
+function classificarAlcanceAviso(aviso, alvos) {
+  if (!alvos.length) {
+    if (aviso.turma_id) return { alcance: 'turma', turma_id: aviso.turma_id, filial_id: aviso.filial_id || null };
+    if (aviso.filial_id) return { alcance: 'escola', filial_id: aviso.filial_id, turma_id: null };
+    return { alcance: 'rede', filial_id: null, turma_id: null };
+  }
+
+  const filiais = new Set(alvos.map((alvo) => alvo.filial_id).filter(Boolean));
+  const turmas = new Set(alvos.map((alvo) => alvo.turma_id).filter(Boolean));
+  if (filiais.size > 1) return { alcance: 'rede', filial_id: null, turma_id: null };
+  if (filiais.size === 1) return { alcance: 'escola', filial_id: [...filiais][0], turma_id: null };
+  if (turmas.size > 0) return { alcance: 'turma', filial_id: null, turma_id: turmas.size === 1 ? [...turmas][0] : null };
+  return { alcance: 'rede', filial_id: null, turma_id: null };
+}
+
 async function buscarAlunoVinculadoComHorario(empresaId, alunoIdsPermitidos, alunoId) {
   validarAcessoAoAluno(alunoIdsPermitidos, alunoId);
 
@@ -376,7 +391,7 @@ async function avisosDoAluno(alunoIdsPermitidos, alunoId) {
   const aluno = await db('alunos').where({ id: alunoId }).first();
   if (!aluno) throw new AppError('Aluno nao encontrado.', 404);
 
-  return db('avisos_escola')
+  const avisos = await db('avisos_escola')
     .select('id', 'titulo', 'mensagem', 'publicado_em')
     .where({ empresa_id: aluno.empresa_id, ativo: true })
     .andWhere('publicado_em', '<=', db.fn.now())
@@ -395,6 +410,22 @@ async function avisosDoAluno(alunoIdsPermitidos, alunoId) {
     })
     .orderBy('publicado_em', 'desc')
     .limit(30);
+
+  if (!avisos.length) return avisos;
+
+  const alvos = await db('aviso_alvos')
+    .select('aviso_id', 'filial_id', 'turma_id')
+    .whereIn('aviso_id', avisos.map((aviso) => aviso.id));
+  const porAviso = new Map();
+  for (const alvo of alvos) {
+    if (!porAviso.has(alvo.aviso_id)) porAviso.set(alvo.aviso_id, []);
+    porAviso.get(alvo.aviso_id).push(alvo);
+  }
+
+  return avisos.map((aviso) => ({
+    ...aviso,
+    ...classificarAlcanceAviso(aviso, porAviso.get(aviso.id) || []),
+  }));
 }
 
 async function registrarLeituraAviso(empresaId, avisoId, responsavelId, alunoIdsPermitidos) {

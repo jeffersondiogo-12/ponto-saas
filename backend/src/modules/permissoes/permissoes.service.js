@@ -20,6 +20,23 @@ const RECURSOS = new Set([
   'professores',
 ]);
 const PAPEIS_GESTAO_AVISOS = new Set(['admin', 'gestor', 'super_admin']);
+const PAPEIS_ALCANCE_GERAL = [...PAPEIS];
+const ALCANCE_RECURSOS = {
+  usuarios: PAPEIS_ALCANCE_GERAL,
+  empresas: PAPEIS_ALCANCE_GERAL,
+  filiais: PAPEIS_ALCANCE_GERAL,
+  funcionarios: PAPEIS_ALCANCE_GERAL,
+  alunos: PAPEIS_ALCANCE_GERAL,
+  responsaveis: PAPEIS_ALCANCE_GERAL,
+  turmas: PAPEIS_ALCANCE_GERAL,
+  dispositivos: PAPEIS_ALCANCE_GERAL,
+  avisos: [...PAPEIS_GESTAO_AVISOS],
+  auditoria: PAPEIS_ALCANCE_GERAL,
+  ponto: PAPEIS_ALCANCE_GERAL,
+  relatorios: PAPEIS_ALCANCE_GERAL,
+  afd: PAPEIS_ALCANCE_GERAL,
+  professores: ['professor', 'gestor', 'admin', 'super_admin'],
+};
 
 async function validarEscopo({ empresaId, filialId = null, atribuicaoId = null, papel = null, usuarioId = null }) {
   if (!empresaId) throw new AppError('Empresa e obrigatoria para configurar permissao.', 400);
@@ -67,6 +84,13 @@ function validarPermissao({ papel, recurso, acao, permitido }) {
 
 function recursoAplicavelAoPapel(papel, recurso) {
   return recurso !== 'avisos' || PAPEIS_GESTAO_AVISOS.has(papel);
+}
+
+function listarAlcanceRecursos() {
+  return Object.entries(ALCANCE_RECURSOS).map(([recurso, papeisPermitidos]) => ({
+    recurso,
+    papeisPermitidos,
+  }));
 }
 
 /**
@@ -133,7 +157,7 @@ async function listarMatrizPapeis(empresaId) {
  * combinacao papel+recurso+acao ja e unica na tabela - se a tela mandar uma
  * combinacao que ainda nao existe, cria; se ja existe, so atualiza o valor.
  */
-async function definirPermissaoPapel({ empresaId, filialId, atribuicaoId, papel, recurso, acao, permitido }) {
+async function definirPermissaoPapel({ empresaId, filialId, atribuicaoId, papel, recurso, acao, permitido, auditoria }) {
   validarPermissao({ papel, recurso, acao, permitido });
   await validarEscopo({ empresaId, filialId, atribuicaoId, papel });
 
@@ -141,10 +165,23 @@ async function definirPermissaoPapel({ empresaId, filialId, atribuicaoId, papel,
   filialId ? query.where({ filial_id: filialId }) : query.whereNull('filial_id');
   atribuicaoId ? query.where({ atribuicao_id: atribuicaoId }) : query.whereNull('atribuicao_id');
   const existente = await query.first('id');
+  const dadosAntes = existente ? { permitido: existente.permitido } : null;
   if (existente) {
     await db('permissoes_papeis').where({ id: existente.id }).update({ permitido });
   } else {
     await db('permissoes_papeis').insert({ empresa_id: empresaId, filial_id: filialId || null, atribuicao_id: atribuicaoId || null, papel, recurso, acao, permitido });
+  }
+  if (auditoria?.usuarioId) {
+    await db('auditoria_logs').insert({
+      empresa_id: empresaId,
+      usuario_id: auditoria.usuarioId,
+      acao: 'alterar_permissao_papel',
+      entidade: 'permissoes_papeis',
+      entidade_id: existente?.id || `${empresaId}:${papel}:${recurso}:${acao}`,
+      dados_antes: dadosAntes,
+      dados_depois: { empresa_id: empresaId, filial_id: filialId || null, atribuicao_id: atribuicaoId || null, papel, recurso, acao, permitido },
+      ip_origem: auditoria.ip,
+    });
   }
 }
 
@@ -155,8 +192,9 @@ async function definirPermissaoPapel({ empresaId, filialId, atribuicaoId, papel,
  * personalizado, e poder mostrar isso de forma diferente (ex: com um botao
  * "remover excecao").
  */
-async function listarEfetivoPorUsuario(usuarioId, empresaId) {
+async function listarEfetivoPorUsuario(usuarioId, empresaId, filialId = null) {
   const usuario = await buscarUsuarioDaEmpresa(usuarioId, empresaId);
+  const filialContexto = filialId || usuario.filial_id || null;
 
   const atribuicoes = await db('turma_professores')
     .where({ empresa_id: empresaId, professor_id: usuario.id, ativo: true })
@@ -166,12 +204,12 @@ async function listarEfetivoPorUsuario(usuarioId, empresaId) {
     db('permissoes_papeis')
       .select('recurso', 'acao', 'permitido', 'filial_id', 'atribuicao_id')
       .where({ empresa_id: empresaId, papel: usuario.papel })
-      .andWhere((scope) => scope.whereNull('filial_id').orWhere('filial_id', usuario.filial_id || null))
+      .andWhere((scope) => scope.whereNull('filial_id').orWhere('filial_id', filialContexto))
       .andWhere((scope) => scope.whereNull('atribuicao_id').orWhereIn('atribuicao_id', atribuicoes)),
     db('permissoes_usuarios')
       .select('recurso', 'acao', 'permitido', 'filial_id', 'atribuicao_id')
       .where({ empresa_id: empresaId, usuario_id: usuarioId })
-      .andWhere((scope) => scope.whereNull('filial_id').orWhere('filial_id', usuario.filial_id || null))
+      .andWhere((scope) => scope.whereNull('filial_id').orWhere('filial_id', filialContexto))
       .andWhere((scope) => scope.whereNull('atribuicao_id').orWhereIn('atribuicao_id', atribuicoes)),
   ]);
 
@@ -213,7 +251,7 @@ async function listarEfetivoPorUsuario(usuarioId, empresaId) {
 /**
  * Cria/atualiza a excecao pessoal de um usuario pra um recurso+acao.
  */
-async function definirOverrideUsuario({ usuarioId, empresaId, filialId, atribuicaoId, recurso, acao, permitido }) {
+async function definirOverrideUsuario({ usuarioId, empresaId, filialId, atribuicaoId, recurso, acao, permitido, auditoria }) {
   if (!RECURSOS.has(recurso)) {
     throw new AppError(`Recurso invalido: ${recurso}.`, 400);
   }
@@ -233,10 +271,23 @@ async function definirOverrideUsuario({ usuarioId, empresaId, filialId, atribuic
   filialId ? query.where({ filial_id: filialId }) : query.whereNull('filial_id');
   atribuicaoId ? query.where({ atribuicao_id: atribuicaoId }) : query.whereNull('atribuicao_id');
   const existente = await query.first('id');
+  const dadosAntes = existente ? { permitido: existente.permitido } : null;
   if (existente) {
     await db('permissoes_usuarios').where({ id: existente.id }).update({ permitido });
   } else {
     await db('permissoes_usuarios').insert({ empresa_id: empresaId, usuario_id: usuarioId, filial_id: filialId || null, atribuicao_id: atribuicaoId || null, recurso, acao, permitido });
+  }
+  if (auditoria?.usuarioId) {
+    await db('auditoria_logs').insert({
+      empresa_id: empresaId,
+      usuario_id: auditoria.usuarioId,
+      acao: 'alterar_override_permissao',
+      entidade: 'permissoes_usuarios',
+      entidade_id: existente?.id || `${empresaId}:${usuarioId}:${recurso}:${acao}`,
+      dados_antes: dadosAntes,
+      dados_depois: { empresa_id: empresaId, usuario_id: usuarioId, filial_id: filialId || null, atribuicao_id: atribuicaoId || null, recurso, acao, permitido },
+      ip_origem: auditoria.ip,
+    });
   }
 }
 
@@ -244,7 +295,7 @@ async function definirOverrideUsuario({ usuarioId, empresaId, filialId, atribuic
  * Remove a excecao pessoal - o usuario volta a seguir o padrao do cargo
  * dele nesse recurso+acao.
  */
-async function removerOverrideUsuario({ usuarioId, empresaId, filialId, atribuicaoId, recurso, acao }) {
+async function removerOverrideUsuario({ usuarioId, empresaId, filialId, atribuicaoId, recurso, acao, auditoria }) {
   if (!RECURSOS.has(recurso)) {
     throw new AppError(`Recurso invalido: ${recurso}.`, 400);
   }
@@ -253,14 +304,29 @@ async function removerOverrideUsuario({ usuarioId, empresaId, filialId, atribuic
   }
   await buscarUsuarioDaEmpresa(usuarioId, empresaId);
   await validarEscopo({ empresaId, filialId, atribuicaoId, usuarioId });
-  await db('permissoes_usuarios').where({
+  const query = db('permissoes_usuarios').where({
     empresa_id: empresaId,
     usuario_id: usuarioId,
-    filial_id: filialId || null,
-    atribuicao_id: atribuicaoId || null,
     recurso,
     acao,
-  }).del();
+  });
+  filialId ? query.where({ filial_id: filialId }) : query.whereNull('filial_id');
+  atribuicaoId ? query.where({ atribuicao_id: atribuicaoId }) : query.whereNull('atribuicao_id');
+  const existente = await query.first();
+  if (!existente) return;
+  await db('permissoes_usuarios').where({ id: existente.id }).del();
+  if (auditoria?.usuarioId) {
+    await db('auditoria_logs').insert({
+      empresa_id: empresaId,
+      usuario_id: auditoria.usuarioId,
+      acao: 'remover_override_permissao',
+      entidade: 'permissoes_usuarios',
+      entidade_id: existente.id,
+      dados_antes: existente,
+      dados_depois: null,
+      ip_origem: auditoria.ip,
+    });
+  }
 }
 
 /**
@@ -268,8 +334,8 @@ async function removerOverrideUsuario({ usuarioId, empresaId, filialId, atribuic
  * {recurso, acoes: [...]} que o front ja consome hoje (so as permitidas) -
  * pra alimentar o proprio menu do usuario logado sem quebrar contrato.
  */
-async function listarEfetivoAgrupado(usuarioId, empresaId) {
-  const efetivo = await listarEfetivoPorUsuario(usuarioId, empresaId);
+async function listarEfetivoAgrupado(usuarioId, empresaId, filialId = null) {
+  const efetivo = await listarEfetivoPorUsuario(usuarioId, empresaId, filialId);
 
   const agrupadas = new Map();
   for (const linha of efetivo) {
@@ -288,12 +354,13 @@ async function listarEfetivoAgrupado(usuarioId, empresaId) {
     .filter((item) => item.acoes.length > 0);
 }
 
-async function usuarioTemPermissao(usuarioId, empresaId, recurso, acao) {
-  const permissoes = await listarEfetivoPorUsuario(usuarioId, empresaId);
+async function usuarioTemPermissao(usuarioId, empresaId, recurso, acao, filialId = null) {
+  const permissoes = await listarEfetivoPorUsuario(usuarioId, empresaId, filialId);
   return permissoes.some((linha) => linha.recurso === recurso && linha.acao === acao && linha.permitido);
 }
 
 module.exports = {
+  listarAlcanceRecursos,
   listarPorPapel,
   listarMatrizPapeis,
   definirPermissaoPapel,

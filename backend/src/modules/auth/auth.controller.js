@@ -1,5 +1,25 @@
 const authService = require('./auth.service');
 
+function usuarioPublico(usuario = {}) {
+  const campos = [
+    'id',
+    'usuario_id',
+    'responsavelId',
+    'tipo',
+    'nome',
+    'email',
+    'papel',
+    'empresa_id',
+    'filial_id',
+    'alunoIds',
+  ];
+  return Object.fromEntries(campos.filter((campo) => usuario[campo] !== undefined).map((campo) => [campo, usuario[campo]]));
+}
+
+function atual(req, res) {
+  res.json({ usuario: usuarioPublico(req.usuario) });
+}
+
 async function login(req, res, next) {
   try {
     const { email, senha, unidade } = req.body;
@@ -32,4 +52,4 @@ async function criarUsuario(req, res, next) {
   }
 }
 
-module.exports = { login, listarUsuarios, criarUsuario };
+module.exports = { login, listarUsuarios, criarUsuario, atual };
