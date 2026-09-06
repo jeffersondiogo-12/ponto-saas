@@ -42,6 +42,14 @@ export function AuthProvider({ children }) {
   const [empresaSelecionada, setEmpresaSelecionada] = useState(obterEmpresaSelecionada);
   const [filialSelecionada, setFilialSelecionada] = useState(obterFilialSelecionada);
   const [permissoes, setPermissoes] = useState(lerPermissoesSalvas);
+  /**
+   * Recado da queda de sessao, mostrado pela tela de login.
+   *
+   * Vive aqui, e nao na tela: quando a sessao cai, o login ainda nao esta
+   * montado — ele so aparece depois do redirect. O `AuthProvider` fica acima
+   * do roteador e atravessa essa troca.
+   */
+  const [sessaoEncerrada, setSessaoEncerrada] = useState(null);
 
   const carregarPermissoes = useCallback(async () => {
     if (!usuario) { setPermissoes({}); return; }
@@ -77,6 +85,7 @@ export function AuthProvider({ children }) {
     const resposta = await api.login(email, senha, unidade);
     const { token, usuario: dadosUsuario, empresaSelecionada, filialSelecionada } = resposta;
 
+    setSessaoEncerrada(null);
     salvarToken(token);
     localStorage.setItem('ponto_saas_usuario', JSON.stringify(dadosUsuario));
     setUsuario(dadosUsuario);
@@ -135,12 +144,7 @@ export function AuthProvider({ children }) {
     const aoEncerrar = () => {
       // So na queda, nao no logout normal: quem clicou em "Sair" sabe por que
       // esta vendo a tela de login.
-      try {
-        sessionStorage.setItem(
-          'ponto_saas_sessao_encerrada',
-          'Sua sessão terminou. Entre de novo para continuar.',
-        );
-      } catch { /* navegador sem sessionStorage: cai no login sem a explicacao */ }
+      setSessaoEncerrada('Sua sessão terminou. Entre de novo para continuar.');
       logout();
     };
     window.addEventListener('sessao-encerrada', aoEncerrar);
@@ -224,7 +228,7 @@ export function AuthProvider({ children }) {
     <AuthContext.Provider
       value={{
         usuario, empresaSelecionada, filialSelecionada,
-        permissoes, pode, carregarPermissoes,
+        permissoes, pode, carregarPermissoes, sessaoEncerrada,
         login, selecionarEmpresa, selecionarFilial, limparEmpresa, logout,
       }}
     >

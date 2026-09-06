@@ -2,7 +2,9 @@
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- `viewport-fit=cover` deixa o fundo ir ate a borda no iPhone; o menu
+         compensa o entalhe com `env(safe-area-inset-bottom)`. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 
     <!-- Icones gerados a partir de web/public/ponte-escolar.png. Todos usam o
          SIMBOLO (rosto + ponte), sem as palavras: em 32px o texto da logo nao
@@ -10,6 +12,17 @@
          completa fica para dentro do sistema, onde aparece grande. -->
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#1b5fd0" />
+    <!-- O iOS ignora quase tudo do manifest. Estas linhas sao o que faz a
+         tela de inicio abrir sem a barra do Safari. A versao com prefixo
+         `apple-` esta depreciada e o Chrome avisa no console, mas o Safari
+         de iPhone antigo so entende ela — as duas ficam. -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Ponte" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
 
     <title>Ponte Escolar</title>
   </head>

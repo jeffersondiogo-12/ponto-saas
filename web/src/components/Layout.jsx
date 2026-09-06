@@ -1,5 +1,6 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { itensVisiveis, useCelular } from '../utils/navegacao';
 
 /**
  * Icones em SVG inline. Sao 9 icones de traco simples — nao vale puxar uma
@@ -38,6 +39,10 @@ function ItemDock({ para, icone, rotulo, ativo }) {
   return (
     <Link to={para} className={`dock-item ${ativo ? 'ativo' : ''}`} data-rotulo={rotulo} aria-label={rotulo}>
       <Icone />
+      {/* Visivel so no celular. No computador o rotulo aparece ao passar o
+          mouse, pelo `::after`; em tela de toque nao existe hover, e ali o
+          menu tem no maximo quatro itens — o texto cabe. */}
+      <span className="dock-rotulo">{rotulo}</span>
     </Link>
   );
 }
@@ -73,6 +78,15 @@ export default function Layout({ children, empresaNome }) {
    */
   const ehEscola = filialSelecionada && filialSelecionada.tipo === 'escola';
 
+  /**
+   * As condicoes de cada item vivem em `utils/navegacao.js`, junto com a lista
+   * do celular — assim o menu reduzido nao vira uma segunda copia das mesmas
+   * regras. No celular a lista tambem muda de ordem: ela segue a do papel, e o
+   * primeiro item e onde a pessoa cai ao entrar.
+   */
+  const celular = useCelular();
+  const itens = itensVisiveis({ usuario, pode, filialSelecionada, ehEscola }, celular);
+
   return (
     <div className="shell">
       <aside className="dock" aria-label="Navegação principal">
@@ -80,51 +94,18 @@ export default function Layout({ children, empresaNome }) {
           <img src="/ponte-escolar.png" alt="" />
         </Link>
 
+        {/* Relatorios nao esta na lista: a porta de entrada e a secao
+            "Relatorios" do Dashboard. A rota /relatorios continua valendo. */}
         <nav className="dock-grupo">
-          <ItemDock para="/dashboard" icone="visao" rotulo="Visão geral" ativo={ehAtivo('/dashboard')} />
-          {usuario?.papel === 'professor' && (
-            <ItemDock para="/professor" icone="professor" rotulo="Minhas turmas" ativo={ehAtivo('/professor')} />
-          )}
-          {pode('turmas', 'ver') && ehEscola && (
-            <ItemDock para="/gestao" icone="gestao" rotulo="Gestão" ativo={ehAtivo('/gestao')} />
-          )}
-          {pode('filiais', 'ver') && (
-            <ItemDock para="/unidades" icone="unidades" rotulo="Unidades" ativo={ehAtivo('/unidades')} />
-          )}
-          {/* Avisos nao exige unidade do tipo escola: um admin no nivel da
-              empresa manda comunicado para todas as unidades de uma vez.
-              O gestor esta fora hoje porque a matriz o desligou (migration
-              20260905000001); religando no banco, o item volta sozinho. */}
-          {pode('avisos', 'ver') && (
-            <ItemDock para="/avisos" icone="avisos" rotulo="Avisos" ativo={ehAtivo('/avisos')} />
-          )}
-          {pode('turmas', 'ver') && ehEscola && (
-            <ItemDock para="/turmas" icone="turmas" rotulo="Turmas" ativo={ehAtivo('/turmas')} />
-          )}
-          {pode('alunos', 'ver') && ehEscola && (
-            <ItemDock para="/alunos" icone="alunos" rotulo="Alunos" ativo={ehAtivo('/alunos')} />
-          )}
-          {pode('funcionarios', 'ver') && (!filialSelecionada || filialSelecionada.tipo === 'empresa') && (
-            <ItemDock para="/funcionarios" icone="funcionarios" rotulo="Funcionários" ativo={ehAtivo('/funcionarios')} />
-          )}
-          {pode('dispositivos', 'ver') && (
-            <ItemDock para="/dispositivos" icone="dispositivos" rotulo="Dispositivos" ativo={ehAtivo('/dispositivos')} />
-          )}
-          {pode('usuarios', 'ver') && ehEscola && (
-            <ItemDock para="/usuarios" icone="usuarios" rotulo="Usuários" ativo={ehAtivo('/usuarios')} />
-          )}
-          {/* Relatorios saiu da dock: a porta de entrada agora e a secao
-              "Relatorios" do Dashboard. A rota /relatorios continua valendo. */}
-          {pode('auditoria', 'ver') && (
-            <ItemDock para="/auditoria" icone="auditoria" rotulo="Auditoria" ativo={ehAtivo('/auditoria')} />
-          )}
-          {/* Administrar a matriz nao e um recurso dela — nao existe
-              `permissoes` em `permissoes_papeis`. As cinco rotas de
-              /api/permissoes/* sao restritas a super_admin no proprio backend,
-              entao aqui a checagem e por papel mesmo. */}
-          {usuario?.papel === 'super_admin' && (
-            <ItemDock para="/permissoes" icone="permissoes" rotulo="Permissões" ativo={ehAtivo('/permissoes')} />
-          )}
+          {itens.map((item) => (
+            <ItemDock
+              key={item.para}
+              para={item.para}
+              icone={item.icone}
+              rotulo={item.rotulo}
+              ativo={ehAtivo(item.para)}
+            />
+          ))}
         </nav>
 
         <button type="button" className="dock-item dock-sair" onClick={sair} data-rotulo="Sair" aria-label="Sair">

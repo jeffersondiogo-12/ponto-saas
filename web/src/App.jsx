@@ -1,5 +1,6 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { permitidoNoCelular, telaInicialNoCelular, useCelular } from './utils/navegacao';
 import { RealtimeProvider } from './context/RealtimeContext';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
@@ -28,10 +29,46 @@ import ErrorOverlay from './components/ErrorOverlay';
 import AvisosRealtime from './components/AvisosRealtime';
 import ErrorBoundary from './components/ErrorBoundary';
 
+/**
+ * Papel sem lista de celular (professor e rh, hoje). Melhor dizer isso do que
+ * jogar a pessoa numa tela qualquer e deixar ela procurando o que sumiu.
+ */
+function ForaDoCelular({ nome }) {
+  return (
+    <div className="tela-login">
+      <div className="caixa-login">
+        <div className="marca">
+          <img src="/ponte-escolar.png" alt="Ponte Escolar" className="marca-logo" />
+        </div>
+        <p className="texto-apoio" style={{ textAlign: 'center' }}>
+          {nome ? `${nome}, o` : 'O'} seu acesso ainda não está disponível pelo
+          celular. Abra o Ponte Escolar em um computador para continuar.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function RotaProtegida({ children }) {
-  const { usuario } = useAuth();
+  const { usuario, pode, filialSelecionada } = useAuth();
+  const celular = useCelular();
+  const { pathname } = useLocation();
+
   if (!usuario) return <Navigate to="/login" replace />;
-  return children;
+  if (!celular) return children;
+
+  /**
+   * No celular a lista de telas do papel e restricao de verdade: nao basta
+   * sumir do menu, o endereco direto tambem nao abre (decisao de 2026-09-06).
+   * A checagem fica aqui, e nao em cada rota, para nao existir uma tela nova
+   * que alguem esqueca de proteger.
+   */
+  if (permitidoNoCelular(usuario.papel, pathname)) return children;
+
+  const ehEscola = filialSelecionada && filialSelecionada.tipo === 'escola';
+  const destino = telaInicialNoCelular({ usuario, pode, filialSelecionada, ehEscola });
+  if (!destino) return <ForaDoCelular nome={usuario.nome?.split(' ')[0]} />;
+  return <Navigate to={destino} replace />;
 }
 
 export default function App() {

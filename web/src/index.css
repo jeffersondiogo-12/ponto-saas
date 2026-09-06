@@ -124,6 +124,9 @@ a:hover { color: var(--azul); }
   transition: background 0.13s, color 0.13s;
 }
 .dock-item svg { width: 25px; height: 25px; }
+/* Rotulo escrito. No computador quem revela o nome e o `::after` no hover;
+   aqui ele so aparece no celular, onde nao ha hover. */
+.dock-rotulo { display: none; }
 .dock-item:hover { background: rgba(255, 255, 255, 0.16); color: #fff; }
 /* Item ativo: pastilha branca sobre a dock azul — inverte o contraste e fica
    inconfundivel sem precisar de outra cor. */
@@ -631,6 +634,72 @@ table.tabela tbody tr:hover td { background: var(--azul-fraco); }
   .numero, .metrica { border-right: none; border-bottom: 1px solid var(--borda); }
   .atencao-linha { grid-template-columns: 44px 1fr; }
   .atencao-linha > :last-child { grid-column: 1 / -1; justify-self: start; }
+}
+
+/* ---------- Celular (<=640px) ----------
+   Aqui o sistema deixa de ser "a mesma tela menor" e vira uso de corredor:
+   menu embaixo, ao alcance do polegar, e alvos de toque de 44px.
+   860px continua sendo o ponto onde a dock deita; este e o ponto onde o
+   telefone assume. */
+@media (max-width: 640px) {
+  /* Menu embaixo: em tela de telefone o topo e onde ficam o entalhe e a barra
+     do navegador, e o polegar nao alcanca. */
+  .dock {
+    position: fixed; top: auto; bottom: 0; left: 0; right: 0;
+    justify-content: space-around; overflow-x: visible;
+    padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
+    border-radius: 0; z-index: 50;
+  }
+  /* A marca sai: no telefone cada pixel do menu e disputado, e ela nao navega
+     para lugar que o papel alcance necessariamente. */
+  .dock-marca { display: none; }
+  .dock-grupo { flex: 1; gap: 2px; min-width: 0; }
+  .dock-item {
+    flex-direction: column; gap: 3px;
+    width: auto; height: auto; min-height: 46px;
+    padding: 5px 4px; border-radius: var(--raio-p);
+  }
+  /* Cada item ocupa a mesma fatia: um rotulo longo ("Responsáveis") nao pode
+     empurrar os outros nem espremer o Sair contra a borda. */
+  .dock-grupo .dock-item { flex: 1 1 0; min-width: 0; }
+  .dock-item svg { width: 21px; height: 21px; flex-shrink: 0; }
+  .dock-rotulo {
+    display: block; font-size: 10px; line-height: 1.1; font-weight: 600;
+    max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  /* Sair fica fora da divisao: largura fixa, so o icone. */
+  .dock-sair { margin-left: 2px; flex: 0 0 auto; width: 46px; }
+  .dock-sair .dock-rotulo { display: none; }
+
+  /* Espaco para o conteudo nao terminar embaixo do menu. */
+  .conteudo { padding: 10px 14px calc(76px + env(safe-area-inset-bottom)); }
+
+  /* Tabela larga rola dentro do proprio cartao, em vez de esticar a pagina.
+     `:has(> .tabela)` limita o recorte aos cartoes que TEM tabela: aplicar em
+     todo `.card-corpo` cortaria a lista suspensa do <Selecao> nos cartoes de
+     formulario. */
+  .card-corpo:has(> .tabela) { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .card-corpo:has(> .tabela) .tabela { min-width: 540px; }
+
+  /* Alvo de toque. 44px e o minimo que a Apple e o WCAG pedem; os botoes de
+     acao das tabelas ficavam em 29px. */
+  .btn-pequeno { min-height: 44px; padding: 6px 12px; }
+  .btn, .selecao-botao, .entrada, input, select, textarea { min-height: 44px; }
+  .tabela td, .tabela th { padding: 10px 12px; }
+
+  /* Filtro vira coluna: lado a lado, cada campo ficava com uns 90px. */
+  .filtros { flex-direction: column; align-items: stretch; gap: 10px; }
+  .filtros .campo, .filtros > .campo.cresce { width: 100%; flex: none; }
+  .filtros .espaco { display: none; }
+
+  /* Modal ocupa a tela e rola por dentro, em vez de estourar para fora.
+     `dvh` e nao `vh`: no Safari do iPhone a barra de endereco entra e sai, e
+     `vh` mede a tela sem ela — o rodape do modal ficava inalcancavel. */
+  .modal-overlay { padding: 10px; align-items: flex-end; }
+  .modal { width: 100%; max-height: calc(100dvh - 20px); overflow-y: auto; padding: 18px; }
+
+  .barra-topo { padding: 12px 14px 0; }
+  h1.titulo-pagina { font-size: 21px; }
 }
 
 /* ---------- Impressao (e assim que o PDF sai) ---------- */

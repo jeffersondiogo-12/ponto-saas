@@ -2,35 +2,26 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
-/**
- * Deixado pelo `logout` quando a sessao caiu sozinha. Quem chega aqui por
- * queda de sessao estava no meio de uma tarefa e merece saber o que houve —
- * sem isso, a tela de login aparece do nada e parece defeito.
- */
-function motivoDaQueda() {
-  try {
-    const motivo = sessionStorage.getItem('ponto_saas_sessao_encerrada');
-    if (motivo) sessionStorage.removeItem('ponto_saas_sessao_encerrada');
-    return motivo;
-  } catch {
-    return null;
-  }
-}
-
 export default function Login() {
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [unidade, setUnidade] = useState('');
   const [erro, setErro] = useState(null);
-  const [aviso, setAviso] = useState(motivoDaQueda);
   const [carregando, setCarregando] = useState(false);
-  const { login } = useAuth();
+  const { login, sessaoEncerrada } = useAuth();
   const navigate = useNavigate();
+
+  /**
+   * Por que o recado mora no contexto e nao aqui: quando a sessao cai numa
+   * tela qualquer, esta tela ainda nem existe — ela e montada pelo redirect
+   * que vem depois. Guardar no `AuthProvider`, que fica acima do roteador,
+   * cobre isso e tambem o caso de a sessao cair com o login ja aberto.
+   */
+  const aviso = sessaoEncerrada;
 
   async function aoEnviar(e) {
     e.preventDefault();
     setErro(null);
-    setAviso(null);
     setCarregando(true);
     try {
       await login(email, senha, unidade);

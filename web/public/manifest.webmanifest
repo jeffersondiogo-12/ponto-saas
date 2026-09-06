@@ -1,0 +1,27 @@
+{
+  "name": "Ponte Escolar",
+  "short_name": "Ponte",
+  "description": "Presença escolar por reconhecimento facial.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "lang": "pt-BR",
+  "dir": "ltr",
+  "background_color": "#e8f0fb",
+  "theme_color": "#1b5fd0",
+  "icons": [
+    {
+      "src": "/icone-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icone-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
