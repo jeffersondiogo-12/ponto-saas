@@ -28,6 +28,8 @@ const ICONES = {
   auditoria: () => svg(['M4 5h16M4 12h10M4 19h6', 'M20.5 19.5L18 17'], <circle cx="16" cy="15" r="3.2" />),
   gestao: () => svg(['M3 20h18M6 20V11M11 20V6M16 20v-7M21 20V9']),
   professor: () => svg(['M3 4h18v11H3zM12 15v5M8 20h8M8 11l2.5-3 2 2.2L16 6.5']),
+  avisos: () => svg(['M3 11v2a1 1 0 0 0 1 1h3l6 4V6L7 10H4a1 1 0 0 0-1 1zM17 9.5a4 4 0 0 1 0 5M7 14v4']),
+  permissoes: () => svg(['M5 11h14a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1zM8 11V7a4 4 0 0 1 8 0v4M12 15v2']),
   sair: () => svg(['M9 21H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h4M16 17l5-5-5-5M21 12H9']),
 };
 
@@ -40,8 +42,15 @@ function ItemDock({ para, icone, rotulo, ativo }) {
   );
 }
 
+/**
+ * `empresaNome` era uma prop que NENHUMA pagina passava, entao a barra do topo
+ * dizia "Nenhuma unidade selecionada" para sempre — mesmo com a unidade
+ * escolhida no login. A informacao ja estava no contexto o tempo todo; a prop
+ * continua aceita so para nao quebrar chamada antiga, mas o contexto e a
+ * fonte de verdade.
+ */
 export default function Layout({ children, empresaNome }) {
-  const { usuario, logout, filialSelecionada } = useAuth();
+  const { usuario, logout, filialSelecionada, empresaSelecionada, pode } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -51,15 +60,24 @@ export default function Layout({ children, empresaNome }) {
   }
 
   const ehAtivo = (caminho) => location.pathname.startsWith(caminho);
+
+  /**
+   * O menu decide por `pode(recurso, acao)`, nao por papel: a matriz mora no
+   * banco, entao ligar ou desligar um acesso virou UPDATE, sem deploy nem
+   * mudanca aqui.
+   *
+   * `ehEscola` continua como filtro ADICIONAL, e nao substitui a permissao:
+   * turma e aluno so existem em unidade do tipo escola, entao mostrar esses
+   * itens numa unidade "empresa" levaria a uma tela sempre vazia. Permissao
+   * responde "voce pode?"; o tipo da unidade responde "faz sentido aqui?".
+   */
   const ehEscola = filialSelecionada && filialSelecionada.tipo === 'escola';
-  const ehGestao = usuario?.papel === 'admin' || usuario?.papel === 'super_admin';
-  const naoEhProfessor = usuario?.papel !== 'professor';
 
   return (
     <div className="shell">
       <aside className="dock" aria-label="Navegação principal">
-        <Link to="/dashboard" className="dock-marca" aria-label="Ponto SaaS">
-          P<span>·</span>
+        <Link to="/dashboard" className="dock-marca" aria-label="Ponte Escolar — ir para a visão geral">
+          <img src="/ponte-escolar.png" alt="" />
         </Link>
 
         <nav className="dock-grupo">
@@ -67,31 +85,45 @@ export default function Layout({ children, empresaNome }) {
           {usuario?.papel === 'professor' && (
             <ItemDock para="/professor" icone="professor" rotulo="Minhas turmas" ativo={ehAtivo('/professor')} />
           )}
-          {/* Gestor acompanha a operacao; admin e super_admin tambem alcancam,
-              porque o backend libera as mesmas rotas para eles. */}
-          {['gestor', 'admin', 'super_admin'].includes(usuario?.papel) && ehEscola && (
+          {pode('turmas', 'ver') && ehEscola && (
             <ItemDock para="/gestao" icone="gestao" rotulo="Gestão" ativo={ehAtivo('/gestao')} />
           )}
-          {ehGestao && (
+          {pode('filiais', 'ver') && (
             <ItemDock para="/unidades" icone="unidades" rotulo="Unidades" ativo={ehAtivo('/unidades')} />
           )}
-          {naoEhProfessor && ehEscola && (
+          {/* Avisos nao exige unidade do tipo escola: um admin no nivel da
+              empresa manda comunicado para todas as unidades de uma vez.
+              O gestor esta fora hoje porque a matriz o desligou (migration
+              20260905000001); religando no banco, o item volta sozinho. */}
+          {pode('avisos', 'ver') && (
+            <ItemDock para="/avisos" icone="avisos" rotulo="Avisos" ativo={ehAtivo('/avisos')} />
+          )}
+          {pode('turmas', 'ver') && ehEscola && (
             <ItemDock para="/turmas" icone="turmas" rotulo="Turmas" ativo={ehAtivo('/turmas')} />
           )}
-          {naoEhProfessor && ehEscola && (
+          {pode('alunos', 'ver') && ehEscola && (
             <ItemDock para="/alunos" icone="alunos" rotulo="Alunos" ativo={ehAtivo('/alunos')} />
           )}
-          {(!filialSelecionada || filialSelecionada.tipo === 'empresa') && (
+          {pode('funcionarios', 'ver') && (!filialSelecionada || filialSelecionada.tipo === 'empresa') && (
             <ItemDock para="/funcionarios" icone="funcionarios" rotulo="Funcionários" ativo={ehAtivo('/funcionarios')} />
           )}
-          <ItemDock para="/dispositivos" icone="dispositivos" rotulo="Dispositivos" ativo={ehAtivo('/dispositivos')} />
-          {naoEhProfessor && ehEscola && (
+          {pode('dispositivos', 'ver') && (
+            <ItemDock para="/dispositivos" icone="dispositivos" rotulo="Dispositivos" ativo={ehAtivo('/dispositivos')} />
+          )}
+          {pode('usuarios', 'ver') && ehEscola && (
             <ItemDock para="/usuarios" icone="usuarios" rotulo="Usuários" ativo={ehAtivo('/usuarios')} />
           )}
           {/* Relatorios saiu da dock: a porta de entrada agora e a secao
               "Relatorios" do Dashboard. A rota /relatorios continua valendo. */}
-          {usuario?.papel === 'super_admin' && (
+          {pode('auditoria', 'ver') && (
             <ItemDock para="/auditoria" icone="auditoria" rotulo="Auditoria" ativo={ehAtivo('/auditoria')} />
+          )}
+          {/* Administrar a matriz nao e um recurso dela — nao existe
+              `permissoes` em `permissoes_papeis`. As cinco rotas de
+              /api/permissoes/* sao restritas a super_admin no proprio backend,
+              entao aqui a checagem e por papel mesmo. */}
+          {usuario?.papel === 'super_admin' && (
+            <ItemDock para="/permissoes" icone="permissoes" rotulo="Permissões" ativo={ehAtivo('/permissoes')} />
           )}
         </nav>
 
@@ -102,7 +134,12 @@ export default function Layout({ children, empresaNome }) {
 
       <div className="main">
         <div className="barra-topo">
-          <span className="unidade-atual">{empresaNome || 'Nenhuma unidade selecionada'}</span>
+          <span className="unidade-atual">
+            {filialSelecionada?.nome || empresaNome || empresaSelecionada?.nome || 'Nenhuma unidade selecionada'}
+            {filialSelecionada?.nome && empresaSelecionada?.nome && (
+              <span className="unidade-empresa"> · {empresaSelecionada.nome}</span>
+            )}
+          </span>
           <span className="quem">{usuario?.nome}{usuario?.papel ? ` · ${usuario.papel}` : ''}</span>
         </div>
         <div className="conteudo">{children}</div>

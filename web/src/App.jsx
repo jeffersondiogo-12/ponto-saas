@@ -20,6 +20,9 @@ import Relatorios from './pages/Relatorios';
 import Auditoria from './pages/Auditoria';
 import ProfessorPainel from './pages/ProfessorPainel';
 import GestorPainel from './pages/GestorPainel';
+import AvisosLista from './pages/AvisosLista';
+import AvisoForm from './pages/AvisoForm';
+import PermissoesLista from './pages/PermissoesLista';
 import SelecionarFilialModal from './components/SelecionarFilialModal';
 import ErrorOverlay from './components/ErrorOverlay';
 import AvisosRealtime from './components/AvisosRealtime';
@@ -60,8 +63,12 @@ export default function App() {
             <Route path="/turmas/nova" element={<RotaProtegida><TurmaForm /></RotaProtegida>} />
             <Route path="/turmas/:id" element={<RotaProtegida><TurmaDetalhe /></RotaProtegida>} />
             <Route path="/turmas/:id/editar" element={<RotaProtegida><TurmaForm /></RotaProtegida>} />
+            <Route path="/avisos" element={<RotaProtegida><AvisosLista /></RotaProtegida>} />
+            <Route path="/avisos/novo" element={<RotaProtegida><AvisoForm /></RotaProtegida>} />
+            <Route path="/avisos/:id/editar" element={<RotaProtegida><AvisoForm /></RotaProtegida>} />
             <Route path="/relatorios" element={<RotaProtegida><Relatorios /></RotaProtegida>} />
             <Route path="/auditoria" element={<RotaProtegida><Auditoria /></RotaProtegida>} />
+            <Route path="/permissoes" element={<RotaProtegida><PermissoesLista /></RotaProtegida>} />
             <Route path="/professor" element={<RotaProtegida><ProfessorPainel /></RotaProtegida>} />
             <Route path="/gestao" element={<RotaProtegida><GestorPainel /></RotaProtegida>} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />

@@ -47,8 +47,14 @@ function classeAcao(acao) {
 }
 
 export default function Auditoria() {
-  const { usuario } = useAuth();
-  const ehSuperAdmin = usuario?.papel === 'super_admin';
+  const { pode } = useAuth();
+  /**
+   * Era `papel === 'super_admin'`, decidido em codigo. Passou para a matriz,
+   * que hoje da `auditoria: ver` tambem a admin e gestor — e e o que o backend
+   * ja permitia em `auditoria.routes.js`. A tela era mais restritiva que o
+   * servidor; agora as duas obedecem a mesma fonte.
+   */
+  const podeVer = pode('auditoria', 'ver');
 
   const hoje = new Date();
   const mes = limitesDoMes(hoje.getFullYear(), hoje.getMonth());
@@ -65,16 +71,26 @@ export default function Auditoria() {
   const set = (campo, valor) => setFiltros((f) => ({ ...f, [campo]: valor }));
 
   useEffect(() => {
-    if (!ehSuperAdmin) return;
+    if (!podeVer) return;
     api.listarUsuarios().then((r) => setUsuarios(r.usuarios || [])).catch(() => {});
-  }, [ehSuperAdmin]);
+  }, [podeVer]);
 
   /**
    * A API devolve { logs, paginacao: { pagina, limite, total, total_paginas } }.
    * Paginamos de verdade em vez de puxar um lote grande: auditoria cresce sem
    * parar, e "os 200 mais recentes" esconderia o resto sem avisar.
    */
-  const buscar = useCallback(async (pagina = 1) => {
+  /**
+   * `pagina` precisa ser numero: o backend valida com `Number.isInteger` e
+   * recusa com 400 "pagina deve ser um numero inteiro positivo".
+   *
+   * Ligar esta funcao direto num `onClick` passa o SyntheticEvent do React
+   * como primeiro argumento, `Number(evento)` vira NaN e toda busca falha —
+   * foi exatamente o que aconteceu. O guarda abaixo torna o erro impossivel
+   * de reintroduzir por descuido; o `onClick` correto e `() => buscar(1)`.
+   */
+  const buscar = useCallback(async (paginaBruta = 1) => {
+    const pagina = Number.isInteger(paginaBruta) && paginaBruta >= 1 ? paginaBruta : 1;
     setCarregando(true);
     setErro(null);
     setAbertoId(null);
@@ -91,7 +107,7 @@ export default function Auditoria() {
     }
   }, [filtros]);
 
-  useEffect(() => { if (ehSuperAdmin) buscar(); }, [ehSuperAdmin]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (podeVer) buscar(); }, [podeVer]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const filtrados = useMemo(() => {
     if (!logs) return null;
@@ -127,7 +143,7 @@ export default function Auditoria() {
     ]);
   }
 
-  if (!ehSuperAdmin) {
+  if (!podeVer) {
     return (
       <Layout>
         <h1 className="titulo-pagina">Auditoria</h1>
@@ -199,7 +215,7 @@ export default function Auditoria() {
             opcoes={[{ valor: '', rotulo: 'Todos' }, ...usuarios.map((u) => ({ valor: u.id, rotulo: u.nome }))]}
           />
         </div>
-        <button type="button" className="btn btn-primario" onClick={buscar} disabled={carregando}>
+        <button type="button" className="btn btn-primario" onClick={() => buscar(1)} disabled={carregando}>
           {carregando ? 'Buscando...' : 'Buscar'}
         </button>
         <div className="espaco" />

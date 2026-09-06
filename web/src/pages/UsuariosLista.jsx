@@ -16,8 +16,10 @@ const CLASSE_PAPEL = {
 };
 
 export default function UsuariosLista() {
-  const { usuario } = useAuth();
-  const podeCadastrar = usuario?.papel === 'admin' || usuario?.papel === 'super_admin';
+  const { pode } = useAuth();
+  // Pela matriz, nao pelo papel: hoje so admin e super_admin tem
+  // `usuarios: adicionar`, mas isso passou a ser linha de banco.
+  const podeCadastrar = pode('usuarios', 'adicionar');
 
   const [usuarios, setUsuarios] = useState([]);
   const [carregando, setCarregando] = useState(true);

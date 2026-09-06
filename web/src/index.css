@@ -103,13 +103,14 @@ a:hover { color: var(--azul); }
 
 .dock-marca {
   width: 48px; height: 48px; flex-shrink: 0; border-radius: 15px;
-  background: rgba(255, 255, 255, 0.16); color: #fff; text-decoration: none;
+  overflow: hidden; text-decoration: none;
   display: flex; align-items: center; justify-content: center;
-  font-family: var(--fonte-titulo); font-size: 23px; font-weight: 600;
-  letter-spacing: -0.03em;
 }
-.dock-marca:hover { background: rgba(255, 255, 255, 0.26); color: #fff; }
-.dock-marca span { opacity: 0.6; }
+.dock-marca img { width: 100%; height: 100%; display: block; }
+/* O quadrado da logo e azul e a dock tambem: um fio branco tenue separa os
+   dois, senao a marca se dissolve no trilho. */
+.dock-marca { box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.28); }
+.dock-marca:hover { box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.55); }
 
 /* Sem overflow aqui: com overflow-y:auto o navegador forca overflow-x para
    auto tambem, e o rotulo que aparece ao lado da dock era recortado. */
@@ -145,11 +146,14 @@ a:hover { color: var(--azul); }
 .dock-item:hover::after, .dock-item:focus-visible::after { opacity: 1; transform: translateY(-50%) translateX(0); }
 
 /* Marca usada na tela de login */
-.marca {
-  font-family: var(--fonte-titulo); font-weight: 600; font-size: 20px;
-  letter-spacing: -0.015em; display: flex; align-items: baseline; gap: 4px;
+/* A marca e a arte oficial em `web/public/ponte-escolar.png`, nunca texto
+   recriado. O PNG nao tem canal alfa e os cantos vem brancos: o
+   `border-radius` aqui e que recorta o quadrado — sem ele, aparece um quadrado
+   branco em volta em qualquer fundo que nao seja branco. */
+.marca { display: flex; justify-content: center; }
+.marca-logo {
+  width: 84px; height: 84px; border-radius: 19px; display: block;
 }
-.marca .ponto-azul { color: var(--azul); }
 
 /* ---------- Area de conteudo ---------- */
 
@@ -163,6 +167,9 @@ a:hover { color: var(--azul); }
   font-weight: 600; color: var(--azul-forte); font-size: 13px;
   background: var(--azul-fraco); padding: 4px 12px; border-radius: 100px;
 }
+/* A empresa vem em segundo plano dentro do mesmo selo: quem opera precisa da
+   unidade em destaque, mas o super_admin troca de empresa e precisa ver qual. */
+.barra-topo .unidade-empresa { font-weight: 400; opacity: .72; }
 .barra-topo .quem { color: var(--tinta-fraca); }
 
 /* Sem teto de largura: o conteudo ocupa a tela toda ate a borda direita. */
@@ -424,6 +431,10 @@ table.tabela tbody tr:hover td { background: var(--azul-fraco); }
 .badge-ativo { background: var(--verde-fraco); color: var(--verde); border-color: transparent; }
 .badge-inativo { background: var(--fundo); color: var(--tinta-fraca); border-color: var(--borda); }
 .badge-info { background: var(--azul-fraco); color: var(--azul-forte); border-color: transparent; }
+/* Aviso agendado ainda nao aconteceu: e pendencia, entao ambar — nunca vermelho. */
+.badge-atencao { background: var(--ambar-fraco); color: var(--ambar); border-color: transparent; }
+.badge-ok { background: var(--verde-fraco); color: var(--verde); border-color: transparent; }
+.badge-neutro { background: var(--fundo); color: var(--tinta-fraca); border-color: var(--borda); }
 
 /* ---------- Numeros do periodo ----------
    Um bloco unico com divisorias internas, em vez de N caixas soltas com gap.
@@ -579,6 +590,22 @@ table.tabela tbody tr:hover td { background: var(--azul-fraco); }
 .risco-orfao h3 { color: var(--ambar); }
 .risco-bloqueia { border-left-color: var(--azul); background: var(--azul-fraco); }
 .risco-bloqueia h3 { color: var(--azul-forte); }
+
+/* Marca de excecao pessoal na matriz de permissoes: um botao que parece rotulo.
+   Ambar porque excecao e atencao — algo que difere do padrao e alguem decidiu
+   de proposito —, nunca vermelho: nao e falha. */
+.btn-vinculo {
+  background: var(--ambar-fraco); color: var(--ambar);
+  border: 0; border-radius: 100px; cursor: pointer;
+  font-size: 10.5px; font-weight: 600; letter-spacing: .02em;
+  padding: 1px 7px; font-family: inherit;
+}
+.btn-vinculo:hover { background: var(--ambar); color: #fff; }
+.btn-vinculo:disabled { opacity: .5; cursor: default; }
+
+/* O `.cresce` so existia dentro de `.linha-form`; nos filtros o campo da
+   pessoa precisa do mesmo comportamento, senao o nome longo fica cortado. */
+.filtros > .campo.cresce { flex: 1 1 280px; }
 
 /* ---------- Responsivo ---------- */
 

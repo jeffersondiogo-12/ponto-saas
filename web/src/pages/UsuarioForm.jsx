@@ -4,6 +4,8 @@ import Layout from '../components/Layout';
 import Selecao from '../components/Selecao';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
+import { PAPEIS } from '../utils/dominio';
+import { papeisCriaveis } from '../utils/permissoes';
 
 export default function UsuarioForm() {
   const { filialSelecionada, empresaSelecionada, usuario } = useAuth();
@@ -12,6 +14,10 @@ export default function UsuarioForm() {
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [papel, setPapel] = useState('professor');
+  // Recortada por quem esta criando: um admin nao cria outro admin, e oferecer
+  // a opcao so renderia 403 no envio. A regra vive em utils/permissoes.js.
+  const permitidos = papeisCriaveis(usuario?.papel);
+  const papeisDisponiveis = PAPEIS.filter((p) => permitidos.includes(p.valor));
   const [filialId, setFilialId] = useState('');
   const [filiais, setFiliais] = useState([]);
   const [carregando, setCarregando] = useState(false);
@@ -92,12 +98,7 @@ export default function UsuarioForm() {
                 rotuloAria="Papel"
                 valor={papel}
                 aoMudar={setPapel}
-                opcoes={[
-                  { valor: 'professor', rotulo: 'Professor' },
-                  { valor: 'gestor', rotulo: 'Gestor' },
-                  { valor: 'rh', rotulo: 'RH' },
-                  { valor: 'admin', rotulo: 'Admin' },
-                ]}
+                opcoes={papeisDisponiveis}
               />
             </div>
             {(usuario?.papel === 'admin' || usuario?.papel === 'super_admin') && (

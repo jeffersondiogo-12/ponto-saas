@@ -26,6 +26,7 @@ export const PAPEIS = [
 
 export const rotuloPapel = (v) => PAPEIS.find((p) => p.valor === v)?.rotulo || v;
 
+
 /**
  * Espelha TIPO_BATIDA_POR_CODIGO de ponto.service.js. O banco guarda o valor
  * cru ('saida_intervalo'), que nao serve para ler em tela.
@@ -39,3 +40,21 @@ export const TIPOS_BATIDA = [
 ];
 
 export const rotuloTipoBatida = (v) => TIPOS_BATIDA.find((t) => t.valor === v)?.rotulo || v || '—';
+
+/**
+ * Status de aviso. Vem PRONTO do backend (`avisos.service.status`) — aqui so
+ * traduzimos para a tela. Nao recalcule a partir de `publicado_em`/`enviado_em`:
+ * a regra tem que morar num lugar so, senao web e app divergem.
+ *
+ * `tom` seleciona a cor pelo territorio do sistema: ambar para o que ainda vai
+ * acontecer (pendencia), verde para o que ja saiu (dado efetivo), cinza para o
+ * que esta fora do ar. Vermelho nao entra: aviso desativado nao e falha.
+ */
+export const STATUS_AVISO = {
+  aguardando_data: { rotulo: 'Aguardando data', tom: 'atencao' },
+  lancado: { rotulo: 'Lançado', tom: 'ok' },
+  desativado: { rotulo: 'Desativado', tom: 'neutro' },
+};
+
+export const rotuloStatusAviso = (v) => STATUS_AVISO[v]?.rotulo || v || '—';
+export const tomStatusAviso = (v) => STATUS_AVISO[v]?.tom || 'neutro';
