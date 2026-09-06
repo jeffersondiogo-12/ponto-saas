@@ -134,9 +134,9 @@ function aplicarEscopoDeGestao(query, empresaId, filialId, modo = 'leitura') {
   });
 }
 
-async function buscarBruto(empresaId, id, filialId = null) {
+async function buscarBruto(empresaId, id, filialId = null, modo = 'leitura') {
   const query = db('avisos_escola as a').select('a.*', 'f.nome as filial_nome', 't.nome as turma_nome').leftJoin('filiais as f', 'f.id', 'a.filial_id').leftJoin('turmas as t', 't.id', 'a.turma_id').where('a.id', id);
-  aplicarEscopoDeGestao(query, empresaId, filialId);
+  aplicarEscopoDeGestao(query, empresaId, filialId, modo);
   const aviso = await query.first();
   if (!aviso) throw new AppError('Aviso nao encontrado.', 404);
   return aviso;
@@ -181,7 +181,7 @@ async function buscar(empresaId, id, filialId = null) {
 }
 
 async function atualizar(empresaId, id, dados, filialId = null) {
-  const atual = await buscarBruto(empresaId, id, filialId);
+  const atual = await buscarBruto(empresaId, id, filialId, 'gestao');
   if (atual.enviado_em) throw new AppError('Aviso ja enviado nao pode ser editado.', 409);
   const possuiAlvoNoCorpo = Array.isArray(dados.alvos) || dados.filial_id !== undefined || dados.turma_id !== undefined;
   const alvosAtuais = possuiAlvoNoCorpo ? [] : await alvosDoAviso(id);
@@ -197,14 +197,14 @@ async function atualizar(empresaId, id, dados, filialId = null) {
 }
 
 async function remover(empresaId, id, filialId = null) {
-  const aviso = await buscarBruto(empresaId, id, filialId);
+  const aviso = await buscarBruto(empresaId, id, filialId, 'gestao');
   if (aviso.enviado_em && aviso.ativo) throw new AppError('Aviso ja enviado precisa ser desativado antes de ser excluido.', 409);
   await db('avisos_escola').where({ id, empresa_id: empresaId }).del();
   publicarEvento('aviso.removido', { empresaId, avisoId: id });
 }
 
 async function definirAtivo(empresaId, id, ativo, filialId = null) {
-  const aviso = await buscarBruto(empresaId, id, filialId);
+  const aviso = await buscarBruto(empresaId, id, filialId, 'gestao');
   const [atualizado] = await db('avisos_escola').where({ id: aviso.id, empresa_id: empresaId }).update({ ativo }).returning('*');
   publicarEvento(ativo ? 'aviso.ativado' : 'aviso.desativado', { empresaId, avisoId: id });
   return enriquecer(atualizado);
