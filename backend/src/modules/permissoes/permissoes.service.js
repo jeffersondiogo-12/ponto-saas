@@ -100,7 +100,7 @@ function listarAlcanceRecursos() {
  */
 async function buscarUsuarioDaEmpresa(usuarioId, empresaId) {
   const usuario = await db('usuarios')
-    .select('id', 'papel', 'empresa_id')
+    .select('id', 'papel', 'empresa_id', 'filial_id')
     .where({ id: usuarioId, empresa_id: empresaId })
     .first();
 
@@ -192,9 +192,11 @@ async function definirPermissaoPapel({ empresaId, filialId, atribuicaoId, papel,
  * personalizado, e poder mostrar isso de forma diferente (ex: com um botao
  * "remover excecao").
  */
-async function listarEfetivoPorUsuario(usuarioId, empresaId, filialId = null) {
+async function listarEfetivoPorUsuario(usuarioId, empresaId, filialId = null, usarFilialDoUsuario = false) {
   const usuario = await buscarUsuarioDaEmpresa(usuarioId, empresaId);
-  const filialContexto = filialId || usuario.filial_id || null;
+  const filialContexto = usarFilialDoUsuario
+    ? usuario.filial_id || null
+    : filialId || usuario.filial_id || null;
 
   const atribuicoes = await db('turma_professores')
     .where({ empresa_id: empresaId, professor_id: usuario.id, ativo: true })
@@ -335,7 +337,7 @@ async function removerOverrideUsuario({ usuarioId, empresaId, filialId, atribuic
  * pra alimentar o proprio menu do usuario logado sem quebrar contrato.
  */
 async function listarEfetivoAgrupado(usuarioId, empresaId, filialId = null) {
-  const efetivo = await listarEfetivoPorUsuario(usuarioId, empresaId, filialId);
+  const efetivo = await listarEfetivoPorUsuario(usuarioId, empresaId, filialId, false);
 
   const agrupadas = new Map();
   for (const linha of efetivo) {

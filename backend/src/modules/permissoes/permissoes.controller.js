@@ -46,7 +46,7 @@ async function definirPermissaoPapel(req, res, next) {
 async function listarEfetivoPorUsuario(req, res, next) {
   try {
     const { usuarioId } = req.params;
-    const permissoes = await permissoesService.listarEfetivoPorUsuario(usuarioId, req.empresaId, req.filialId);
+    const permissoes = await permissoesService.listarEfetivoPorUsuario(usuarioId, req.empresaId, req.filialId, true);
     res.json({ permissoes });
   } catch (err) {
     next(err);
