@@ -91,6 +91,18 @@ async function requisitar(caminho, { method = 'GET', body } = {}) {
     if (resposta.status === 401 && token) {
       window.dispatchEvent(new CustomEvent('sessao-encerrada'));
     }
+
+    /**
+     * 403 significa que o servidor discorda do que esta tela ofereceu — ou a
+     * permissao mudou, ou o cargo mudou. A matriz daqui e cache; sem isso o
+     * menu continua oferecendo o mesmo botao ate a pessoa sair e entrar.
+     *
+     * So avisa: quem exibe a mensagem continua sendo a tela, que sabe o que a
+     * pessoa estava tentando fazer.
+     */
+    if (resposta.status === 403 && token) {
+      window.dispatchEvent(new CustomEvent('permissao-negada'));
+    }
     // Carrega o status no erro: quem chama precisa distinguir "rota nao existe"
     // (404) de "o servidor recusou" sem depender do texto da mensagem.
     const erro = new Error(dados.erro || `Erro ${resposta.status}`);

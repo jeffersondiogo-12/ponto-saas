@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import {
   api,
   salvarToken,
@@ -157,37 +157,62 @@ export function AuthProvider({ children }) {
    * consultar a escola errada. Quem manda na empresa selecionada e o estado
    * daqui.
    *
-   * Roda uma vez, na abertura. Nao vale sondar de tempos em tempos: cada
-   * requisicao ja custa consulta ao banco na revalidacao do servidor, e um
-   * 403 inesperado ja e o aviso natural de que algo mudou.
+   * Nao vale sondar de tempos em tempos: cada requisicao ja custa consulta ao
+   * banco na revalidacao do servidor. Os gatilhos sao a abertura e o 403
+   * inesperado, que e o aviso natural de que algo mudou.
    */
-  useEffect(() => {
+  const sincronizarUsuario = useCallback(async () => {
     if (!obterToken()) return;
-    let ativo = true;
-    api.obterUsuarioAtual()
-      .then(({ usuario: atual }) => {
-        if (!ativo || !atual) return;
-        setUsuario((anterior) => {
-          if (!anterior) return anterior;
-          const mudou = ['papel', 'nome', 'email']
-            .some((campo) => atual[campo] !== undefined && atual[campo] !== anterior[campo]);
-          if (!mudou) return anterior;
-          const atualizado = {
-            ...anterior,
-            papel: atual.papel ?? anterior.papel,
-            nome: atual.nome ?? anterior.nome,
-            email: atual.email ?? anterior.email,
-          };
-          localStorage.setItem('ponto_saas_usuario', JSON.stringify(atualizado));
-          return atualizado;
-        });
-      })
-      .catch(() => {
-        // Rede fora ou rota ausente: segue com o que o login guardou. O 401,
-        // se for o caso, ja derruba pelo evento de sessao encerrada.
+    try {
+      const { usuario: atual } = await api.obterUsuarioAtual();
+      if (!atual) return;
+      setUsuario((anterior) => {
+        if (!anterior) return anterior;
+        const mudou = ['papel', 'nome', 'email']
+          .some((campo) => atual[campo] !== undefined && atual[campo] !== anterior[campo]);
+        if (!mudou) return anterior;
+        const atualizado = {
+          ...anterior,
+          papel: atual.papel ?? anterior.papel,
+          nome: atual.nome ?? anterior.nome,
+          email: atual.email ?? anterior.email,
+        };
+        localStorage.setItem('ponto_saas_usuario', JSON.stringify(atualizado));
+        return atualizado;
       });
-    return () => { ativo = false; };
+    } catch {
+      // Rede fora ou rota ausente: segue com o que o login guardou. O 401,
+      // se for o caso, ja derruba pelo evento de sessao encerrada.
+    }
   }, []);
+
+  useEffect(() => { sincronizarUsuario(); }, [sincronizarUsuario]);
+
+  /**
+   * 403 inesperado: o servidor recusou algo que esta tela ofereceu. Ou a
+   * permissao mudou, ou o cargo mudou — nos dois casos a copia daqui esta
+   * velha e o menu continuaria oferecendo o mesmo botao.
+   *
+   * A tela que fez a chamada segue mostrando a propria mensagem; aqui so
+   * corrigimos a navegacao.
+   *
+   * O intervalo minimo evita a volta: se a propria releitura levar 403, o
+   * evento dispara de novo e sem o freio isso viraria laco. Tambem segura a
+   * enxurrada de uma tela que dispara varias chamadas em paralelo.
+   */
+  const ultimaRevalidacao = useRef(0);
+  useEffect(() => {
+    const aoNegar = () => {
+      const agora = Date.now();
+      if (agora - ultimaRevalidacao.current < 15000) return;
+      ultimaRevalidacao.current = agora;
+      carregarPermissoes();
+      sincronizarUsuario();
+    };
+    window.addEventListener('permissao-negada', aoNegar);
+    return () => window.removeEventListener('permissao-negada', aoNegar);
+  }, [carregarPermissoes, sincronizarUsuario]);
+
 
   /** `pode('alunos', 'deletar')` — a pergunta que as telas fazem. */
   const pode = useCallback(
