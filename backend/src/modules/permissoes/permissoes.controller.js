@@ -5,7 +5,7 @@ async function listar(req, res, next) {
     // super_admin bypassa toda checagem de permissao (ve tudo, sempre) e nao
     // tem empresa fixa - continua pelo caminho antigo, so por papel.
     const permissoes = req.usuario.papel === 'super_admin'
-      ? await permissoesService.listarPorPapel(req.usuario.papel)
+      ? await permissoesService.listarPorPapel(req.usuario.papel, req.empresaId)
       : await permissoesService.listarEfetivoAgrupado(req.usuario.usuario_id, req.empresaId);
 
     res.json({ permissoes });
@@ -16,7 +16,7 @@ async function listar(req, res, next) {
 
 async function listarMatrizPapeis(req, res, next) {
   try {
-    const matriz = await permissoesService.listarMatrizPapeis();
+    const matriz = await permissoesService.listarMatrizPapeis(req.empresaId);
     res.json({ permissoes: matriz });
   } catch (err) {
     next(err);
@@ -27,7 +27,15 @@ async function definirPermissaoPapel(req, res, next) {
   try {
     const { papel } = req.params;
     const { recurso, acao, permitido } = req.body;
-    await permissoesService.definirPermissaoPapel({ papel, recurso, acao, permitido });
+    await permissoesService.definirPermissaoPapel({
+      empresaId: req.empresaId,
+      filialId: req.body.filial_id,
+      atribuicaoId: req.body.atribuicao_id,
+      papel,
+      recurso,
+      acao,
+      permitido,
+    });
     res.status(204).end();
   } catch (err) {
     next(err);
@@ -51,6 +59,8 @@ async function definirOverrideUsuario(req, res, next) {
     await permissoesService.definirOverrideUsuario({
       usuarioId,
       empresaId: req.empresaId,
+      filialId: req.body.filial_id,
+      atribuicaoId: req.body.atribuicao_id,
       recurso,
       acao,
       permitido,
@@ -68,6 +78,8 @@ async function removerOverrideUsuario(req, res, next) {
     await permissoesService.removerOverrideUsuario({
       usuarioId,
       empresaId: req.empresaId,
+      filialId: req.body.filial_id,
+      atribuicaoId: req.body.atribuicao_id,
       recurso,
       acao,
     });

@@ -21,6 +21,32 @@ const RECURSOS = new Set([
 ]);
 const PAPEIS_GESTAO_AVISOS = new Set(['admin', 'gestor', 'super_admin']);
 
+async function validarEscopo({ empresaId, filialId = null, atribuicaoId = null, papel = null, usuarioId = null }) {
+  if (!empresaId) throw new AppError('Empresa e obrigatoria para configurar permissao.', 400);
+
+  if (filialId) {
+    const filial = await db('filiais').where({ id: filialId, empresa_id: empresaId }).first('id');
+    if (!filial) throw new AppError('Filial nao pertence a empresa informada.', 400);
+  }
+
+  if (atribuicaoId) {
+    const atribuicao = await db('turma_professores as tp')
+      .join('turmas as t', 't.id', 'tp.turma_id')
+      .where({ 'tp.id': atribuicaoId, 'tp.empresa_id': empresaId, 't.empresa_id': empresaId })
+      .first('tp.id', 't.filial_id', 'tp.professor_id');
+    if (!atribuicao) throw new AppError('Atribuicao nao pertence a empresa informada.', 400);
+    if (filialId && String(atribuicao.filial_id) !== String(filialId)) {
+      throw new AppError('Atribuicao nao pertence a filial informada.', 400);
+    }
+    if (papel && papel !== 'professor') {
+      throw new AppError('Atribuicao so pode ser usada com o papel professor.', 400);
+    }
+    if (usuarioId && String(atribuicao.professor_id) !== String(usuarioId)) {
+      throw new AppError('Atribuicao nao pertence ao usuario informado.', 400);
+    }
+  }
+}
+
 function validarPermissao({ papel, recurso, acao, permitido }) {
   if (!PAPEIS.includes(papel)) {
     throw new AppError(`Papel invalido: ${papel}.`, 400);
@@ -60,12 +86,13 @@ async function buscarUsuarioDaEmpresa(usuarioId, empresaId) {
   return usuario;
 }
 
-async function listarPorPapel(papel) {
+async function listarPorPapel(papel, empresaId) {
   const consulta = db('permissoes_papeis')
     .select('recurso', 'acao')
     .where({ permitido: true });
 
   if (papel !== 'super_admin') consulta.where({ papel });
+  if (empresaId) consulta.where({ empresa_id: empresaId });
 
   const linhas = await consulta.orderBy('recurso');
 
@@ -91,9 +118,10 @@ async function listarPorPapel(papel) {
  * Matriz completa: toda linha de permissoes_papeis, pra montar a tela geral
  * do super_admin (uma tabela cargo x recurso x acao com checkboxes).
  */
-async function listarMatrizPapeis() {
+async function listarMatrizPapeis(empresaId) {
   return db('permissoes_papeis')
-    .select('papel', 'recurso', 'acao', 'permitido')
+    .select('empresa_id', 'filial_id', 'atribuicao_id', 'papel', 'recurso', 'acao', 'permitido')
+    .where({ empresa_id: empresaId })
     .where(function recursosAplicaveis() {
       this.whereNot('recurso', 'avisos').orWhereIn('papel', [...PAPEIS_GESTAO_AVISOS]);
     })
@@ -105,13 +133,19 @@ async function listarMatrizPapeis() {
  * combinacao papel+recurso+acao ja e unica na tabela - se a tela mandar uma
  * combinacao que ainda nao existe, cria; se ja existe, so atualiza o valor.
  */
-async function definirPermissaoPapel({ papel, recurso, acao, permitido }) {
+async function definirPermissaoPapel({ empresaId, filialId, atribuicaoId, papel, recurso, acao, permitido }) {
   validarPermissao({ papel, recurso, acao, permitido });
+  await validarEscopo({ empresaId, filialId, atribuicaoId, papel });
 
-  await db('permissoes_papeis')
-    .insert({ papel, recurso, acao, permitido })
-    .onConflict(['papel', 'recurso', 'acao'])
-    .merge(['permitido']);
+  const query = db('permissoes_papeis').where({ empresa_id: empresaId, papel, recurso, acao });
+  filialId ? query.where({ filial_id: filialId }) : query.whereNull('filial_id');
+  atribuicaoId ? query.where({ atribuicao_id: atribuicaoId }) : query.whereNull('atribuicao_id');
+  const existente = await query.first('id');
+  if (existente) {
+    await db('permissoes_papeis').where({ id: existente.id }).update({ permitido });
+  } else {
+    await db('permissoes_papeis').insert({ empresa_id: empresaId, filial_id: filialId || null, atribuicao_id: atribuicaoId || null, papel, recurso, acao, permitido });
+  }
 }
 
 /**
@@ -124,38 +158,62 @@ async function definirPermissaoPapel({ papel, recurso, acao, permitido }) {
 async function listarEfetivoPorUsuario(usuarioId, empresaId) {
   const usuario = await buscarUsuarioDaEmpresa(usuarioId, empresaId);
 
+  const atribuicoes = await db('turma_professores')
+    .where({ empresa_id: empresaId, professor_id: usuario.id, ativo: true })
+    .pluck('id');
+
   const [padrao, excecoes] = await Promise.all([
-    db('permissoes_papeis').select('recurso', 'acao', 'permitido').where({ papel: usuario.papel }),
-    db('permissoes_usuarios').select('recurso', 'acao', 'permitido').where({ usuario_id: usuarioId }),
+    db('permissoes_papeis')
+      .select('recurso', 'acao', 'permitido', 'filial_id', 'atribuicao_id')
+      .where({ empresa_id: empresaId, papel: usuario.papel })
+      .andWhere((scope) => scope.whereNull('filial_id').orWhere('filial_id', usuario.filial_id || null))
+      .andWhere((scope) => scope.whereNull('atribuicao_id').orWhereIn('atribuicao_id', atribuicoes)),
+    db('permissoes_usuarios')
+      .select('recurso', 'acao', 'permitido', 'filial_id', 'atribuicao_id')
+      .where({ empresa_id: empresaId, usuario_id: usuarioId })
+      .andWhere((scope) => scope.whereNull('filial_id').orWhere('filial_id', usuario.filial_id || null))
+      .andWhere((scope) => scope.whereNull('atribuicao_id').orWhereIn('atribuicao_id', atribuicoes)),
   ]);
 
   const efetivo = new Map();
   for (const linha of padrao) {
     if (!recursoAplicavelAoPapel(usuario.papel, linha.recurso)) continue;
-    efetivo.set(`${linha.recurso}:${linha.acao}`, {
+    const chave = `${linha.recurso}:${linha.acao}`;
+    const especificidade = (linha.filial_id ? 10 : 0) + (linha.atribuicao_id ? 20 : 0);
+    const atual = efetivo.get(chave);
+    if (atual && atual.especificidade >= especificidade) continue;
+    efetivo.set(chave, {
       recurso: linha.recurso,
       acao: linha.acao,
       permitido: linha.permitido,
       origem: 'cargo',
+      especificidade,
     });
   }
   for (const linha of excecoes) {
     if (!recursoAplicavelAoPapel(usuario.papel, linha.recurso)) continue;
-    efetivo.set(`${linha.recurso}:${linha.acao}`, {
+    const chave = `${linha.recurso}:${linha.acao}`;
+    const especificidade = 100 + (linha.filial_id ? 10 : 0) + (linha.atribuicao_id ? 20 : 0);
+    const atual = efetivo.get(chave);
+    if (atual && atual.especificidade >= especificidade) continue;
+    efetivo.set(chave, {
       recurso: linha.recurso,
       acao: linha.acao,
       permitido: linha.permitido,
       origem: 'pessoal',
+      especificidade,
     });
   }
 
-  return [...efetivo.values()].sort((a, b) => a.recurso.localeCompare(b.recurso));
+  return [...efetivo.values()]
+    .map(({ especificidade, ...linha }) => linha)
+    .sort((a, b) => a.recurso.localeCompare(b.recurso));
 }
 
 /**
  * Cria/atualiza a excecao pessoal de um usuario pra um recurso+acao.
  */
-async function definirOverrideUsuario({ usuarioId, empresaId, recurso, acao, permitido }) {
+async function definirOverrideUsuario({ usuarioId, empresaId, filialId, atribuicaoId, recurso, acao, permitido }) {
   if (!RECURSOS.has(recurso)) {
     throw new AppError(`Recurso invalido: ${recurso}.`, 400);
   }
@@ -169,18 +227,24 @@ async function definirOverrideUsuario({ usuarioId, empresaId, recurso, acao, per
   if (!recursoAplicavelAoPapel(usuario.papel, recurso)) {
     throw new AppError(`O papel ${usuario.papel} nao pode administrar avisos.`, 400);
   }
+  await validarEscopo({ empresaId, filialId, atribuicaoId, papel: usuario.papel, usuarioId });
 
-  await db('permissoes_usuarios')
-    .insert({ usuario_id: usuarioId, recurso, acao, permitido })
-    .onConflict(['usuario_id', 'recurso', 'acao'])
-    .merge(['permitido']);
+  const query = db('permissoes_usuarios').where({ empresa_id: empresaId, usuario_id: usuarioId, recurso, acao });
+  filialId ? query.where({ filial_id: filialId }) : query.whereNull('filial_id');
+  atribuicaoId ? query.where({ atribuicao_id: atribuicaoId }) : query.whereNull('atribuicao_id');
+  const existente = await query.first('id');
+  if (existente) {
+    await db('permissoes_usuarios').where({ id: existente.id }).update({ permitido });
+  } else {
+    await db('permissoes_usuarios').insert({ empresa_id: empresaId, usuario_id: usuarioId, filial_id: filialId || null, atribuicao_id: atribuicaoId || null, recurso, acao, permitido });
+  }
 }
 
 /**
  * Remove a excecao pessoal - o usuario volta a seguir o padrao do cargo
  * dele nesse recurso+acao.
  */
-async function removerOverrideUsuario({ usuarioId, empresaId, recurso, acao }) {
+async function removerOverrideUsuario({ usuarioId, empresaId, filialId, atribuicaoId, recurso, acao }) {
   if (!RECURSOS.has(recurso)) {
     throw new AppError(`Recurso invalido: ${recurso}.`, 400);
   }
@@ -188,7 +252,15 @@ async function removerOverrideUsuario({ usuarioId, empresaId, recurso, acao }) {
     throw new AppError(`Acao invalida: ${acao}.`, 400);
   }
   await buscarUsuarioDaEmpresa(usuarioId, empresaId);
-  await db('permissoes_usuarios').where({ usuario_id: usuarioId, recurso, acao }).del();
+  await validarEscopo({ empresaId, filialId, atribuicaoId, usuarioId });
+  await db('permissoes_usuarios').where({
+    empresa_id: empresaId,
+    usuario_id: usuarioId,
+    filial_id: filialId || null,
+    atribuicao_id: atribuicaoId || null,
+    recurso,
+    acao,
+  }).del();
 }
 
 /**
@@ -216,12 +288,18 @@ async function listarEfetivoAgrupado(usuarioId, empresaId) {
     .filter((item) => item.acoes.length > 0);
 }
 
+async function usuarioTemPermissao(usuarioId, empresaId, recurso, acao) {
+  const permissoes = await listarEfetivoPorUsuario(usuarioId, empresaId);
+  return permissoes.some((linha) => linha.recurso === recurso && linha.acao === acao && linha.permitido);
+}
+
 module.exports = {
   listarPorPapel,
   listarMatrizPapeis,
   definirPermissaoPapel,
   listarEfetivoPorUsuario,
   listarEfetivoAgrupado,
+  usuarioTemPermissao,
   definirOverrideUsuario,
   removerOverrideUsuario,
 };

@@ -78,7 +78,7 @@ async function enriquecer(aviso) {
   return { ...aviso, status: status(aviso), alvos: alvos.length ? alvos : (aviso.filial_id || aviso.turma_id ? [{ filial_id: aviso.filial_id, turma_id: aviso.turma_id }] : []), total_leram: Number(leituras?.total || 0), total_destinatarios: total.length };
 }
 
-function aplicarEscopoDeGestao(query, empresaId, filialId) {
+function aplicarEscopoDeGestao(query, empresaId, filialId, modo = 'leitura') {
   query.where('a.empresa_id', empresaId);
   if (!filialId) return;
 
@@ -98,6 +98,29 @@ function aplicarEscopoDeGestao(query, empresaId, filialId) {
         });
       });
     });
+
+  const alvoNaFilial = db('aviso_alvos as aa')
+    .leftJoin('turmas as t_scope', 't_scope.id', 'aa.turma_id')
+    .select(db.raw('1'))
+    .whereRaw('aa.aviso_id = a.id')
+    .andWhere(function alvoCompativel() {
+      this.where('aa.filial_id', filialId)
+        .orWhere(function turmaCompativel() {
+          this.whereNotNull('aa.turma_id').andWhere('t_scope.filial_id', filialId);
+        });
+    });
+
+  if (modo === 'leitura') {
+    query.andWhere(function escopoLeitura() {
+      this.where(function legado() {
+        this.whereNotExists(subconsultaAlvos())
+          .andWhere(function alvoLegado() {
+            this.whereNull('a.filial_id').orWhere('a.filial_id', filialId);
+          });
+      }).orWhereExists(alvoNaFilial);
+    });
+    return;
+  }
 
   query.andWhere(function escopo() {
     this.where(function legado() {
@@ -144,7 +167,18 @@ async function listar(empresaId, filialId = null) {
   return Promise.all((await query).map(enriquecer));
 }
 
-async function buscar(empresaId, id, filialId = null) { return enriquecer(await buscarBruto(empresaId, id, filialId)); }
+async function buscar(empresaId, id, filialId = null) {
+  const query = db('avisos_escola as a')
+    .select('a.*', 'f.nome as filial_nome', 't.nome as turma_nome')
+    .leftJoin('filiais as f', 'f.id', 'a.filial_id')
+    .leftJoin('turmas as t', 't.id', 'a.turma_id')
+    .where('a.id', id);
+  aplicarEscopoDeGestao(query, empresaId, filialId, 'leitura');
+  return enriquecer(await query.first().then((aviso) => {
+    if (!aviso) throw new AppError('Aviso nao encontrado.', 404);
+    return aviso;
+  }));
+}
 
 async function atualizar(empresaId, id, dados, filialId = null) {
   const atual = await buscarBruto(empresaId, id, filialId);
