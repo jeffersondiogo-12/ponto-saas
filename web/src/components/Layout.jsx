@@ -1,6 +1,6 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { itensVisiveis, useCelular } from '../utils/navegacao';
+import { itensVisiveis, operaEmEscola, useCelular } from '../utils/navegacao';
 
 /**
  * Icones em SVG inline. Sao 9 icones de traco simples — nao vale puxar uma
@@ -72,11 +72,10 @@ export default function Layout({ children, empresaNome }) {
    * mudanca aqui.
    *
    * `ehEscola` continua como filtro ADICIONAL, e nao substitui a permissao:
-   * turma e aluno so existem em unidade do tipo escola, entao mostrar esses
-   * itens numa unidade "empresa" levaria a uma tela sempre vazia. Permissao
-   * responde "voce pode?"; o tipo da unidade responde "faz sentido aqui?".
+   * turma e aluno so existem em unidade do tipo escola. Permissao responde
+   * "voce pode?"; o tipo da unidade responde "faz sentido aqui?".
    */
-  const ehEscola = filialSelecionada && filialSelecionada.tipo === 'escola';
+  const ehEscola = operaEmEscola(usuario, filialSelecionada);
 
   /**
    * As condicoes de cada item vivem em `utils/navegacao.js`, junto com a lista

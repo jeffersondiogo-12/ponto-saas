@@ -1,6 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { permitidoNoCelular, telaInicialNoCelular, useCelular } from './utils/navegacao';
+import { operaEmEscola, permitidoNoCelular, telaInicialNoCelular, useCelular } from './utils/navegacao';
 import { RealtimeProvider } from './context/RealtimeContext';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
@@ -65,7 +65,7 @@ function RotaProtegida({ children }) {
    */
   if (permitidoNoCelular(usuario.papel, pathname)) return children;
 
-  const ehEscola = filialSelecionada && filialSelecionada.tipo === 'escola';
+  const ehEscola = operaEmEscola(usuario, filialSelecionada);
   const destino = telaInicialNoCelular({ usuario, pode, filialSelecionada, ehEscola });
   if (!destino) return <ForaDoCelular nome={usuario.nome?.split(' ')[0]} />;
   return <Navigate to={destino} replace />;

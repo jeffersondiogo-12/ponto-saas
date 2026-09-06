@@ -130,6 +130,38 @@ const TELAS_CELULAR = {
  */
 const SEMPRE_ALCANCAVEIS = ['/login', '/selecionar-empresa'];
 
+/**
+ * A pessoa opera dentro de uma escola? Turma e aluno so existem em unidade
+ * desse tipo, entao os itens que dependem disso ficariam levando a uma tela
+ * sempre vazia.
+ *
+ * **Duas formas de estar numa escola, e a segunda faltava.** Ou a unidade foi
+ * escolhida na tela, ou ela e FIXA NA CONTA (`usuario.filial_id`) — que e o
+ * caso do gestor.
+ *
+ * Antes so a primeira contava, e o gestor ficava de fora das duas maneiras:
+ *
+ * 1. o login nunca devolve filial. `localizarUnidade` roda sem empresa, cai na
+ *    busca global e consulta so a tabela `empresas` — `montarFilialSelecionada`
+ *    devolve `null` para todo mundo;
+ * 2. o `SelecionarFilialModal`, que resolveria isso, lista as unidades da
+ *    empresa, e listar exige `filiais:ver`. O gestor nao tem: toma 403, o
+ *    `catch` e silencioso e o modal nunca abre.
+ *
+ * Com as duas somadas, o gestor ficava com `ehEscola` falso para sempre e via
+ * so Avisos, o unico item do menu que nao depende disto.
+ *
+ * Nao ha como o front descobrir o TIPO dessa unidade fixa — ler `/api/filiais/:id`
+ * tambem exige `filiais:ver`. Aqui vale o que o modelo do produto diz: quem tem
+ * unidade fixa e gestor, e gestor e o papel da escola. O servidor escopa tudo
+ * por `usuario.filial_id` de qualquer forma, entao o conserto certo e o login
+ * devolver essa filial — registrado na secao 7 do CLAUDE.md.
+ */
+export function operaEmEscola(usuario, filialSelecionada) {
+  if (filialSelecionada) return filialSelecionada.tipo === 'escola';
+  return Boolean(usuario?.filial_id);
+}
+
 /** Verdadeiro quando a janela esta na faixa de celular. */
 export function useCelular() {
   const [celular, setCelular] = useState(

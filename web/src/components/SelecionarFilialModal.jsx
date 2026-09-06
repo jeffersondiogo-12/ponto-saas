@@ -26,23 +26,22 @@ export default function SelecionarFilialModal() {
         // RH não precisa escolher filial — mantemos aberto=false
         return;
       }
-      if (papel === 'staff') {
-        // Staff (gestor): se tiver filial vinculada, tentamos auto-selecionar
-        if (usuario?.filial_id) {
-          try {
-            const r = await api.buscarUnidade(usuario.filial_id);
-            const f = r.filial || r.unidade || r;
-            if (f && String(f.empresa_id) === String(empresaSelecionada.id) && f.tipo === 'escola') {
-              selecionarFilial({ id: f.id, nome: f.nome || f.cnpj || 'Filial', tipo: f.tipo || 'escola' });
-              return;
-            }
-            // se nao encontrou filial compatível, deixamos o fluxo cair e buscar filiais da empresa
-            setMensagem('Não foi possível localizar sua filial vinculada neste ambiente. Selecione manualmente abaixo.');
-          } catch (e) {
-            setMensagem('Não foi possível verificar sua filial vinculada. Selecione manualmente abaixo.');
-          }
-        }
-      }
+      /**
+       * Quem já tem unidade FIXA na conta não escolhe nada — é o caso do
+       * gestor. O servidor escopa tudo por `usuario.filial_id`, e o menu
+       * reconhece isso pelo `operaEmEscola`.
+       *
+       * Sair aqui evita dois 403 garantidos: ler a própria unidade
+       * (`GET /api/filiais/:id`) e listar as da empresa (`GET /api/filiais`)
+       * exigem `filiais:ver`, que o gestor não tem. Antes o código tentava as
+       * duas, o `catch` engolia o erro e o modal nunca abria — a pessoa ficava
+       * sem unidade selecionada para sempre, e o menu perdia Alunos, Turmas e
+       * Gestão sem dizer por quê.
+       *
+       * (O ramo antigo comparava `papel === 'staff'`. `'staff'` é o TIPO do
+       * token, nunca um papel, então ele nunca rodou.)
+       */
+      if (usuario?.filial_id) return;
       setCarregando(true);
       try {
         const res = await api.listarUnidades();
