@@ -78,9 +78,42 @@ async function enriquecer(aviso) {
   return { ...aviso, status: status(aviso), alvos: alvos.length ? alvos : (aviso.filial_id || aviso.turma_id ? [{ filial_id: aviso.filial_id, turma_id: aviso.turma_id }] : []), total_leram: Number(leituras?.total || 0), total_destinatarios: total.length };
 }
 
+function aplicarEscopoDeGestao(query, empresaId, filialId) {
+  query.where('a.empresa_id', empresaId);
+  if (!filialId) return;
+
+  const subconsultaAlvos = () => db('aviso_alvos as aa')
+    .select(db.raw('1'))
+    .whereRaw('aa.aviso_id = a.id');
+  const alvosForaDaFilial = db('aviso_alvos as aa')
+    .leftJoin('turmas as t_scope', 't_scope.id', 'aa.turma_id')
+    .select(db.raw('1'))
+    .whereRaw('aa.aviso_id = a.id')
+    .andWhere(function foraDaFilial() {
+      this.where(function alvoFilial() {
+        this.whereNotNull('aa.filial_id').andWhereNot('aa.filial_id', filialId);
+      }).orWhere(function alvoTurma() {
+        this.whereNotNull('aa.turma_id').andWhere(function turmaFora() {
+          this.whereNull('t_scope.id').orWhere('t_scope.filial_id', '<>', filialId);
+        });
+      });
+    });
+
+  query.andWhere(function escopo() {
+    this.where(function legado() {
+      this.whereNotExists(subconsultaAlvos())
+        .andWhere(function alvoLegado() {
+          this.whereNull('a.filial_id').orWhere('a.filial_id', filialId);
+        });
+    }).orWhere(function multiAlvo() {
+      this.whereExists(subconsultaAlvos()).andWhereNotExists(alvosForaDaFilial);
+    });
+  });
+}
+
 async function buscarBruto(empresaId, id, filialId = null) {
-  const query = db('avisos_escola as a').select('a.*', 'f.nome as filial_nome', 't.nome as turma_nome').leftJoin('filiais as f', 'f.id', 'a.filial_id').leftJoin('turmas as t', 't.id', 'a.turma_id').where({ 'a.id': id, 'a.empresa_id': empresaId });
-  if (filialId) query.where((scope) => scope.where('a.filial_id', filialId).orWhereNull('a.filial_id'));
+  const query = db('avisos_escola as a').select('a.*', 'f.nome as filial_nome', 't.nome as turma_nome').leftJoin('filiais as f', 'f.id', 'a.filial_id').leftJoin('turmas as t', 't.id', 'a.turma_id').where('a.id', id);
+  aplicarEscopoDeGestao(query, empresaId, filialId);
   const aviso = await query.first();
   if (!aviso) throw new AppError('Aviso nao encontrado.', 404);
   return aviso;
@@ -106,8 +139,8 @@ async function criar(empresaId, dados, filialId = null) {
 }
 
 async function listar(empresaId, filialId = null) {
-  const query = db('avisos_escola as a').select('a.*', 'f.nome as filial_nome', 't.nome as turma_nome').leftJoin('filiais as f', 'f.id', 'a.filial_id').leftJoin('turmas as t', 't.id', 'a.turma_id').where('a.empresa_id', empresaId).orderBy('a.publicado_em', 'desc');
-  if (filialId) query.where((scope) => scope.where('a.filial_id', filialId).orWhereNull('a.filial_id'));
+  const query = db('avisos_escola as a').select('a.*', 'f.nome as filial_nome', 't.nome as turma_nome').leftJoin('filiais as f', 'f.id', 'a.filial_id').leftJoin('turmas as t', 't.id', 'a.turma_id').orderBy('a.publicado_em', 'desc');
+  aplicarEscopoDeGestao(query, empresaId, filialId);
   return Promise.all((await query).map(enriquecer));
 }
 

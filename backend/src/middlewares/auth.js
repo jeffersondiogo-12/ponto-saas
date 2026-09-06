@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const db = require('../config/db');
 
 /**
  * Exige um token JWT valido via header Authorization: Bearer <token>.
@@ -8,7 +9,7 @@ const jwt = require('jsonwebtoken');
  * Preenche req.usuario com o payload do token (formato varia por `tipo`:
  * 'staff' tem empresa_id/papel/filial_id; 'responsavel' tem alunoIds).
  */
-function autenticar(req, res, next) {
+async function autenticar(req, res, next) {
   const authHeader = req.headers.authorization;
   const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
 
@@ -16,11 +17,65 @@ function autenticar(req, res, next) {
     return res.status(401).json({ erro: 'Nao autenticado.' });
   }
 
+  let payload;
   try {
-    req.usuario = jwt.verify(token, process.env.JWT_SECRET);
-    return next();
+    payload = jwt.verify(token, process.env.JWT_SECRET);
   } catch (err) {
     return res.status(401).json({ erro: 'Sessao invalida ou expirada.' });
+  }
+
+  try {
+    if (payload.tipo === 'staff') {
+      const usuario = await db('usuarios')
+        .select('id', 'ativo', 'empresa_id', 'filial_id', 'papel', 'nome', 'email')
+        .where({ id: payload.usuario_id || payload.id })
+        .first();
+
+      if (!usuario || !usuario.ativo) {
+        return res.status(401).json({ erro: 'Usuario inativo ou inexistente.' });
+      }
+
+      req.usuario = {
+        ...payload,
+        id: usuario.id,
+        usuario_id: usuario.id,
+        papel: usuario.papel,
+        nome: usuario.nome,
+        email: usuario.email,
+        ...(usuario.papel === 'super_admin'
+          ? {}
+          : { empresa_id: usuario.empresa_id, filial_id: usuario.filial_id }),
+      };
+    } else if (payload.tipo === 'responsavel') {
+      const responsavel = await db('responsaveis')
+        .select('id', 'ativo', 'empresa_id', 'nome', 'email')
+        .where({ id: payload.responsavelId || payload.id })
+        .first();
+
+      if (!responsavel || !responsavel.ativo) {
+        return res.status(401).json({ erro: 'Conta inativa ou inexistente.' });
+      }
+
+      const vinculos = await db('responsavel_alunos')
+        .select('aluno_id')
+        .where({ responsavel_id: responsavel.id });
+
+      req.usuario = {
+        ...payload,
+        id: responsavel.id,
+        responsavelId: responsavel.id,
+        empresa_id: responsavel.empresa_id,
+        nome: responsavel.nome,
+        email: responsavel.email,
+        alunoIds: vinculos.map((vinculo) => vinculo.aluno_id),
+      };
+    } else {
+      req.usuario = payload;
+    }
+
+    return next();
+  } catch (err) {
+    return next(err);
   }
 }
 

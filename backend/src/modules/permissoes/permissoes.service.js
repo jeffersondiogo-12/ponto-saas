@@ -2,6 +2,46 @@ const db = require('../../config/db');
 const { AppError } = require('../../middlewares/errorHandler');
 
 const ACOES = ['ver', 'adicionar', 'atualizar', 'deletar'];
+const PAPEIS = ['super_admin', 'admin', 'rh', 'gestor', 'professor'];
+const RECURSOS = new Set([
+  'usuarios',
+  'empresas',
+  'filiais',
+  'funcionarios',
+  'alunos',
+  'responsaveis',
+  'turmas',
+  'dispositivos',
+  'avisos',
+  'auditoria',
+  'ponto',
+  'relatorios',
+  'afd',
+  'professores',
+]);
+const PAPEIS_GESTAO_AVISOS = new Set(['admin', 'gestor', 'super_admin']);
+
+function validarPermissao({ papel, recurso, acao, permitido }) {
+  if (!PAPEIS.includes(papel)) {
+    throw new AppError(`Papel invalido: ${papel}.`, 400);
+  }
+  if (!RECURSOS.has(recurso)) {
+    throw new AppError(`Recurso invalido: ${recurso}.`, 400);
+  }
+  if (!ACOES.includes(acao)) {
+    throw new AppError(`Acao invalida: ${acao}.`, 400);
+  }
+  if (typeof permitido !== 'boolean') {
+    throw new AppError('O campo permitido deve ser booleano.', 400);
+  }
+  if (recurso === 'avisos' && !PAPEIS_GESTAO_AVISOS.has(papel)) {
+    throw new AppError(`O papel ${papel} nao pode administrar avisos.`, 400);
+  }
+}
+
+function recursoAplicavelAoPapel(papel, recurso) {
+  return recurso !== 'avisos' || PAPEIS_GESTAO_AVISOS.has(papel);
+}
 
 /**
  * Confere que o usuario-alvo pertence a empresa que o super_admin esta
@@ -32,7 +72,9 @@ async function listarPorPapel(papel) {
   const agrupadas = new Map();
   for (const linha of linhas) {
     if (!agrupadas.has(linha.recurso)) agrupadas.set(linha.recurso, []);
-    if (ACOES.includes(linha.acao) && !agrupadas.get(linha.recurso).includes(linha.acao)) {
+    if (recursoAplicavelAoPapel(papel, linha.recurso)
+      && ACOES.includes(linha.acao)
+      && !agrupadas.get(linha.recurso).includes(linha.acao)) {
       agrupadas.get(linha.recurso).push(linha.acao);
     }
   }
@@ -52,6 +94,9 @@ async function listarPorPapel(papel) {
 async function listarMatrizPapeis() {
   return db('permissoes_papeis')
     .select('papel', 'recurso', 'acao', 'permitido')
+    .where(function recursosAplicaveis() {
+      this.whereNot('recurso', 'avisos').orWhereIn('papel', [...PAPEIS_GESTAO_AVISOS]);
+    })
     .orderBy(['recurso', 'papel', 'acao']);
 }
 
@@ -61,9 +106,7 @@ async function listarMatrizPapeis() {
  * combinacao que ainda nao existe, cria; se ja existe, so atualiza o valor.
  */
 async function definirPermissaoPapel({ papel, recurso, acao, permitido }) {
-  if (!ACOES.includes(acao)) {
-    throw new Error(`Acao invalida: ${acao}`);
-  }
+  validarPermissao({ papel, recurso, acao, permitido });
 
   await db('permissoes_papeis')
     .insert({ papel, recurso, acao, permitido })
@@ -88,6 +131,7 @@ async function listarEfetivoPorUsuario(usuarioId, empresaId) {
 
   const efetivo = new Map();
   for (const linha of padrao) {
+    if (!recursoAplicavelAoPapel(usuario.papel, linha.recurso)) continue;
     efetivo.set(`${linha.recurso}:${linha.acao}`, {
       recurso: linha.recurso,
       acao: linha.acao,
@@ -96,6 +140,7 @@ async function listarEfetivoPorUsuario(usuarioId, empresaId) {
     });
   }
   for (const linha of excecoes) {
+    if (!recursoAplicavelAoPapel(usuario.papel, linha.recurso)) continue;
     efetivo.set(`${linha.recurso}:${linha.acao}`, {
       recurso: linha.recurso,
       acao: linha.acao,
@@ -111,10 +156,19 @@ async function listarEfetivoPorUsuario(usuarioId, empresaId) {
  * Cria/atualiza a excecao pessoal de um usuario pra um recurso+acao.
  */
 async function definirOverrideUsuario({ usuarioId, empresaId, recurso, acao, permitido }) {
-  if (!ACOES.includes(acao)) {
-    throw new Error(`Acao invalida: ${acao}`);
+  if (!RECURSOS.has(recurso)) {
+    throw new AppError(`Recurso invalido: ${recurso}.`, 400);
   }
-  await buscarUsuarioDaEmpresa(usuarioId, empresaId);
+  if (!ACOES.includes(acao)) {
+    throw new AppError(`Acao invalida: ${acao}.`, 400);
+  }
+  if (typeof permitido !== 'boolean') {
+    throw new AppError('O campo permitido deve ser booleano.', 400);
+  }
+  const usuario = await buscarUsuarioDaEmpresa(usuarioId, empresaId);
+  if (!recursoAplicavelAoPapel(usuario.papel, recurso)) {
+    throw new AppError(`O papel ${usuario.papel} nao pode administrar avisos.`, 400);
+  }
 
   await db('permissoes_usuarios')
     .insert({ usuario_id: usuarioId, recurso, acao, permitido })
@@ -127,6 +181,12 @@ async function definirOverrideUsuario({ usuarioId, empresaId, recurso, acao, per
  * dele nesse recurso+acao.
  */
 async function removerOverrideUsuario({ usuarioId, empresaId, recurso, acao }) {
+  if (!RECURSOS.has(recurso)) {
+    throw new AppError(`Recurso invalido: ${recurso}.`, 400);
+  }
+  if (!ACOES.includes(acao)) {
+    throw new AppError(`Acao invalida: ${acao}.`, 400);
+  }
   await buscarUsuarioDaEmpresa(usuarioId, empresaId);
   await db('permissoes_usuarios').where({ usuario_id: usuarioId, recurso, acao }).del();
 }
