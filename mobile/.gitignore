@@ -41,6 +41,7 @@ yarn-error.*
 /android
 node_modules/
 .env
+*-firebase-adminsdk-*.json
 storage/
 npm-debug.log*
 *.log
