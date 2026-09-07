@@ -1,9 +1,8 @@
-# Dependencias e artefatos locais
 node_modules/
 .expo/
 .dist/
 
-# Ferramentas locais do workspace e symlinks do Windows
+
 .git/
 **/.agents/
 **/.agents/**
