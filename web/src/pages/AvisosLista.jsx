@@ -23,10 +23,10 @@ const dataHora = (iso) => {
     : d.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 };
 
-/** Lista vazia de alvos = o aviso vale para a empresa inteira. */
+/** Lista vazia de alvos = o aviso vale para o ambiente inteiro. */
 function rotuloAlvo(aviso) {
-  if (!aviso.alvos?.length) return 'Empresa inteira';
-  return aviso.alvos.map((a) => a.turma_nome || a.filial_nome).filter(Boolean).join(', ') || 'Empresa inteira';
+  if (!aviso.alvos?.length) return 'Ambiente inteiro';
+  return aviso.alvos.map((a) => a.turma_nome || a.filial_nome).filter(Boolean).join(', ') || 'Ambiente inteiro';
 }
 
 export default function AvisosLista() {

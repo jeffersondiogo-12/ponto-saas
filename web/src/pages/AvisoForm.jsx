@@ -16,7 +16,7 @@ import { api } from '../api';
  * seria prometer erro.
  */
 const ALCANCES = {
-  empresa: { valor: 'empresa', rotulo: 'Empresa inteira' },
+  empresa: { valor: 'empresa', rotulo: 'Ambiente inteiro' },
   unidades: { valor: 'unidades', rotulo: 'Unidades específicas' },
   turmas: { valor: 'turmas', rotulo: 'Turmas específicas' },
 };
@@ -257,7 +257,7 @@ export default function AvisoForm() {
 
             {alcance === 'empresa' ? (
               <p className="info" style={{ marginTop: 14 }}>
-                O aviso chega a <strong>todos os responsáveis da empresa</strong>,
+                O aviso chega a <strong>todos os responsáveis do ambiente</strong>,
                 em todas as unidades.
               </p>
             ) : (

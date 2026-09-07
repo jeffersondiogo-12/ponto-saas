@@ -17,7 +17,7 @@ export default function SelecionarEmpresa() {
         const resp = await api.listarEmpresas();
         setEmpresas(resp.empresas || []);
       } catch (err) {
-        setErro(err.message || 'Não foi possível carregar empresas.');
+        setErro(err.message || 'Não foi possível carregar os ambientes.');
       } finally {
         setCarregando(false);
       }
@@ -30,21 +30,21 @@ export default function SelecionarEmpresa() {
     navigate('/dashboard');
   }
 
-  if (carregando) return <Layout><p className="texto-apoio">Carregando empresas...</p></Layout>;
+  if (carregando) return <Layout><p className="texto-apoio">Carregando ambientes...</p></Layout>;
 
   return (
     <Layout>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 22 }}>
-        <h1 className="titulo-pagina">Selecione a unidade</h1>
+        <h1 className="titulo-pagina">Selecione o ambiente</h1>
       </div>
 
       {erro && <div className="erro">{erro}</div>}
 
       <div className="card">
-        <div className="eyebrow">Empresas disponíveis</div>
+        <div className="eyebrow">Ambientes disponíveis</div>
         <div className="card-corpo">
           {empresas.length === 0 ? (
-            <p className="texto-apoio">Nenhuma empresa disponível. Crie uma empresa no backend primeiro.</p>
+            <p className="texto-apoio">Nenhum ambiente disponível. Crie um ambiente no backend primeiro.</p>
           ) : (
             <table className="tabela">
               <thead>
@@ -61,7 +61,7 @@ export default function SelecionarEmpresa() {
                     <td className="mono">{empresa.cnpj}</td>
                     <td>
                       <button className="btn btn-primario" type="button" onClick={() => selecionar(empresa.id, empresa.razao_social)}>
-                        Entrar nesta unidade
+                        Entrar neste ambiente
                       </button>
                     </td>
                   </tr>

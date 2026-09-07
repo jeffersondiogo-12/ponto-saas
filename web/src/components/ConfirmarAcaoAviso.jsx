@@ -132,7 +132,7 @@ export default function ConfirmarAcaoAviso({ acao, aviso, aoFechar, aoConfirmar 
               <p>
                 {aviso.alvos?.length
                   ? <>Vai para {aviso.alvos.map((a) => a.turma_nome || a.filial_nome).filter(Boolean).join(', ')}.</>
-                  : <>Vai para <strong>a empresa inteira</strong>.</>}
+                  : <>Vai para <strong>o ambiente inteiro</strong>.</>}
                 {' '}
                 {typeof aviso.total_destinatarios === 'number' && (
                   <><strong className="mono">{aviso.total_destinatarios}</strong>{' '}

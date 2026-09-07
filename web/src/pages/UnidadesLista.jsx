@@ -21,7 +21,7 @@ export default function UnidadesLista() {
     if (!ehSuperAdmin) return;
     api.listarEmpresas()
       .then((r) => setEmpresas(r.empresas || []))
-      .catch(() => setErro('Não foi possível carregar as empresas.'));
+      .catch(() => setErro('Não foi possível carregar os ambientes.'));
   }, [ehSuperAdmin]);
 
   const carregarUnidades = useCallback(async () => {
@@ -65,28 +65,42 @@ export default function UnidadesLista() {
 
   const nomeEmpresa = (e) => e.nome_fantasia || e.razao_social;
 
-  /* Super admin sem empresa escolhida: primeiro escolhe a empresa, depois vê
-     as filiais dela. Sem isso a API recusa (X-Empresa-Id e obrigatorio). */
+  /**
+   * Super admin sem ambiente escolhido: primeiro escolhe o ambiente, depois vê
+   * as unidades dele. Sem isso a API recusa (X-Empresa-Id e obrigatorio).
+   *
+   * **AMBIENTE e EMPRESA sao coisas diferentes nesta tela**, e a palavra
+   * "empresa" nomeava as duas — havia ate a frase "nenhuma unidade do tipo
+   * empresa nesta empresa".
+   *
+   *   AMBIENTE  a linha de `empresas`; e o que se digita no login e o que
+   *             delimita tudo o que a pessoa enxerga
+   *   EMPRESA   um `tipo` de unidade, ao lado de "escola"
+   *
+   * No texto da tela o primeiro virou "ambiente" (2026-09-06) e o segundo
+   * continua "empresa". No codigo os nomes seguem os da API (`empresaSelecionada`,
+   * `empresa_id`) — renomear ali seria mexida grande sem ganho.
+   */
   if (ehSuperAdmin && !empresaSelecionada) {
     return (
       <Layout>
         <h1 className="titulo-pagina">Unidades</h1>
-        <p className="subtitulo-pagina">Escolha a empresa para ver as unidades cadastradas nela.</p>
+        <p className="subtitulo-pagina">Escolha o ambiente para ver as unidades cadastradas nele.</p>
 
         {erro && <div className="erro">{erro}</div>}
 
         <div className="filtros">
           <div className="campo" style={{ flex: 1, minWidth: 240 }}>
-            <label htmlFor="u-busca">Buscar empresa</label>
+            <label htmlFor="u-busca">Buscar ambiente</label>
             <input id="u-busca" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Nome ou CNPJ" />
           </div>
         </div>
 
         <section className="secao">
           <h2>
-            Empresas
+            Ambientes
             <span className="nota">
-              {empresasFiltradas.length === 1 ? '1 empresa' : `${empresasFiltradas.length} empresas`}
+              {empresasFiltradas.length === 1 ? '1 ambiente' : `${empresasFiltradas.length} ambientes`}
             </span>
           </h2>
           <div className="atalhos">
@@ -105,7 +119,7 @@ export default function UnidadesLista() {
           </div>
           {empresasFiltradas.length === 0 && (
             <div className="painel"><div className="painel-corpo">
-              <p className="vazio">Nenhuma empresa encontrada.</p>
+              <p className="vazio">Nenhum ambiente encontrado.</p>
             </div></div>
           )}
         </section>
@@ -119,7 +133,7 @@ export default function UnidadesLista() {
         <div>
           <h1 className="titulo-pagina" style={{ margin: 0 }}>Unidades</h1>
           <p className="subtitulo-pagina" style={{ margin: '3px 0 0' }}>
-            {empresaSelecionada?.nome || 'Empresa atual'}
+            {empresaSelecionada?.nome || 'Ambiente atual'}
             {ehSuperAdmin && (
               <>
                 {' · '}
@@ -128,7 +142,7 @@ export default function UnidadesLista() {
                   className="link-troca"
                   onClick={limparEmpresa}
                 >
-                  trocar de empresa
+                  trocar de ambiente
                 </button>
               </>
             )}
@@ -164,7 +178,7 @@ export default function UnidadesLista() {
         <h2>
           {tipo === 'empresa' ? 'Unidades do tipo empresa'
             : tipo === 'escola' ? 'Escolas'
-              : 'Unidades da empresa'}
+              : 'Unidades do ambiente'}
           <span className="nota">
             {filtradas.length === 1 ? '1 unidade' : `${filtradas.length} unidades`}
           </span>
@@ -213,9 +227,9 @@ export default function UnidadesLista() {
                         {!unidades.length
                           ? 'Nenhuma unidade cadastrada ainda — crie a primeira para escolher entre empresa ou escola.'
                           : tipo === 'escola'
-                            ? 'Nenhuma escola cadastrada nesta empresa.'
+                            ? 'Nenhuma escola cadastrada neste ambiente.'
                             : tipo === 'empresa'
-                              ? 'Nenhuma unidade do tipo empresa nesta empresa.'
+                              ? 'Nenhuma unidade do tipo empresa neste ambiente.'
                               : 'Nenhuma unidade corresponde à busca.'}
                       </div>
                     </td>

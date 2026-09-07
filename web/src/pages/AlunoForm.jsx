@@ -257,7 +257,7 @@ export default function AlunoForm() {
                 />
                 <span className="ajuda">
                   {dados.matricula.trim()
-                    ? 'Precisa ser única dentro da empresa.'
+                    ? 'Precisa ser única dentro do ambiente.'
                     : 'Pode ficar em branco — o aluno aparece em “Precisa de atenção” até ser preenchida.'}
                 </span>
               </div>

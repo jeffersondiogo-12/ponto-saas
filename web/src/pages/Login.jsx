@@ -51,7 +51,7 @@ export default function Login() {
             <input id="senha" type="password" value={senha} onChange={(e) => setSenha(e.target.value)} required />
           </div>
           <div className="campo">
-            <label htmlFor="unidade">Ambiente (empresa)</label>
+            <label htmlFor="unidade">Ambiente</label>
             <input
               id="unidade"
               type="text"
@@ -60,7 +60,7 @@ export default function Login() {
               placeholder="Nome ou CNPJ"
               required
             />
-            <span className="ajuda">A empresa onde você trabalha. As escolas e filiais ficam dentro dela.</span>
+            <span className="ajuda">O ambiente onde você trabalha. As escolas e filiais ficam dentro dele.</span>
           </div>
           <button className="btn btn-primario" type="submit" disabled={carregando}>
             {carregando ? 'Entrando...' : 'Entrar'}

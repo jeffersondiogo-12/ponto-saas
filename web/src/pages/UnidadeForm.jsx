@@ -76,7 +76,7 @@ export default function UnidadeForm() {
                   }
                 />
                 {tipoTravado && !id && (
-                  <span className="ajuda">Seu perfil cria escolas dentro da empresa atual.</span>
+                  <span className="ajuda">Seu perfil cria escolas dentro do ambiente atual.</span>
                 )}
               </div>
             </div>

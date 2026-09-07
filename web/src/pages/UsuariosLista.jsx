@@ -152,9 +152,9 @@ export default function UsuariosLista() {
               <tr><th>Perfil</th><th>Acesso</th></tr>
             </thead>
             <tbody>
-              <tr><td><span className="badge badge-info">Super admin</span></td><td>Todas as empresas. Escolhe a empresa a operar e cria unidades de qualquer tipo.</td></tr>
-              <tr><td><span className="badge badge-info">Admin</span></td><td>A própria empresa. Cria escolas, turmas, alunos, usuários e dispositivos.</td></tr>
-              <tr><td><span className="badge">RH</span></td><td>Funcionários, ponto, relatórios e auditoria da empresa.</td></tr>
+              <tr><td><span className="badge badge-info">Super admin</span></td><td>Todos os ambientes. Escolhe o ambiente a operar e cria unidades de qualquer tipo.</td></tr>
+              <tr><td><span className="badge badge-info">Admin</span></td><td>O próprio ambiente. Cria escolas, turmas, alunos, usuários e dispositivos.</td></tr>
+              <tr><td><span className="badge">RH</span></td><td>Funcionários, ponto, relatórios e auditoria do ambiente.</td></tr>
               <tr><td><span className="badge">Gestor</span></td><td>Consulta de ponto e relatórios da unidade, sem alterar cadastros.</td></tr>
               <tr><td><span className="badge badge-ativo">Professor</span></td><td>Apenas as próprias turmas: chamada, notas e observações.</td></tr>
             </tbody>
