@@ -6,6 +6,7 @@ import { obterFila, ouvirFila } from '../filaOffline';
 import { useAuth } from '../context/AuthContext';
 import { AparecerEm, PressaoAnimada, Pulsar } from '../components/Animacoes';
 import { cores, raio, sombra } from '../theme';
+import ResponsavelHomeScreen from './ResponsavelHomeScreen';
 
 function iniciais(nome = '') {
   return nome
@@ -17,6 +18,8 @@ function iniciais(nome = '') {
 }
 
 export default function HomeScreen({ navigation }) {
+  return <ResponsavelHomeScreen navigation={navigation} />;
+  /*
   const [alunos, setAlunos] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [offline, setOffline] = useState(false);
@@ -129,6 +132,7 @@ export default function HomeScreen({ navigation }) {
       />
     </View>
   );
+  */
 }
 
 const estilos = StyleSheet.create({
