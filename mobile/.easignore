@@ -1,6 +1,8 @@
 node_modules/
 .expo/
 .dist/
+**/.gradle/
+android/.gradle/
 
 
 .git/
