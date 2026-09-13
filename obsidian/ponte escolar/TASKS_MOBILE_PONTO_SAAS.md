@@ -135,6 +135,15 @@ Backlog derivado do estado confirmado em [[RELATORIO_TECNICO_ARQUITETURA_PONTO_S
 - **Validação realizada:** diagnósticos sem erros em `api.js` e `AuthContext.js`.
 - **Pendente:** teste em dispositivo físico/Android/iOS e testes automatizados de migração em MOB-020.
 
+#### MOB-023 — Testes de isolamento do cache e da fila
+
+- **Status:** [!] Preparada; execução bloqueada por `jest-expo` ausente em `node_modules`
+- **Prioridade:** P0
+- **Nota detalhada:** [[MOB-023_TESTES_ISOLAMENTO_CACHE_FILA]]
+- **Implementado:** configuração Jest, mock de AsyncStorage e testes de namespaces, TTL, limpeza, listeners, concorrência e fila legada.
+- **Validação realizada:** diagnósticos sem erros nos testes e nos módulos `storage.js`/`filaOffline.js`.
+- **Bloqueio:** o comando `npm test` inicia o script, mas o runner não está materializado em `mobile/node_modules`; instalação npm não concluiu neste ambiente.
+
 #### MOB-005 — Corrigir restauração de sessão e tratamento global de 401
 
 - **Status:** [ ] A fazer

@@ -98,6 +98,14 @@ Registro compacto das mudanças de conhecimento, decisões, tasks e validações
 - **Validação:** diagnósticos sem erros em `api.js` e `AuthContext.js`.
 - **Relação:** a MOB-004 original foi substituída pela [[MOB-022_MIGRAR_TOKENS_PARA_SECURE_STORE]].
 
+### MOB-023 — Testes de cache e fila
+
+- **Tipo:** task / testes
+- **Status:** preparada em 2026-09-12; execução bloqueada por dependência ausente.
+- **Atualização:** criada [[MOB-023_TESTES_ISOLAMENTO_CACHE_FILA]] com Jest, mock de AsyncStorage e cobertura de MOB-002/MOB-021.
+- **Validação:** diagnósticos sem erros; `npm test` iniciou o script, mas `jest-expo` não está presente em `mobile/node_modules`.
+- **Pendência:** instalar dependências de desenvolvimento e executar `npm test -- --runInBand`; só então fechar os critérios de teste das MOB-002 e MOB-021.
+
 ## Como registrar novas atualizações
 
 - Use uma entrada curta com data, tipo, resumo, área e links.

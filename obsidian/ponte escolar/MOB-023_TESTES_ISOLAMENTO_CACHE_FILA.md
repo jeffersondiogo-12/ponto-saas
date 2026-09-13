@@ -3,7 +3,7 @@ id: 2026-09-12
 tipo: task-mobile
 tags: [projeto, mobile, testes, offline-first, seguranca]
 projeto: "Ponto SaaS / Ponte Escolar"
-status: "Em Implementação"
+status: "Preparada; execução bloqueada por dependência ausente"
 prioridade: P0
 relacionada: "[[TASKS_MOBILE_PONTO_SAAS]]"
 ---
@@ -32,13 +32,13 @@ As MOB-002 e MOB-021 foram implementadas, mas os critérios de isolamento entre 
 
 ## Critérios de aceite
 
-- [ ] testes de cache isolam dois namespaces;
-- [ ] cache expirado não é retornado;
-- [ ] cache legado é removido sem migração silenciosa;
-- [ ] filas de responsável e professor são independentes;
-- [ ] listener recebe apenas eventos do próprio namespace;
-- [ ] operações concorrentes preservam a ordem;
-- [ ] fila legada não é atribuída a uma conta;
+- [x] testes de cache isolam dois namespaces;
+- [x] cache expirado não é retornado;
+- [x] cache legado é removido sem migração silenciosa;
+- [x] filas de responsável e professor são independentes;
+- [x] listener recebe apenas eventos do próprio namespace;
+- [x] operações concorrentes preservam a ordem;
+- [x] fila legada não é atribuída a uma conta;
 - [ ] comando `npm test` passa no mobile;
 - [ ] MOB-002 e MOB-021 podem ser marcadas sem pendências de teste.
 
@@ -51,3 +51,9 @@ As MOB-002 e MOB-021 foram implementadas, mas os critérios de isolamento entre 
 
 - `npm test -- --runInBand` dentro de `mobile`.
 - Diagnóstico dos arquivos de teste e configuração.
+
+## Bloqueio atual
+
+- `jest-expo ~54.0.12` está declarado em `package.json` e `package-lock.json`, mas não foi encontrado em `mobile/node_modules`.
+- `npm test` iniciou o script, porém não produziu resultado do runner.
+- Não marcar MOB-002/MOB-021 como totalmente concluídas até executar a suíte em ambiente com dependências instaladas.
