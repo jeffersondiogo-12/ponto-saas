@@ -159,7 +159,7 @@ export default function ChamadaScreen({ navigation }) {
     setEnviando(true);
     try {
       const resultado = await api.registrarPresencasSala(turma.turma_id, {
-        data: hoje,
+        data: dataHoje(),
         atribuicao_id: turma.atribuicao_id,
         presencas: alunos.map((aluno) => ({
           aluno_id: aluno.id,
