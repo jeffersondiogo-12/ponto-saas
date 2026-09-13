@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { salvarCache, lerCache } from './storage';
+import { salvarCache, lerCache, limparCacheNamespace } from './storage';
 import { enfileirar, obterFila, removerDaFila, marcarFalhaNaFila } from './filaOffline';
 
 // Em desenvolvimento, aponte para o IP da sua maquina na rede local (nao
@@ -54,6 +54,29 @@ export async function obterSessao(perfil = perfilAtivo) {
 
 export async function limparSessao(perfil = perfilAtivo) {
   await AsyncStorage.removeItem(chavesDoPerfil(perfil).sessao);
+}
+
+function namespaceCache(usuario, perfil) {
+  if (!usuario || !perfil) return null;
+  const id = perfil === 'responsavel'
+    ? usuario.responsavelId || usuario.id
+    : usuario.usuario_id || usuario.id;
+  if (!id) return null;
+
+  const empresa = usuario.empresa_id || 'global';
+  const filial = usuario.filial_id || 'global';
+  return [perfil, id, empresa, filial].map((valor) => encodeURIComponent(String(valor))).join(':');
+}
+
+export async function obterNamespaceCache(perfil = perfilAtivo) {
+  const perfilAtual = perfil || await obterPerfilAtivo();
+  const sessao = await obterSessao(perfilAtual);
+  return namespaceCache(sessao, perfilAtual);
+}
+
+export async function limparCacheDoPerfil(perfil = perfilAtivo) {
+  const namespace = await obterNamespaceCache(perfil);
+  await limparCacheNamespace(namespace);
 }
 
 export async function salvarPerfilAtivo(perfil) {
@@ -167,14 +190,18 @@ async function requisitar(caminho, { method = 'GET', body, rotulo, permitirFila 
   try {
     const dados = await chamarServidor(caminho, { method, body });
     registrarSincronizacao();
-    if (method === 'GET') salvarCache(caminho, dados);
+    if (method === 'GET') {
+      const namespace = await obterNamespaceCache();
+      await salvarCache(namespace, caminho, dados);
+    }
     if (!processandoFila) processarFilaOffline();
     return dados;
   } catch (erro) {
     if (!ehFalhaDeRede(erro)) throw erro;
 
     if (method === 'GET') {
-      const cache = await lerCache(caminho);
+      const namespace = await obterNamespaceCache();
+      const cache = await lerCache(namespace, caminho);
       if (cache) return { ...cache.dados, _offline: true, _cacheEm: cache.em };
       const semDados = new Error('Sem conexão e sem dados salvos ainda.');
       semDados.offline = true;
