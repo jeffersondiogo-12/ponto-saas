@@ -2,13 +2,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import { salvarCache, lerCache, limparCacheNamespace } from './storage';
 import { enfileirar, obterFila, removerDaFila, marcarFalhaNaFila, limparFilaNamespace } from './filaOffline';
+import { obterOrigemApi } from './config/rede';
 
-// Em desenvolvimento, aponte para o IP da sua maquina na rede local (nao
-// "localhost" - no celular/emulador isso resolveria para o proprio
-// dispositivo, nao para o computador rodando o backend). Em producao,
-// aponte para o dominio real da API.
-const BASE_URL = process.env.EXPO_PUBLIC_API_URL
-  || (__DEV__ ? 'http://192.168.0.10:3000' : 'https://ponto-saas-u8zf.onrender.com');
+const BASE_URL = obterOrigemApi();
 
 export function obterBaseUrlWebSocket() {
   return BASE_URL.replace(/^http(s?):\/\//, (_, seguro) => seguro ? 'wss://' : 'ws://');
@@ -216,7 +212,7 @@ async function chamarServidor(caminho, { method, body, autenticada = true, conte
   if (autenticada && !sessaoAtualEh(perfil, versao)) throw erroSessaoAlterada();
   if (token) headers.Authorization = `Bearer ${token}`;
 
-  const resposta = await fetch(`${BASE_URL}${caminho}`, {
+  const resposta = await fetch(`${obterOrigemApi()}${caminho}`, {
     method,
     headers,
     body: body ? JSON.stringify(body) : undefined,

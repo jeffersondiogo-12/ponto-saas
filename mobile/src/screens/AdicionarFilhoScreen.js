@@ -89,7 +89,7 @@ export default function AdicionarFilhoScreen({ navigation }) {
     try {
       const resultado = await api.vincularFilho({
         nome_completo: nome.trim(),
-        cpf,
+        cpf: cpf.replace(/\D/g, ''),
         matricula_aluno: matricula.trim(),
         parentesco: parentesco.trim() || null,
       });

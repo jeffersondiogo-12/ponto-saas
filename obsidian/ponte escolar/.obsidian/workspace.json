@@ -4,17 +4,21 @@
     "type": "split",
     "children": [
       {
-        "id": "0bfd478e5177c7bf",
+        "id": "931073fa32e8870a",
         "type": "tabs",
         "children": [
           {
-            "id": "6fa2ad77ac18e463",
+            "id": "d014d31844865b56",
             "type": "leaf",
             "state": {
-              "type": "graph",
-              "state": {},
-              "icon": "lucide-git-fork",
-              "title": "Visualização em gráfico"
+              "type": "markdown",
+              "state": {
+                "file": "RELATORIO_ANALISE_SEGUNDO_CEREBRO_PONTO_SAAS.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "RELATORIO_ANALISE_SEGUNDO_CEREBRO_PONTO_SAAS"
             }
           }
         ]
@@ -181,11 +185,17 @@
       "daily-notes:Abrir a nota de hoje": false,
       "templates:Inserir modelo": false,
       "command-palette:Abrir paleta de comandos": false,
-      "bases:Criar nova base": false
+      "bases:Criar nova base": false,
+      "workspaces:Gerenciar leiautes da área de trabalho": false
     }
   },
-  "active": "6fa2ad77ac18e463",
+  "active": "d014d31844865b56",
   "lastOpenFiles": [
+    "MOB-029_RESOLVER_CONFLITO_GIT_REALTIME.md",
+    "RELATORIO_ANALISE_SEGUNDO_CEREBRO_PONTO_SAAS.md",
+    "TASKS_MOBILE_PONTO_SAAS.md",
+    "MOB-028_CORRIGIR_PENDENCIAS_AUDITORIA.md",
+    "RELATORIO_AUDITORIA_TASKS_MOBILE_2026-09-13.md",
     "MOB-027_FICHA_ALUNO_PROFESSOR_BACKEND.md",
     "REGISTRO DE ATUALIZACOES PONTO SAAS.md",
     "MOB-023_TESTES_ISOLAMENTO_CACHE_FILA.md",
@@ -194,11 +204,9 @@
     "Sem título.canvas",
     "RELATORIO_BANCO_DE_DADOS_PONTO_SAAS.md",
     "Banco de Dados Ponto SaaS.md",
-    "RELATORIO_ANALISE_SEGUNDO_CEREBRO_PONTO_SAAS.md",
     "Front-end Web Ponto SaaS.md",
     "RELATORIO_TECNICO_ARQUITETURA_PONTO_SAAS.md",
     "Bem-vindo.md",
-    "TASKS_MOBILE_PONTO_SAAS.md",
     "crie um link.md"
   ]
 }

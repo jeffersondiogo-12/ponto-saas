@@ -147,6 +147,29 @@ Registro compacto das mudanças de conhecimento, decisões, tasks e validações
 - **Segurança:** endpoint exige staff/professor, permissão de leitura, atribuição ativa, empresa e filial; notas/observações são filtradas pelo professor autor.
 - **Validação:** diagnósticos e `node --check` passam; migration/testes de integração dependem de banco executável.
 
+### MOB-028 — Correções da auditoria
+
+- **Tipo:** implementação / validação
+- **Status:** concluída em 2026-09-13, com migration bloqueada.
+- **Atualização:** `InicioScreen` usa data dinâmica; CPF é normalizado antes do vínculo; backend preserva tipos oficiais de batida e só alterna lotes totalmente indefinidos.
+- **Validação:** diagnósticos sem erros e `node --check` backend sem erros.
+- **Bloqueio:** tentativa de migration MOB-027 não pôde conectar ao PostgreSQL local em `127.0.0.1:5432`.
+
+### MOB-029 — Conflito Git do realtime
+
+- **Tipo:** manutenção / merge
+- **Status:** concluída em 2026-09-13.
+- **Atualização:** conflito de `mobile/src/realtime.js` resolvido preservando `config/rede.js`; `api.js` corrigido para definir `BASE_URL` via `obterOrigemApi()`.
+- **Validação:** diagnósticos sem erros, `git diff --check` limpo e nenhum arquivo não mesclado.
+- **Nota:** nenhum commit foi criado; alterações staged/locais preexistentes foram preservadas.
+
+### Auditoria completa das MOBs
+
+- **Tipo:** auditoria / qualidade
+- **Status:** concluída em 2026-09-13.
+- **Atualização:** criado [[RELATORIO_AUDITORIA_TASKS_MOBILE_2026-09-13]] com cruzamento entre tasks, commits, código atual, backend, migrations e validações executadas.
+- **Achados críticos:** MOB-008/027 ainda não estão integradas ao fluxo mobile do professor; MOB-027 não tem migration executada comprovadamente; MOB-009 é visual; MOB-011 e MOB-012 são parciais; testes runtime continuam bloqueados.
+
 ### Auditoria de commits recentes
 
 - **Tipo:** análise de histórico

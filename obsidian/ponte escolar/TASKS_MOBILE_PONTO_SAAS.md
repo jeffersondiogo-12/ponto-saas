@@ -20,6 +20,17 @@ Backlog derivado do estado confirmado em [[RELATORIO_TECNICO_ARQUITETURA_PONTO_S
 
 ## Ordem recomendada
 
+### MOB-028 — Corrigir pendências da auditoria
+
+- **Status:** [x] Concluída com migration bloqueada em 2026-09-13
+- **Prioridade:** P0
+- **Nota detalhada:** [[MOB-028_CORRIGIR_PENDENCIAS_AUDITORIA]]
+- **Escopo:** data dinâmica no início do professor, CPF normalizado, preservação de tipo oficial de batida e validação da migration MOB-027.
+- **Validação:** diagnósticos, `node --check` e banco configurado quando disponível.
+- **Implementado:** data dinâmica no `InicioScreen`, CPF normalizado no payload e preservação de tipos oficiais de batida no backend.
+- **Validação:** diagnósticos sem erros e `node --check` sem erros.
+- **Bloqueio:** banco local recusou conexão em `127.0.0.1:5432`; migration MOB-027 não foi aplicada.
+
 ### MOB-027 — Ficha do aluno para professor
 
 - **Status:** [→] Backend concluído; tela mobile pendente
@@ -313,7 +324,7 @@ Backlog derivado do estado confirmado em [[RELATORIO_TECNICO_ARQUITETURA_PONTO_S
 
 #### MOB-011 — Usar tipo oficial das batidas
 
-- **Status:** [→] Resolvida na MOB-026 em 2026-09-13
+- **Status:** [!] Parcial; backend ainda pode reclassificar batidas
 - **Prioridade:** P1
 - **Área:** domínio de ponto
 - **Arquivos prováveis:** `mobile/src/screens/AlunoDetalheScreen.js`, contrato backend
@@ -327,10 +338,11 @@ Backlog derivado do estado confirmado em [[RELATORIO_TECNICO_ARQUITETURA_PONTO_S
 - **Dependências:** contrato do endpoint de frequência.
 - **Validação:** registros pares, ímpares, duplicados e fora de ordem.
 - **Resultado:** `tipo_batida`/`tipo` oficial prevalece; alternância permanece apenas como fallback legado.
+- **Risco:** `backend/src/modules/ponto/ponto.service.js` ainda altera a sequência quando considera os tipos não confiáveis; precisa de decisão de domínio antes de fechar.
 
 #### MOB-012 — Corrigir data dinâmica da chamada
 
-- **Status:** [→] Resolvida na MOB-026 em 2026-09-13
+- **Status:** [!] Parcial; Chamada corrigida, Inicio pendente
 - **Prioridade:** P1
 - **Área:** fuso/data
 - **Arquivos prováveis:** `mobile/src/screens/ChamadaScreen.js`, `mobile/src/screens/InicioScreen.js`
@@ -342,6 +354,7 @@ Backlog derivado do estado confirmado em [[RELATORIO_TECNICO_ARQUITETURA_PONTO_S
   - [ ] resumo e texto da tela são consistentes.
 - **Validação:** teste com relógio/fuso simulado próximo à meia-noite.
 - **Resultado:** data é recalculada ao focar a tela em `America/Sao_Paulo`.
+- **Pendente:** `InicioScreen.js` ainda possui `HOJE` calculado na importação do módulo.
 
 #### MOB-013 — Evitar perda do rascunho da chamada
 

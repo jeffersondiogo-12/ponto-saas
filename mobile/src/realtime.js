@@ -1,11 +1,13 @@
-import { obterToken, obterBaseUrlWebSocket } from './api';
+import { obterToken } from './api';
 import { DeviceEventEmitter } from 'react-native';
+import { criarUrlWebSocket } from './config/rede';
 
 export async function conectarRealtime(onEvento) {
   const token = await obterToken();
   if (!token) return () => {};
 
-  const url = `${obterBaseUrlWebSocket()}/ws?token=${encodeURIComponent(token)}`;
+  // O backend exige o token na query de /ws. Nunca registrar esta URL em logs.
+  const url = criarUrlWebSocket(token);
   let socket;
   let encerrado = false;
   let timer;

@@ -55,14 +55,11 @@ function classificarBatidasAlunos(registros) {
     });
 
     const tiposBrutos = grupo.map((registro) => registro.tipo_batida);
-    const somenteTiposBasicos = tiposBrutos.every((tipo) => (
-      tipo === 'entrada' || tipo === 'saida' || tipo === 'indefinido'
-    ));
-    const sequenciaConfiavel = somenteTiposBasicos && tiposBrutos.every((tipo, indice) => (
-      tipo === (indice % 2 === 0 ? 'entrada' : 'saida')
-    ));
+    const possuiTipoOficial = tiposBrutos.some((tipo) => tipo && tipo !== 'indefinido');
 
-    if (!sequenciaConfiavel) {
+    // O tipo informado pelo dispositivo e a fonte de verdade. So usamos a
+    // alternancia como compatibilidade para lotes legados sem tipo oficial.
+    if (!possuiTipoOficial) {
       grupo.forEach((registro, indice) => {
         registro.tipo_batida = indice % 2 === 0 ? 'entrada' : 'saida';
       });

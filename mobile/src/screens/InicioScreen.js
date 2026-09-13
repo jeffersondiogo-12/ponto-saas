@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { api, obterNamespaceCache } from '../api';
 import { obterFila, ouvirFila } from '../filaOffline';
 import { useAuth } from '../context/AuthContext';
@@ -8,7 +9,9 @@ import { AparecerEm, PressaoAnimada } from '../components/Animacoes';
 import { Aviso, BotaoGrande, Cabecalho, Cartao, FaixaOffline, FaixaPendente, Ficha, useBarraDeStatusEscura } from '../components/Ui';
 import { cores, raio, sombra } from '../theme';
 
-const HOJE = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
+function dataHoje() {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
+}
 
 function saudacao() {
   const hora = Number(
@@ -30,6 +33,13 @@ export default function InicioScreen({ navigation }) {
   const [carregando, setCarregando] = useState(true);
   const [atualizando, setAtualizando] = useState(false);
   const [erro, setErro] = useState('');
+  const [hoje, setHoje] = useState(dataHoje);
+
+  useFocusEffect(
+    useCallback(() => {
+      setHoje(dataHoje());
+    }, []),
+  );
 
   useEffect(() => {
     let ativo = true;
@@ -97,7 +107,7 @@ export default function InicioScreen({ navigation }) {
       <Cabecalho
         rotulo="PONTE·ESCOLAR"
         titulo={`${saudacao()}, professor`}
-        subtitulo={`Seu dia em ${HOJE.split('-').reverse().join('/')}`}
+        subtitulo={`Seu dia em ${hoje.split('-').reverse().join('/')}`}
         acao={
           <PressaoAnimada style={estilos.sair} onPress={logout}>
             <Text style={estilos.sairTexto}>Sair</Text>

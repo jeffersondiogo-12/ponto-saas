@@ -49,10 +49,16 @@ function Navegacao() {
 
     let ativo = true;
     let pararConexao = () => {};
-    conectarRealtime().then((parar) => {
-      if (ativo) pararConexao = parar;
-      else parar();
-    });
+    conectarRealtime()
+      .then((parar) => {
+        if (ativo) pararConexao = parar;
+        else parar();
+      })
+      .catch((erro) => {
+        if (!ativo) return;
+        if (erro?.codigo === 'CONFIG_REDE') console.error(`[realtime] ${erro.message}`);
+        else console.error('[realtime] Não foi possível iniciar a conexão em tempo real.');
+      });
 
     return () => {
       ativo = false;
