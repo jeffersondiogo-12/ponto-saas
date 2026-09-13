@@ -24,6 +24,24 @@ const CHAVES_TOKEN_SEGURO = {
 let tokenDaSessao = null;
 let perfilAtivo = null;
 const sessoesEmMemoria = {};
+let versaoSessao = 0;
+let filaPausada = true;
+let eventosSessao = null;
+
+export function registrarEventosSessao(eventos) {
+  eventosSessao = eventos;
+  return () => {
+    if (eventosSessao === eventos) eventosSessao = null;
+  };
+}
+
+export function pausarFilaOffline() {
+  filaPausada = true;
+}
+
+export function liberarFilaOffline() {
+  filaPausada = false;
+}
 
 function chavesDoPerfil(perfil = perfilAtivo || 'responsavel') {
   return CHAVES_PERFIL[perfil] || CHAVES_PERFIL.responsavel;
@@ -34,8 +52,10 @@ function chaveTokenSeguro(perfil = perfilAtivo || 'responsavel') {
 }
 
 export async function salvarToken(token, persistir = true, perfil = perfilAtivo) {
+  versaoSessao += 1;
+  pausarFilaOffline();
   perfilAtivo = perfil || 'responsavel';
-  tokenDaSessao = token;
+  tokenDaSessao = null;
   const { token: chaveLegada } = chavesDoPerfil(perfilAtivo);
   const chaveSegura = chaveTokenSeguro(perfilAtivo);
   if (persistir) {
@@ -45,6 +65,7 @@ export async function salvarToken(token, persistir = true, perfil = perfilAtivo)
     await SecureStore.deleteItemAsync(chaveSegura);
     await AsyncStorage.removeItem(chaveLegada);
   }
+  tokenDaSessao = token;
 }
 
 export async function obterToken(perfil = perfilAtivo) {
@@ -68,6 +89,8 @@ export async function obterToken(perfil = perfilAtivo) {
 }
 
 export async function limparToken(perfil = perfilAtivo) {
+  versaoSessao += 1;
+  pausarFilaOffline();
   tokenDaSessao = null;
   await SecureStore.deleteItemAsync(chaveTokenSeguro(perfil));
   await AsyncStorage.removeItem(chavesDoPerfil(perfil).token);
@@ -125,6 +148,8 @@ export async function limparFilaDoPerfil(perfil = perfilAtivo) {
 }
 
 export async function salvarPerfilAtivo(perfil) {
+  versaoSessao += 1;
+  pausarFilaOffline();
   perfilAtivo = perfil;
   tokenDaSessao = null;
   await AsyncStorage.setItem(CHAVE_PERFIL_ATIVO, perfil);
@@ -157,8 +182,19 @@ async function registrarSincronizacao() {
 // (403, 404, 409...) chega como resposta normal, com resposta.ok = false, e
 // isso NAO conta como "offline". E essa distincao que decide se a gente
 // cai pro cache/fila ou se sobe o erro normalmente pra tela mostrar.
-function ehFalhaDeRede(erro) {
+export function ehFalhaDeRede(erro) {
+  if (erro?.status) return false;
   return erro instanceof TypeError || /network/i.test(erro?.message || '');
+}
+
+export function sessaoAtualEh(perfil, versao) {
+  return perfil === perfilAtivo && versao === versaoSessao;
+}
+
+function erroSessaoAlterada() {
+  const erro = new Error('A sessao mudou durante a requisicao. Tente novamente.');
+  erro.sessaoAlterada = true;
+  return erro;
 }
 
 function exigirAtribuicao(dados) {
@@ -168,9 +204,12 @@ function exigirAtribuicao(dados) {
   throw erro;
 }
 
-async function chamarServidor(caminho, { method, body }) {
+async function chamarServidor(caminho, { method, body, autenticada = true, contextoFixo } = {}) {
   const headers = { 'Content-Type': 'application/json' };
-  const token = await obterToken();
+  const perfil = contextoFixo?.perfil || perfilAtivo || await obterPerfilAtivo();
+  const versao = contextoFixo?.versao ?? versaoSessao;
+  const token = autenticada ? (contextoFixo?.token ?? await obterToken(perfil)) : null;
+  if (autenticada && !sessaoAtualEh(perfil, versao)) throw erroSessaoAlterada();
   if (token) headers.Authorization = `Bearer ${token}`;
 
   const resposta = await fetch(`${BASE_URL}${caminho}`, {
@@ -184,10 +223,18 @@ async function chamarServidor(caminho, { method, body }) {
   if (!resposta.ok) {
     const erro = new Error(dados.erro || `Erro ${resposta.status}`);
     erro.status = resposta.status;
+    if (autenticada && resposta.status === 401 && sessaoAtualEh(perfil, versao)) {
+      pausarFilaOffline();
+      try {
+        await eventosSessao?.naoAutenticado?.({ perfil, versao });
+      } catch {
+        // Preserva o 401 original; a restauracao tentara limpar novamente.
+      }
+    }
     throw erro;
   }
 
-  return dados;
+  return { dados, contexto: { perfil, versao, token } };
 }
 
 let processandoFila = false;
@@ -199,24 +246,32 @@ let processandoFila = false;
 // depois); um erro "de verdade" do servidor descarta o item da fila, porque
 // insistir nele não vai mudar o resultado.
 export async function processarFilaOffline() {
-  if (processandoFila) return;
-  const namespace = await obterNamespaceCache();
-  if (!namespace) return;
+  if (processandoFila || filaPausada) return;
   processandoFila = true;
   try {
+    const perfil = perfilAtivo || await obterPerfilAtivo();
+    const versao = versaoSessao;
+    const [namespace, token] = await Promise.all([obterNamespaceCache(perfil), obterToken(perfil)]);
+    if (!namespace || !token || filaPausada || !sessaoAtualEh(perfil, versao)) return;
     const fila = await obterFila(namespace);
     for (const item of fila) {
-        // Troca de conta/perfil durante o processamento invalida esta execução.
-        if (await obterNamespaceCache() !== namespace) break;
+      // Uma conta nova nunca empresta seu token para uma pendencia antiga.
+      if (filaPausada || !sessaoAtualEh(perfil, versao)
+        || await obterNamespaceCache(perfil) !== namespace
+        || await obterToken(perfil) !== token) break;
       if (item.falhaDefinitiva) continue;
       try {
         // eslint-disable-next-line no-await-in-loop
-        await chamarServidor(item.caminho, { method: item.method, body: item.body });
+        await chamarServidor(item.caminho, {
+          method: item.method,
+          body: item.body,
+          contextoFixo: { perfil, versao, token },
+        });
         // eslint-disable-next-line no-await-in-loop
         await removerDaFila(namespace, item.id);
         await registrarSincronizacao();
       } catch (err) {
-        if (ehFalhaDeRede(err)) break;
+        if (ehFalhaDeRede(err) || err?.status === 401 || err?.sessaoAlterada) break;
         // Mantem o item visivel para o usuario corrigir ou tentar novamente.
         // eslint-disable-next-line no-await-in-loop
         await marcarFalhaNaFila(namespace, item.id, err.message || 'O servidor recusou a ação.');
@@ -235,23 +290,33 @@ export async function processarFilaOffline() {
  * enfileiradas (login/cadastro - se nao ha rede, a pessoa precisa saber na
  * hora, nao "depois que a conexao voltar").
  */
-async function requisitar(caminho, { method = 'GET', body, rotulo, permitirFila = true } = {}) {
+async function requisitar(caminho, {
+  method = 'GET', body, rotulo, permitirFila = true, autenticada = true,
+  usarCache = true, sincronizarFila = true,
+} = {}) {
   try {
-    const dados = await chamarServidor(caminho, { method, body });
-    registrarSincronizacao();
-    if (method === 'GET') {
+    const { dados, contexto } = await chamarServidor(caminho, { method, body, autenticada });
+    if (autenticada && !sessaoAtualEh(contexto.perfil, contexto.versao)) throw erroSessaoAlterada();
+    registrarSincronizacao().catch(() => {});
+    if (autenticada) {
+      liberarFilaOffline();
+      eventosSessao?.online?.();
+    }
+    if (method === 'GET' && usarCache) {
       const namespace = await obterNamespaceCache();
       await salvarCache(namespace, caminho, dados);
     }
-    if (!processandoFila) processarFilaOffline();
+    if (autenticada && sincronizarFila && !processandoFila) processarFilaOffline().catch(() => {});
     return dados;
   } catch (erro) {
     if (!ehFalhaDeRede(erro)) throw erro;
 
-    if (method === 'GET') {
+    if (method === 'GET' && usarCache) {
       const namespace = await obterNamespaceCache();
       const cache = await lerCache(namespace, caminho);
       if (cache) return { ...cache.dados, _offline: true, _cacheEm: cache.em };
+    }
+    if (method === 'GET') {
       const semDados = new Error('Sem conexão e sem dados salvos ainda.');
       semDados.offline = true;
       throw semDados;
@@ -275,14 +340,20 @@ async function requisitar(caminho, { method = 'GET', body, rotulo, permitirFila 
 }
 
 export const api = {
-  obterUsuarioAtual: () => requisitar('/api/auth/me'),
+  obterUsuarioAtual: () => requisitar('/api/auth/me', { usarCache: false, sincronizarFila: false }),
   listarPermissoes: () => requisitar('/api/permissoes'),
 
   // --- Responsável ---
   login: (email, senha) =>
-    requisitar('/api/responsaveis/login', { method: 'POST', body: { email, senha }, permitirFila: false }),
+    requisitar('/api/responsaveis/login', {
+      method: 'POST', body: { email, senha }, permitirFila: false, autenticada: false,
+      sincronizarFila: false,
+    }),
   cadastrar: (dados) =>
-    requisitar('/api/responsaveis/cadastro', { method: 'POST', body: dados, permitirFila: false }),
+    requisitar('/api/responsaveis/cadastro', {
+      method: 'POST', body: dados, permitirFila: false, autenticada: false,
+      sincronizarFila: false,
+    }),
   listarAlunos: () => requisitar('/api/responsaveis/alunos'),
   frequenciaDoAluno: (alunoId) => requisitar(`/api/responsaveis/alunos/${alunoId}/frequencia`),
   notasDoAluno: (alunoId) => requisitar(`/api/responsaveis/alunos/${alunoId}/notas`),
@@ -301,7 +372,10 @@ export const api = {
 
   // --- Professor (login de staff — exige a empresa/ambiente, igual ao web) ---
   loginProfessor: (email, senha, unidade) =>
-    requisitar('/api/auth/login', { method: 'POST', body: { email, senha, unidade }, permitirFila: false }),
+    requisitar('/api/auth/login', {
+      method: 'POST', body: { email, senha, unidade }, permitirFila: false, autenticada: false,
+      sincronizarFila: false,
+    }),
   listarMinhasTurmas: () => requisitar('/api/professores/minhas-turmas'),
   resumoProfessor: () => requisitar('/api/professores/minhas-turmas/resumo'),
   listarAlunosDaTurma: (turmaId, atribuicaoId) => {

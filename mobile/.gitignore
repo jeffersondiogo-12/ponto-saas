@@ -45,3 +45,9 @@ node_modules/
 storage/
 npm-debug.log*
 *.log
+
+#files
+apiAutenticacao.test.js
+authContext.test.js
+authIntegracao.test.js
+RELATORIO resultado_MOB_005.md
