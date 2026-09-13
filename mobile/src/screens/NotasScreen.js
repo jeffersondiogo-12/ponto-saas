@@ -8,11 +8,10 @@ import { Aviso, BotaoGrande, Cabecalho, Cartao, FaixaOffline, SeletorTurma, useB
 import { cores, raio, sombra } from '../theme';
 
 const BIMESTRES = ['1', '2', '3', '4'];
-const TIPOS = [
-  { chave: 'atividade', rotulo: 'Atividade' },
-  { chave: 'prova', rotulo: 'Prova' },
-  { chave: 'trabalho', rotulo: 'Trabalho' },
-];
+// Mesma lista e grafia do web (ProfessorPainel.jsx) — o campo e texto cru,
+// sem chave interna: "prova" pelo app e "Prova" pelo site viravam valores
+// diferentes pro mesmo tipo.
+const TIPOS_AVALIACAO = ['Prova', 'Trabalho', 'Atividade', 'Participação', 'Seminário', 'Recuperação'];
 
 function Opcoes({ itens, valor, aoEscolher }) {
   return (
@@ -41,7 +40,7 @@ export default function NotasScreen({ navigation }) {
   const [alunoId, setAlunoId] = useState('');
   const [historico, setHistorico] = useState([]);
   const [bimestre, setBimestre] = useState('1');
-  const [tipoAvaliacao, setTipoAvaliacao] = useState('atividade');
+  const [tipoAvaliacao, setTipoAvaliacao] = useState('Prova');
   const [atividade, setAtividade] = useState('');
   const [nota, setNota] = useState('');
   const [carregando, setCarregando] = useState(true);
@@ -135,7 +134,7 @@ export default function NotasScreen({ navigation }) {
         <Text style={estilos.secao}>Bimestre</Text>
         <Opcoes itens={BIMESTRES} valor={bimestre} aoEscolher={setBimestre} />
         <Text style={estilos.secao}>Tipo</Text>
-        <Opcoes itens={TIPOS} valor={tipoAvaliacao} aoEscolher={setTipoAvaliacao} />
+        <Opcoes itens={TIPOS_AVALIACAO} valor={tipoAvaliacao} aoEscolher={setTipoAvaliacao} />
         <TextInput style={estilos.input} placeholder="Atividade (ex.: Prova de frações)" placeholderTextColor={cores.inkSoft} value={atividade} onChangeText={setAtividade} />
         <TextInput style={estilos.input} placeholder="Nota de 0 a 10" placeholderTextColor={cores.inkSoft} keyboardType="decimal-pad" value={nota} onChangeText={setNota} />
         <BotaoGrande texto={enviando ? 'Enviando...' : 'Salvar nota'} onPress={salvar} desabilitado={enviando} />

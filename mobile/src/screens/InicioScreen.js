@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, DeviceEventEmitter, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { api, obterNamespaceCache } from '../api';
@@ -79,10 +79,29 @@ export default function InicioScreen({ navigation }) {
     carregar();
   }, [carregar]);
 
+  // O gestor pode atribuir ou tirar uma turma com o app aberto no Início.
+  useEffect(() => {
+    const assinatura = DeviceEventEmitter.addListener('ponto-saas:atualizado', (mensagem) => {
+      if (mensagem?.tipo === 'turma.atribuida') carregar();
+    });
+    return () => assinatura.remove();
+  }, [carregar]);
+
   async function aoAtualizar() {
     setAtualizando(true);
     await carregar();
     setAtualizando(false);
+  }
+
+  function sair() {
+    const quantidade = pendentes.length;
+    const mensagem = quantidade === 0
+      ? 'Para entrar de novo, você vai precisar do seu usuário e da senha.'
+      : `${quantidade === 1 ? '1 ação ainda não enviada será apagada' : `${quantidade} ações ainda não enviadas serão apagadas`} deste aparelho. Toque em Sincronizar antes de sair para não perdê-las.`;
+    Alert.alert('Sair da conta?', mensagem, [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Sair', style: 'destructive', onPress: logout },
+    ]);
   }
 
   const presentes = resumo.reduce((total, linha) => total + (Number(linha.presentes_facial) || 0), 0);
@@ -109,7 +128,7 @@ export default function InicioScreen({ navigation }) {
         titulo={`${saudacao()}, professor`}
         subtitulo={`Seu dia em ${hoje.split('-').reverse().join('/')}`}
         acao={
-          <PressaoAnimada style={estilos.sair} onPress={logout}>
+          <PressaoAnimada style={estilos.sair} onPress={sair}>
             <Text style={estilos.sairTexto}>Sair</Text>
           </PressaoAnimada>
         }

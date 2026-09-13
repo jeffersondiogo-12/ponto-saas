@@ -1,10 +1,12 @@
 import { useEffect } from 'react';
 import { AppState } from 'react-native';
 import * as Updates from 'expo-updates';
+import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import ErrorBoundary from './src/components/ErrorBoundary';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import LoginScreen from './src/screens/LoginScreen';
 import HomeScreen from './src/screens/HomeScreen';
@@ -20,6 +22,10 @@ import { processarFilaOffline } from './src/api';
 import { cores } from './src/theme';
 
 const Stack = createNativeStackNavigator();
+
+// Segura a splash nativa até a sessão terminar de restaurar - sem isso,
+// "if (carregandoSessao) return null" abaixo mostrava tela branca (M8).
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
 function Navegacao() {
   const { usuario, carregandoSessao } = useAuth();
@@ -80,6 +86,10 @@ function Navegacao() {
     return () => assinatura.remove();
   }, []);
 
+  useEffect(() => {
+    if (!carregandoSessao) SplashScreen.hideAsync().catch(() => {});
+  }, [carregandoSessao]);
+
   if (carregandoSessao) return null;
 
   return (
@@ -107,7 +117,11 @@ function Navegacao() {
             <Stack.Screen name="Relatorios" component={RelatoriosScreen} options={{ title: '' }} />
           </>
         ) : (
-          <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
+          <Stack.Screen
+            name="Login"
+            component={LoginScreen}
+            options={{ headerShown: false, contentStyle: { backgroundColor: cores.ink } }}
+          />
         )}
       </Stack.Navigator>
     </NavigationContainer>
@@ -133,7 +147,9 @@ export default function App() {
     <SafeAreaProvider>
       <AuthProvider>
         <AtualizarAplicativo />
-        <Navegacao />
+        <ErrorBoundary>
+          <Navegacao />
+        </ErrorBoundary>
         <StatusBar style="light" />
       </AuthProvider>
     </SafeAreaProvider>

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Animated, DeviceEventEmitter, FlatList, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api } from '../api';
 import { useFocusEffect } from '@react-navigation/native';
@@ -12,10 +12,13 @@ function dataHoje() {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
 }
 
+const ORDEM_ESTADOS = ['presente', 'ausente', 'justificada'];
+
 const ESTADOS = {
+  nao_marcado: { texto: 'Toque para marcar', fundo: 'surfaceAlt', borda: 'linha', cor: 'inkSoft' },
   presente: { texto: 'Presente', fundo: 'verdeSoft', borda: 'verde', cor: 'verde' },
+  ausente: { texto: 'Ausente', fundo: 'vermelhoSoft', borda: 'vermelho', cor: 'vermelho' },
   justificada: { texto: 'Falta justificada', fundo: 'azulSoft', borda: 'azul', cor: 'azul' },
-  ausente: { texto: 'Ausente', fundo: 'surfaceAlt', borda: 'linha', cor: 'inkSoft' },
 };
 
 function LinhaAluno({ aluno, estado, justificativa, onToggle, onJustificativa, onAbrir, atraso }) {
@@ -104,7 +107,7 @@ export default function ChamadaScreen({ navigation }) {
         String(a.nome || '').localeCompare(String(b.nome || ''), 'pt-BR', { sensitivity: 'base' })
       );
       setAlunos(lista);
-      setEstados(Object.fromEntries(lista.map((aluno) => [aluno.id, 'presente'])));
+      setEstados({});
       setJustificativas({});
     } catch (err) {
       tratarErro(err);
@@ -142,6 +145,15 @@ export default function ChamadaScreen({ navigation }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // O gestor pode atribuir ou tirar uma turma com o app aberto na chamada.
+  useEffect(() => {
+    const assinatura = DeviceEventEmitter.addListener('ponto-saas:atualizado', (mensagem) => {
+      if (mensagem?.tipo === 'turma.atribuida') carregarTurmas(turma?.atribuicao_id);
+    });
+    return () => assinatura.remove();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [turma?.atribuicao_id]);
+
   async function aoAtualizar() {
     setAtualizando(true);
     await carregarTurmas(turma?.atribuicao_id);
@@ -149,9 +161,13 @@ export default function ChamadaScreen({ navigation }) {
   }
 
   function alternar(aluno) {
-    const atual = estados[aluno.id] || 'ausente';
-    const proximo = atual === 'presente' ? 'ausente' : atual === 'ausente' ? 'justificada' : 'presente';
+    const atual = estados[aluno.id];
+    const proximo = atual ? ORDEM_ESTADOS[(ORDEM_ESTADOS.indexOf(atual) + 1) % ORDEM_ESTADOS.length] : ORDEM_ESTADOS[0];
     setEstados({ ...estados, [aluno.id]: proximo });
+  }
+
+  function marcarTodosPresentes() {
+    setEstados(Object.fromEntries(alunos.map((aluno) => [aluno.id, 'presente'])));
   }
 
   async function salvar() {
@@ -190,13 +206,12 @@ export default function ChamadaScreen({ navigation }) {
   }
 
   const totalPresentes = alunos.filter((aluno) => estados[aluno.id] === 'presente').length;
+  const todosMarcados = alunos.length > 0 && alunos.every((aluno) => Boolean(estados[aluno.id]));
+  const turmaPronta = turmas.length > 0 && !carregandoTurma;
+  const dadosLista = turmaPronta ? alunos : [];
 
-  return (
-    <ScrollView
-      style={estilos.tela}
-      contentContainerStyle={[estilos.conteudo, { paddingTop: insets.top + 20 }]}
-      refreshControl={<RefreshControl refreshing={atualizando} onRefresh={aoAtualizar} tintColor={cores.azul} />}
-    >
+  const cabecalho = (
+    <View style={estilos.blocoGap}>
       <Cabecalho rotulo="PRESENÇA EM SALA" titulo="Chamada" subtitulo={`Toque para alternar entre presente, ausente e falta justificada · ${hoje.split('-').reverse().join('/')}`} />
       <FaixaOffline visivel={offline} />
       <Aviso tipo="erro" texto={erro} />
@@ -224,28 +239,45 @@ export default function ChamadaScreen({ navigation }) {
           {alunos.length === 0 ? (
             <Text style={estilos.vazio}>Nenhum aluno ativo nesta turma.</Text>
           ) : (
-            alunos.map((aluno, indice) => (
-              <LinhaAluno
-                key={aluno.id}
-                aluno={aluno}
-                atraso={indice * 45}
-                estado={estados[aluno.id] || 'ausente'}
-                justificativa={justificativas[aluno.id] || ''}
-                onToggle={() => alternar(aluno)}
-                onJustificativa={(valor) => setJustificativas({ ...justificativas, [aluno.id]: valor })}
-                onAbrir={() => navigation.navigate('AlunoDetalhe', { alunoId: aluno.id, nome: aluno.nome || 'Aluno' })}
-              />
-            ))
+            <BotaoGrande texto="Marcar todos presentes" onPress={marcarTodosPresentes} secundario />
           )}
-
-          <BotaoGrande
-            texto={enviando ? 'Enviando...' : 'Salvar chamada'}
-            onPress={salvar}
-            desabilitado={enviando || alunos.length === 0}
-          />
         </>
       )}
-    </ScrollView>
+    </View>
+  );
+
+  const rodape = turmaPronta && alunos.length > 0 ? (
+    <View style={estilos.blocoGap}>
+      {!todosMarcados ? <Text style={estilos.pendenteTexto}>Marque todos os alunos para salvar a chamada.</Text> : null}
+      <BotaoGrande
+        texto={enviando ? 'Enviando...' : 'Salvar chamada'}
+        onPress={salvar}
+        desabilitado={enviando || !todosMarcados}
+      />
+    </View>
+  ) : null;
+
+  return (
+    <FlatList
+      style={estilos.tela}
+      contentContainerStyle={[estilos.conteudo, { paddingTop: insets.top + 20 }]}
+      refreshControl={<RefreshControl refreshing={atualizando} onRefresh={aoAtualizar} tintColor={cores.azul} />}
+      data={dadosLista}
+      keyExtractor={(aluno) => aluno.id}
+      renderItem={({ item: aluno, index: indice }) => (
+        <LinhaAluno
+          aluno={aluno}
+          atraso={indice * 45}
+          estado={estados[aluno.id] || 'nao_marcado'}
+          justificativa={justificativas[aluno.id] || ''}
+          onToggle={() => alternar(aluno)}
+          onJustificativa={(valor) => setJustificativas({ ...justificativas, [aluno.id]: valor })}
+          onAbrir={() => navigation.navigate('AlunoDetalhe', { alunoId: aluno.id, nome: aluno.nome || 'Aluno' })}
+        />
+      )}
+      ListHeaderComponent={cabecalho}
+      ListFooterComponent={rodape}
+    />
   );
 }
 
@@ -253,6 +285,8 @@ const estilos = StyleSheet.create({
   tela: { flex: 1, backgroundColor: cores.paper },
   conteudo: { padding: 20, paddingBottom: 40, gap: 14 },
   centro: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: cores.paper },
+  blocoGap: { gap: 14 },
+  pendenteTexto: { color: cores.inkSoft, fontSize: 12, textAlign: 'center' },
   resumoTexto: { fontWeight: '800', color: cores.ink, marginBottom: 8 },
   barraFundo: { height: 8, borderRadius: 8, backgroundColor: cores.surfaceAlt, overflow: 'hidden' },
   barraProgresso: { height: 8, backgroundColor: cores.verde },

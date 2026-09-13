@@ -43,8 +43,21 @@ export function AparecerEm({ atraso = 0, deslocamento = 14, style, children }) {
 
 /**
  * Toque com "afundada" elastica - da sensacao fisica ao botao/cartao.
+ *
+ * Usado em ~40 lugares como botao/cartao tocavel; por isso os padroes de
+ * acessibilidade (role, label, state) vivem aqui, nao em cada tela (M9).
  */
-export function PressaoAnimada({ onPress, disabled, escala = 0.97, style, children }) {
+export function PressaoAnimada({
+  onPress,
+  disabled,
+  escala = 0.97,
+  style,
+  children,
+  accessibilityRole = 'button',
+  accessibilityLabel,
+  accessibilityHint,
+  ...outrasProps
+}) {
   const valor = useRef(new Animated.Value(1)).current;
 
   const animar = (para) =>
@@ -61,6 +74,11 @@ export function PressaoAnimada({ onPress, disabled, escala = 0.97, style, childr
       disabled={disabled}
       onPressIn={() => animar(escala)}
       onPressOut={() => animar(1)}
+      accessibilityRole={accessibilityRole}
+      accessibilityLabel={accessibilityLabel}
+      accessibilityHint={accessibilityHint}
+      accessibilityState={{ disabled: Boolean(disabled) }}
+      {...outrasProps}
     >
       <Animated.View style={[style, { transform: [{ scale: valor }], opacity: disabled ? 0.6 : 1 }]}>
         {children}

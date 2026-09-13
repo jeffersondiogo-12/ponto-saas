@@ -88,6 +88,24 @@ export function BotaoGrande({ texto, onPress, secundario, desabilitado }) {
   );
 }
 
+const DIAS_LABEL = { 0: 'Dom', 1: 'Seg', 2: 'Ter', 3: 'Qua', 4: 'Qui', 5: 'Sex', 6: 'Sáb' };
+
+function formatarDias(diasSemana) {
+  if (!Array.isArray(diasSemana) || diasSemana.length === 0) return '';
+  return diasSemana.map((dia) => DIAS_LABEL[dia] ?? dia).join(' ');
+}
+
+function formatarHora(hora) {
+  return typeof hora === 'string' ? hora.slice(0, 5) : '';
+}
+
+function resumoHorarioColegio(horarios) {
+  if (!Array.isArray(horarios) || horarios.length === 0) return '';
+  return horarios
+    .map((horario) => `${DIAS_LABEL[horario.dia_semana] || horario.dia_semana} ${formatarHora(horario.hora_entrada)}-${formatarHora(horario.hora_saida)}`)
+    .join(' · ');
+}
+
 /** Trilho horizontal de turmas, reutilizado em Chamada, Notas e Observacoes. */
 export function SeletorTurma({ turmas, turmaAtiva, aoSelecionar }) {
   if (!turmas?.length) return null;
@@ -97,6 +115,10 @@ export function SeletorTurma({ turmas, turmaAtiva, aoSelecionar }) {
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={estilos.trilho}>
         {turmas.map((item, indice) => {
           const ativa = turmaAtiva?.atribuicao_id === item.atribuicao_id;
+          const horarioAula = formatarDias(item.dias_semana) || item.hora_inicio
+            ? `${formatarDias(item.dias_semana)} ${formatarHora(item.hora_inicio)}-${formatarHora(item.hora_fim)}`.trim()
+            : '';
+          const horarioColegio = resumoHorarioColegio(item.horarios_turma);
           return (
             <AparecerEm key={item.atribuicao_id} atraso={indice * 60} deslocamento={10}>
               <PressaoAnimada
@@ -106,6 +128,16 @@ export function SeletorTurma({ turmas, turmaAtiva, aoSelecionar }) {
               >
                 <Text style={[estilos.chipNome, ativa && estilos.chipNomeAtivo]}>{item.nome}</Text>
                 <Text style={[estilos.chipDetalhe, ativa && estilos.chipDetalheAtivo]}>{item.materia}</Text>
+                {horarioAula ? (
+                  <Text style={[estilos.chipDetalhe, ativa && estilos.chipDetalheAtivo]} numberOfLines={1}>
+                    {horarioAula}
+                  </Text>
+                ) : null}
+                {horarioColegio ? (
+                  <Text style={[estilos.chipDetalhe, ativa && estilos.chipDetalheAtivo]} numberOfLines={1}>
+                    Colégio: {horarioColegio}
+                  </Text>
+                ) : null}
               </PressaoAnimada>
             </AparecerEm>
           );

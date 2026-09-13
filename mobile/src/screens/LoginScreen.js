@@ -2,17 +2,16 @@ import { useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Easing,
+  findNodeHandle,
   Image,
   View,
   Text,
   TextInput,
   StyleSheet,
   ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
   Switch,
 } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { useAuth } from '../context/AuthContext';
 import { AparecerEm, PressaoAnimada } from '../components/Animacoes';
 import { cores, raio, sombra } from '../theme';
@@ -26,6 +25,19 @@ export default function LoginScreen() {
   const [carregando, setCarregando] = useState(false);
   const [manterLogin, setManterLogin] = useState(true);
   const { loginResponsavel, loginProfessor } = useAuth();
+
+  const scrollRef = useRef(null);
+  const senhaRef = useRef(null);
+  const unidadeRef = useRef(null);
+
+  // O teclado de alguns aparelhos (ex.: MIUI) muda de altura entre campos —
+  // senha ganha atalho numerico, email nao. Rolar de novo so no foco nem
+  // sempre acontece a tempo; forcamos a rolagem da propria lib, com folga
+  // pro teclado assentar antes de medir onde o campo ficou.
+  function focarCampo(ref) {
+    ref.current?.focus();
+    scrollRef.current?.scrollToFocusedInput(findNodeHandle(ref.current), 40, 300);
+  }
 
   // Orbes de fundo em movimento lento.
   const orbe = useRef(new Animated.Value(0)).current;
@@ -92,10 +104,7 @@ export default function LoginScreen() {
   }
 
   return (
-    <KeyboardAvoidingView
-      style={estilos.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
+    <View style={estilos.container}>
       <View pointerEvents="none" style={estilos.orbeArea}>
         <View style={estilos.orbeAzulWrapper}>
           <Animated.View
@@ -125,11 +134,15 @@ export default function LoginScreen() {
         </View>
       </View>
 
-      <ScrollView
+      <KeyboardAwareScrollView
+        ref={scrollRef}
         contentContainerStyle={estilos.conteudo}
         keyboardDismissMode="on-drag"
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
+        enableOnAndroid
+        extraScrollHeight={24}
+        keyboardOpeningTime={0}
       >
         <AparecerEm style={estilos.cabecalho} deslocamento={20}>
           <Animated.View
@@ -224,10 +237,14 @@ export default function LoginScreen() {
             keyboardType="email-address"
             value={email}
             onChangeText={setEmail}
+            returnKeyType="next"
+            blurOnSubmit={false}
+            onSubmitEditing={() => focarCampo(senhaRef)}
           />
 
           <Text style={estilos.rotulo}>Senha</Text>
           <TextInput
+            ref={senhaRef}
             style={estilos.input}
             placeholder="••••••••"
             placeholderTextColor={cores.inkSoft}
@@ -236,18 +253,24 @@ export default function LoginScreen() {
             autoCorrect={false}
             value={senha}
             onChangeText={setSenha}
+            returnKeyType={papel === 'professor' ? 'next' : 'done'}
+            blurOnSubmit={papel !== 'professor'}
+            onSubmitEditing={papel === 'professor' ? () => focarCampo(unidadeRef) : entrar}
           />
 
           {papel === 'professor' && (
             <AparecerEm deslocamento={10}>
               <Text style={estilos.rotulo}>Ambiente (empresa)</Text>
               <TextInput
+                ref={unidadeRef}
                 style={estilos.input}
                 placeholder="Nome ou CNPJ da empresa"
                 placeholderTextColor={cores.inkSoft}
                 autoCapitalize="none"
                 value={unidade}
                 onChangeText={setUnidade}
+                returnKeyType="done"
+                onSubmitEditing={entrar}
               />
               <Text style={estilos.ajuda}>
                 A empresa onde você trabalha. As escolas e filiais ficam dentro dela.
@@ -284,8 +307,8 @@ export default function LoginScreen() {
         <AparecerEm atraso={240}>
           <Text style={estilos.rodape}>Dados protegidos · acesso liberado pela escola</Text>
         </AparecerEm>
-      </ScrollView>
-    </KeyboardAvoidingView>
+      </KeyboardAwareScrollView>
+    </View>
   );
 }
 
