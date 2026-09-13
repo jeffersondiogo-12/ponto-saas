@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
-import { api, obterUltimaSincronizacao } from '../api';
-import { obterFila, ouvirFila, removerDaFila, reabrirNaFila } from '../filaOffline';
+import { obterNamespaceCache, obterUltimaSincronizacao, processarFilaOffline } from '../api';
+import { obterFila, ouvirFila, removerDaFila, reabrirNaFila, obterFilaLegada, limparFilaLegada } from '../filaOffline';
 import { AparecerEm, PressaoAnimada } from '../components/Animacoes';
 import { cores, raio, sombra } from '../theme';
 
@@ -15,36 +15,75 @@ export default function SincronizacaoScreen() {
   const [ultima, setUltima] = useState(null);
   const [carregando, setCarregando] = useState(true);
   const [processando, setProcessando] = useState(false);
+  const [namespace, setNamespace] = useState(null);
+  const [filaLegada, setFilaLegada] = useState([]);
 
   const carregar = useCallback(async () => {
-    const [itens, data] = await Promise.all([obterFila(), obterUltimaSincronizacao()]);
+    const namespaceAtual = await obterNamespaceCache();
+    const [itens, legada, data] = await Promise.all([
+      namespaceAtual ? obterFila(namespaceAtual) : Promise.resolve([]),
+      obterFilaLegada(),
+      obterUltimaSincronizacao(),
+    ]);
+    setNamespace(namespaceAtual);
     setFila(itens);
+    setFilaLegada(legada);
     setUltima(data);
     setCarregando(false);
   }, []);
 
   useEffect(() => {
+    let ativo = true;
     carregar();
-    return ouvirFila(setFila);
+    let parar = () => {};
+    obterNamespaceCache().then((namespaceAtual) => {
+      if (ativo && namespaceAtual) parar = ouvirFila(namespaceAtual, setFila);
+    });
+    return () => {
+      ativo = false;
+      parar();
+    };
   }, [carregar]);
 
   async function sincronizar() {
     setProcessando(true);
-    await api.processarFilaOffline();
-    await carregar();
-    setProcessando(false);
+    try {
+      await processarFilaOffline();
+      await carregar();
+    } finally {
+      setProcessando(false);
+    }
   }
 
   function excluir(item) {
     Alert.alert('Remover ação', `Excluir "${item.rotulo}" da fila?`, [
       { text: 'Cancelar', style: 'cancel' },
-      { text: 'Excluir', style: 'destructive', onPress: () => removerDaFila(item.id) },
+      { text: 'Excluir', style: 'destructive', onPress: () => namespace && removerDaFila(namespace, item.id) },
     ]);
   }
 
   async function tentarNovamente(item) {
-    await reabrirNaFila(item.id);
+    if (!namespace) return;
+    await reabrirNaFila(namespace, item.id);
     await sincronizar();
+  }
+
+  function descartarFilaLegada() {
+    Alert.alert(
+      'Descartar ações antigas',
+      'Estas ações foram criadas antes do isolamento por conta e não podem ser sincronizadas automaticamente.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Descartar',
+          style: 'destructive',
+          onPress: async () => {
+            await limparFilaLegada();
+            setFilaLegada([]);
+          },
+        },
+      ],
+    );
   }
 
   return (
@@ -59,6 +98,16 @@ export default function SincronizacaoScreen() {
         <Text style={estilos.resumoValor}>{formatarData(ultima)}</Text>
         <Text style={estilos.resumoDetalhe}>{fila.length ? `${fila.length} ação(ões) na fila` : 'Tudo sincronizado'}</Text>
       </View>
+      {filaLegada.length ? (
+        <View style={estilos.legada}>
+          <Text style={estilos.legadaTexto}>
+            {filaLegada.length} ação(ões) antigas foram bloqueadas porque não possuem uma conta de origem segura.
+          </Text>
+          <PressaoAnimada onPress={descartarFilaLegada}>
+            <Text style={estilos.legadaAcao}>Revisar e descartar</Text>
+          </PressaoAnimada>
+        </View>
+      ) : null}
       <PressaoAnimada style={estilos.botao} onPress={sincronizar} disabled={processando}>
         {processando ? <ActivityIndicator color={cores.claro} /> : <Text style={estilos.botaoTexto}>Sincronizar agora</Text>}
       </PressaoAnimada>
@@ -100,6 +149,9 @@ const estilos = StyleSheet.create({
   resumoTitulo: { color: cores.inkSoft, fontSize: 12, fontWeight: '700' },
   resumoValor: { color: cores.ink, fontSize: 17, fontWeight: '800', marginTop: 5 },
   resumoDetalhe: { color: cores.azul, fontSize: 12.5, marginTop: 6, fontWeight: '700' },
+  legada: { marginHorizontal: 18, marginBottom: 14, padding: 12, backgroundColor: cores.vermelhoSoft, borderLeftWidth: 3, borderLeftColor: cores.vermelho, borderRadius: raio.sm },
+  legadaTexto: { color: cores.vermelho, fontSize: 12, lineHeight: 17 },
+  legadaAcao: { color: cores.vermelho, fontSize: 12, fontWeight: '800', marginTop: 8 },
   botao: { marginHorizontal: 18, backgroundColor: cores.azul, borderRadius: raio.sm, padding: 15, alignItems: 'center', ...sombra.destaque },
   botaoTexto: { color: cores.claro, fontWeight: '800' },
   carregando: { marginTop: 30 },

@@ -27,7 +27,8 @@
           "icon": "./assets/app-icon.png",
           "color": "#a8842b"
         }
-      ]
+      ],
+      "expo-secure-store"
     ],
     "extra": {
       "eas": {

@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react';
-import { api, salvarToken, limparToken, obterToken, salvarSessao, obterSessao, limparSessao, limparCacheDoPerfil, salvarPerfilAtivo, obterPerfilAtivo, salvarPreferenciaManterLogin, obterPreferenciaManterLogin } from '../api';
+import { api, salvarToken, limparToken, obterToken, salvarSessao, obterSessao, limparSessao, limparCacheDoPerfil, limparFilaDoPerfil, salvarPerfilAtivo, obterPerfilAtivo, salvarPreferenciaManterLogin, obterPreferenciaManterLogin } from '../api';
 
 const AuthContext = createContext(null);
 
@@ -50,6 +50,7 @@ export function AuthProvider({ children }) {
   async function logout() {
     const perfil = await obterPerfilAtivo();
     await limparCacheDoPerfil(perfil);
+    await limparFilaDoPerfil(perfil);
     await limparToken();
     await limparSessao();
     setUsuario(null);

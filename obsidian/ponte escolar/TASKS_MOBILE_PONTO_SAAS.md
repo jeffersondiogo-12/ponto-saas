@@ -20,6 +20,21 @@ Backlog derivado do estado confirmado em [[RELATORIO_TECNICO_ARQUITETURA_PONTO_S
 
 ## Ordem recomendada
 
+### MOB-021 — Isolar fila offline por conta
+
+- **Status:** [x] Concluída em 2026-09-12
+- **Prioridade:** P0
+- **Área:** offline-first / segurança
+- **Nota detalhada:** [[MOB-021_ISOLAR_FILA_OFFLINE_POR_CONTA]]
+- **Problema:** a fila global pode reenviar uma ação criada por outro perfil com o token da sessão atual.
+- **Escopo:** namespace por identidade, migração explícita da fila legada, processamento somente com sessão correspondente e limpeza por perfil no logout.
+- **Critérios de aceite:** [x] duas contas não compartilham fila; [x] fila sem identidade não processa; [x] fila legada não é atribuída automaticamente; [x] logout limpa apenas o namespace atual.
+- **Dependências:** MOB-002 concluída; MOB-020 pendente.
+- **Validação:** diagnósticos, troca de perfil, logout, fila legada e processamento online/offline.
+- **Implementado:** filas v2 por namespace, listeners por namespace, serialização de operações, bloqueio da fila legada, processamento interrompido ao trocar de identidade e limpeza seletiva no logout.
+- **Validação realizada:** diagnósticos sem erros em `filaOffline.js`, `api.js`, `AuthContext.js`, `InicioScreen.js` e `SincronizacaoScreen.js`.
+- **Pendente:** testes automatizados de isolamento e concorrência em MOB-020.
+
 ### P0 — Segurança e integridade de dados
 
 #### MOB-001 — Remover dados demonstrativos da Home do responsável
@@ -69,7 +84,7 @@ Backlog derivado do estado confirmado em [[RELATORIO_TECNICO_ARQUITETURA_PONTO_S
 
 #### MOB-003 — Isolar e proteger a fila offline por conta
 
-- **Status:** [ ] A fazer
+- **Status:** [→] Substituída pela MOB-021 em 2026-09-12
 - **Prioridade:** P0
 - **Área:** offline-first / segurança
 - **Arquivos prováveis:** `mobile/src/filaOffline.js`, `mobile/src/api.js`, `mobile/src/context/AuthContext.js`
@@ -87,10 +102,11 @@ Backlog derivado do estado confirmado em [[RELATORIO_TECNICO_ARQUITETURA_PONTO_S
   - [ ] migração de fila antiga tem comportamento explícito.
 - **Dependências:** MOB-002 e política de logout.
 - **Validação:** testes de troca de identidade durante fila pendente.
+- **Nota:** a implementação foi executada na nova task [[MOB-021_ISOLAR_FILA_OFFLINE_POR_CONTA]], criada conforme a regra de não reutilizar tasks de código.
 
 #### MOB-004 — Migrar tokens para armazenamento seguro
 
-- **Status:** [ ] A fazer
+- **Status:** [→] Substituída pela MOB-022 em 2026-09-12
 - **Prioridade:** P0
 - **Área:** autenticação
 - **Arquivos prováveis:** `mobile/src/api.js`, `mobile/src/context/AuthContext.js`, `mobile/package.json`
@@ -108,6 +124,16 @@ Backlog derivado do estado confirmado em [[RELATORIO_TECNICO_ARQUITETURA_PONTO_S
   - [ ] logout remove token seguro do perfil correto.
 - **Dependências:** política de “Manter login salvo”.
 - **Validação:** teste em Android físico/emulador e iOS quando disponível.
+- **Nota:** a implementação foi executada na nova task [[MOB-022_MIGRAR_TOKENS_PARA_SECURE_STORE]], criada conforme a regra de não reutilizar tasks de código.
+
+#### MOB-022 — Migrar tokens para Secure Store
+
+- **Status:** [x] Concluída em 2026-09-12, com testes de dispositivo pendentes
+- **Prioridade:** P0
+- **Nota detalhada:** [[MOB-022_MIGRAR_TOKENS_PARA_SECURE_STORE]]
+- **Implementado:** `expo-secure-store ~15.0.8` adicionado; tokens de responsável/professor usam chaves seguras; tokens legados do AsyncStorage são migrados e removidos; logout limpa Secure Store e legado.
+- **Validação realizada:** diagnósticos sem erros em `api.js` e `AuthContext.js`.
+- **Pendente:** teste em dispositivo físico/Android/iOS e testes automatizados de migração em MOB-020.
 
 #### MOB-005 — Corrigir restauração de sessão e tratamento global de 401
 
@@ -282,12 +308,13 @@ Backlog derivado do estado confirmado em [[RELATORIO_TECNICO_ARQUITETURA_PONTO_S
 
 #### MOB-015 — Corrigir notificações, privacidade e deep links
 
-- **Status:** [ ] A fazer
+- **Status:** [cancelada] Cancelada em 2026-09-12
 - **Prioridade:** P2
 - **Área:** push / privacidade
 - **Arquivos prováveis:** `mobile/src/notifications.js`, `mobile/App.js`, `mobile/app.json`
 - **Implementação:** listener de toque com destino validado, visibilidade Android privada para dados sensíveis, revogação/atualização de token no logout/troca de dispositivo.
 - **Critérios de aceite:** [ ] toque abre o aluno/aviso correto; [ ] permissão negada não quebra o app; [ ] conteúdo sensível não aparece publicamente na tela bloqueada; [ ] token antigo é desativado.
+- **Decisão:** manter o conteúdo das notificações visível conforme solicitado; não implementar a alteração para visibilidade privada da tela bloqueada. Deep link, revogação de token e demais melhorias permanecem fora desta task cancelada.
 
 #### MOB-016 — Criar Error Boundary e telemetria segura
 
@@ -345,7 +372,7 @@ Backlog derivado do estado confirmado em [[RELATORIO_TECNICO_ARQUITETURA_PONTO_S
 ## Ordem de execução sugerida
 
 1. MOB-001, MOB-002, MOB-003, MOB-005.
-2. MOB-004 e MOB-006.
+2. MOB-022 e MOB-006.
 3. MOB-007 e MOB-008.
 4. MOB-009, MOB-010, MOB-011 e MOB-012.
 5. MOB-013.

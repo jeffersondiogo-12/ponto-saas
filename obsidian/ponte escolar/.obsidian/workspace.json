@@ -11,10 +11,14 @@
             "id": "6fa2ad77ac18e463",
             "type": "leaf",
             "state": {
-              "type": "graph",
-              "state": {},
-              "icon": "lucide-git-fork",
-              "title": "Visualização em gráfico"
+              "type": "markdown",
+              "state": {
+                "file": "REGISTRO DE ATUALIZACOES PONTO SAAS.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "REGISTRO DE ATUALIZACOES PONTO SAAS"
             }
           }
         ]
@@ -95,6 +99,7 @@
             "state": {
               "type": "backlink",
               "state": {
+                "file": "REGISTRO DE ATUALIZACOES PONTO SAAS.md",
                 "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -113,6 +118,7 @@
             "state": {
               "type": "outgoing-link",
               "state": {
+                "file": "REGISTRO DE ATUALIZACOES PONTO SAAS.md",
                 "linksCollapsed": false,
                 "unlinkedCollapsed": true
               },
@@ -155,6 +161,7 @@
             "state": {
               "type": "outline",
               "state": {
+                "file": "REGISTRO DE ATUALIZACOES PONTO SAAS.md",
                 "followCursor": false,
                 "showSearch": false,
                 "searchQuery": ""
@@ -173,8 +180,8 @@
   "left-ribbon": {
     "hiddenItems": {
       "switcher:Abrir a troca rápida": false,
-      "graph:Abrir visualização em gráfico": false,
       "canvas:Criar novo canvas": false,
+      "graph:Abrir visualização em gráfico": false,
       "daily-notes:Abrir a nota de hoje": false,
       "templates:Inserir modelo": false,
       "command-palette:Abrir paleta de comandos": false,
@@ -183,6 +190,10 @@
   },
   "active": "6fa2ad77ac18e463",
   "lastOpenFiles": [
+    "MOB-023_TESTES_ISOLAMENTO_CACHE_FILA.md",
+    "MOB-022_MIGRAR_TOKENS_PARA_SECURE_STORE.md",
+    "MOB-021_ISOLAR_FILA_OFFLINE_POR_CONTA.md",
+    "Sem título.canvas",
     "RELATORIO_BANCO_DE_DADOS_PONTO_SAAS.md",
     "Banco de Dados Ponto SaaS.md",
     "RELATORIO_ANALISE_SEGUNDO_CEREBRO_PONTO_SAAS.md",

@@ -66,6 +66,38 @@ Registro compacto das mudanças de conhecimento, decisões, tasks e validações
 - **Conclusão:** RLS por empresa/filial ainda não existe no banco; hoje o isolamento é feito pela API. O gatilho de `updated_at` existe parcialmente e não foi identificado gatilho de proteção de campos de segurança.
 - **Prioridades:** preparar contexto seguro no pool, implementar RLS incremental, completar triggers, proteger campos tenant e testar concorrência.
 
+### MOB-021 — Fila offline por conta
+
+- **Tipo:** task / implementação
+- **Status:** concluída em 2026-09-12, com testes automatizados pendentes.
+- **Atualização:** a fila global foi substituída por namespaces de identidade; a fila legada ficou bloqueada; processamento e listeners exigem a sessão correspondente; logout limpa somente a fila atual.
+- **Arquivos:** `mobile/src/filaOffline.js`, `mobile/src/api.js`, `mobile/src/context/AuthContext.js`, `mobile/src/screens/InicioScreen.js`, `mobile/src/screens/SincronizacaoScreen.js`.
+- **Dependência:** [[MOB-002]] concluída; testes automatizados permanecem em MOB-020.
+- **Resultado:** a MOB-003 original foi substituída pela task [[MOB-021_ISOLAR_FILA_OFFLINE_POR_CONTA]]; a fila legada agora aparece bloqueada para descarte explícito e nunca é reenviada automaticamente.
+
+### MOB-022 — Tokens no Secure Store
+
+- **Tipo:** task / implementação
+- **Status:** iniciada em 2026-09-12.
+- **Atualização:** criada a task detalhada [[MOB-022_MIGRAR_TOKENS_PARA_SECURE_STORE]] para substituir o armazenamento persistido de tokens em AsyncStorage por Secure Store, com migração compatível.
+- **Dependência:** a MOB-004 original foi substituída pela MOB-022 conforme a política de criar nova task para toda atualização de código.
+
+### MOB-015 — Notificações com conteúdo visível
+
+- **Tipo:** decisão / cancelamento
+- **Status:** cancelada em 2026-09-12.
+- **Atualização:** a política de tornar notificações privadas na tela bloqueada foi cancelada; o conteúdo deve continuar visível conforme solicitado.
+- **Nota:** futuras alterações de deep link ou revogação de token deverão receber uma nova task, sem reabrir a MOB-015.
+
+### MOB-022 — Tokens no Secure Store
+
+- **Tipo:** implementação / validação
+- **Status:** concluída em 2026-09-12, com testes de dispositivo e automatizados pendentes.
+- **Atualização:** tokens de responsável e professor migrados para `expo-secure-store ~15.0.8`; tokens antigos do AsyncStorage são migrados sob demanda e removidos; logout limpa ambos os locais.
+- **Arquivos:** `mobile/package.json`, `mobile/package-lock.json`, `mobile/src/api.js`.
+- **Validação:** diagnósticos sem erros em `api.js` e `AuthContext.js`.
+- **Relação:** a MOB-004 original foi substituída pela [[MOB-022_MIGRAR_TOKENS_PARA_SECURE_STORE]].
+
 ## Como registrar novas atualizações
 
 - Use uma entrada curta com data, tipo, resumo, área e links.

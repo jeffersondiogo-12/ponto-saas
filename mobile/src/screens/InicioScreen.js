@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { api } from '../api';
+import { api, obterNamespaceCache } from '../api';
 import { obterFila, ouvirFila } from '../filaOffline';
 import { useAuth } from '../context/AuthContext';
 import { AparecerEm, PressaoAnimada } from '../components/Animacoes';
@@ -29,8 +29,19 @@ export default function InicioScreen({ navigation }) {
   const [erro, setErro] = useState('');
 
   useEffect(() => {
-    obterFila().then(setPendentes);
-    return ouvirFila(setPendentes);
+    let ativo = true;
+    let parar = () => {};
+    obterNamespaceCache().then((namespace) => {
+      if (!ativo || !namespace) return;
+      obterFila(namespace).then((itens) => {
+        if (ativo) setPendentes(itens);
+      });
+      parar = ouvirFila(namespace, setPendentes);
+    });
+    return () => {
+      ativo = false;
+      parar();
+    };
   }, []);
 
   const carregar = useCallback(async () => {

@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
 import { salvarCache, lerCache, limparCacheNamespace } from './storage';
-import { enfileirar, obterFila, removerDaFila, marcarFalhaNaFila } from './filaOffline';
+import { enfileirar, obterFila, removerDaFila, marcarFalhaNaFila, limparFilaNamespace } from './filaOffline';
 
 // Em desenvolvimento, aponte para o IP da sua maquina na rede local (nao
 // "localhost" - no celular/emulador isso resolveria para o proprio
@@ -16,43 +17,82 @@ const CHAVES_PERFIL = {
 const CHAVE_PERFIL_ATIVO = '@ponto_saas_perfil_ativo';
 const CHAVE_MANTER_LOGIN = '@ponto_saas_manter_login';
 const CHAVE_ULTIMA_SINCRONIZACAO = '@ponto_saas_ultima_sincronizacao';
+const CHAVES_TOKEN_SEGURO = {
+  responsavel: 'ponto_saas_responsavel_token',
+  professor: 'ponto_saas_professor_token',
+};
 let tokenDaSessao = null;
 let perfilAtivo = null;
+const sessoesEmMemoria = {};
 
 function chavesDoPerfil(perfil = perfilAtivo || 'responsavel') {
   return CHAVES_PERFIL[perfil] || CHAVES_PERFIL.responsavel;
 }
 
+function chaveTokenSeguro(perfil = perfilAtivo || 'responsavel') {
+  return CHAVES_TOKEN_SEGURO[perfil] || CHAVES_TOKEN_SEGURO.responsavel;
+}
+
 export async function salvarToken(token, persistir = true, perfil = perfilAtivo) {
   perfilAtivo = perfil || 'responsavel';
   tokenDaSessao = token;
-  const { token: chave } = chavesDoPerfil(perfilAtivo);
-  if (persistir) await AsyncStorage.setItem(chave, token);
-  else await AsyncStorage.removeItem(chave);
+  const { token: chaveLegada } = chavesDoPerfil(perfilAtivo);
+  const chaveSegura = chaveTokenSeguro(perfilAtivo);
+  if (persistir) {
+    await SecureStore.setItemAsync(chaveSegura, token);
+    await AsyncStorage.removeItem(chaveLegada);
+  } else {
+    await SecureStore.deleteItemAsync(chaveSegura);
+    await AsyncStorage.removeItem(chaveLegada);
+  }
 }
 
 export async function obterToken(perfil = perfilAtivo) {
-  const { token: chave } = chavesDoPerfil(perfil);
-  return tokenDaSessao || AsyncStorage.getItem(chave);
+  const perfilAtual = perfil || 'responsavel';
+  if (tokenDaSessao && perfilAtual === perfilAtivo) return tokenDaSessao;
+
+  const tokenSeguro = await SecureStore.getItemAsync(chaveTokenSeguro(perfilAtual));
+  if (tokenSeguro) {
+    if (perfilAtual === perfilAtivo) tokenDaSessao = tokenSeguro;
+    return tokenSeguro;
+  }
+
+  // Migra uma única sessão legada sem deixar uma cópia persistida no AsyncStorage.
+  const { token: chaveLegada } = chavesDoPerfil(perfilAtual);
+  const tokenLegado = await AsyncStorage.getItem(chaveLegada);
+  if (!tokenLegado) return null;
+  await SecureStore.setItemAsync(chaveTokenSeguro(perfilAtual), tokenLegado);
+  await AsyncStorage.removeItem(chaveLegada);
+  if (perfilAtual === perfilAtivo) tokenDaSessao = tokenLegado;
+  return tokenLegado;
 }
 
 export async function limparToken(perfil = perfilAtivo) {
   tokenDaSessao = null;
+  await SecureStore.deleteItemAsync(chaveTokenSeguro(perfil));
   await AsyncStorage.removeItem(chavesDoPerfil(perfil).token);
 }
 
 export async function salvarSessao(usuario, persistir = true, perfil = perfilAtivo) {
   const { sessao } = chavesDoPerfil(perfil);
+  const perfilAtual = perfil || 'responsavel';
+  if (usuario) sessoesEmMemoria[perfilAtual] = usuario;
+  else delete sessoesEmMemoria[perfilAtual];
   if (persistir) await AsyncStorage.setItem(sessao, JSON.stringify(usuario));
   else await AsyncStorage.removeItem(sessao);
 }
 
 export async function obterSessao(perfil = perfilAtivo) {
+  const perfilAtual = perfil || 'responsavel';
+  if (sessoesEmMemoria[perfilAtual]) return sessoesEmMemoria[perfilAtual];
   const bruto = await AsyncStorage.getItem(chavesDoPerfil(perfil).sessao);
-  return bruto ? JSON.parse(bruto) : null;
+  const sessao = bruto ? JSON.parse(bruto) : null;
+  if (sessao) sessoesEmMemoria[perfilAtual] = sessao;
+  return sessao;
 }
 
 export async function limparSessao(perfil = perfilAtivo) {
+  delete sessoesEmMemoria[perfil || 'responsavel'];
   await AsyncStorage.removeItem(chavesDoPerfil(perfil).sessao);
 }
 
@@ -77,6 +117,11 @@ export async function obterNamespaceCache(perfil = perfilAtivo) {
 export async function limparCacheDoPerfil(perfil = perfilAtivo) {
   const namespace = await obterNamespaceCache(perfil);
   await limparCacheNamespace(namespace);
+}
+
+export async function limparFilaDoPerfil(perfil = perfilAtivo) {
+  const namespace = await obterNamespaceCache(perfil);
+  await limparFilaNamespace(namespace);
 }
 
 export async function salvarPerfilAtivo(perfil) {
@@ -155,22 +200,26 @@ let processandoFila = false;
 // insistir nele não vai mudar o resultado.
 export async function processarFilaOffline() {
   if (processandoFila) return;
+  const namespace = await obterNamespaceCache();
+  if (!namespace) return;
   processandoFila = true;
   try {
-    const fila = await obterFila();
+    const fila = await obterFila(namespace);
     for (const item of fila) {
+        // Troca de conta/perfil durante o processamento invalida esta execução.
+        if (await obterNamespaceCache() !== namespace) break;
       if (item.falhaDefinitiva) continue;
       try {
         // eslint-disable-next-line no-await-in-loop
         await chamarServidor(item.caminho, { method: item.method, body: item.body });
         // eslint-disable-next-line no-await-in-loop
-        await removerDaFila(item.id);
+        await removerDaFila(namespace, item.id);
         await registrarSincronizacao();
       } catch (err) {
         if (ehFalhaDeRede(err)) break;
         // Mantem o item visivel para o usuario corrigir ou tentar novamente.
         // eslint-disable-next-line no-await-in-loop
-        await marcarFalhaNaFila(item.id, err.message || 'O servidor recusou a ação.');
+        await marcarFalhaNaFila(namespace, item.id, err.message || 'O servidor recusou a ação.');
       }
     }
   } finally {
@@ -214,7 +263,13 @@ async function requisitar(caminho, { method = 'GET', body, rotulo, permitirFila 
       throw semConexao;
     }
 
-    const item = await enfileirar({ rotulo: rotulo || 'Ação pendente', caminho, method, body });
+    const namespace = await obterNamespaceCache();
+    if (!namespace) {
+      const semIdentidade = new Error('Sessão não identificada; ação não foi colocada na fila offline.');
+      semIdentidade.offline = true;
+      throw semIdentidade;
+    }
+    const item = await enfileirar(namespace, { rotulo: rotulo || 'Ação pendente', caminho, method, body });
     return { _fila: true, _tempId: item.id };
   }
 }
