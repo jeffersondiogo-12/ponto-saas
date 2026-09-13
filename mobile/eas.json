@@ -7,18 +7,31 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
-      "channel": "development"
+      "channel": "development",
+      "environment": "development",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://ponto-saas-u8zf.onrender.com",
+        "EXPO_PUBLIC_ALLOW_PRODUCTION_API_IN_DEV": "true"
+      }
     },
     "preview": {
       "distribution": "internal",
-      "channel": "preview"
+      "channel": "preview",
+      "environment": "preview",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://ponto-saas-u8zf.onrender.com"
+      }
     },
     "production": {
       "autoIncrement": true,
       "android": {
         "buildType": "apk"
       },
-      "channel": "production"
+      "channel": "production",
+      "environment": "production",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://ponto-saas-u8zf.onrender.com"
+      }
     }
   },
   "submit": {

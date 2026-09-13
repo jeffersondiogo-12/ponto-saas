@@ -25,7 +25,8 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "test": "jest --runInBand"
+    "test": "jest --runInBand",
+    "eas-build-pre-install": "node scripts/validar-config-rede.js"
   },
   "private": true,
   "devDependencies": {
