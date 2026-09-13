@@ -71,6 +71,10 @@ Os commits comprovam alterações, não a execução de migrations, testes em di
 6. Testar Secure Store, WebSocket, 401 e fila em build Android/iOS.
 7. Normalizar CPF antes de enviar o vínculo.
 
+### Atualização M14 / #25 — Histórico de notas
+
+O escopo foi ampliado para incluir `bimestre`, `tipo_avaliacao` e `atividade` no `SELECT` de `historicoDoAluno` do backend. Os filtros por aluno e disciplina, a ordenação e o limite da consulta permanecem inalterados.
+
 ## Conclusão
 
 O núcleo de segurança local e sessão evoluiu, mas “implementado” ainda não significa “validado”. O maior risco funcional é o professor continuar abrindo uma ficha de responsável apesar do endpoint novo existir. O maior risco de qualidade é o backlog marcar correções sem testes executáveis ou migration aplicada.

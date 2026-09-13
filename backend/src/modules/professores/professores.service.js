@@ -239,7 +239,7 @@ async function historicoDoAluno(empresaId, professorId, turmaId, alunoId, atribu
 
   const [notas, observacoes] = await Promise.all([
     db('notas_alunos')
-      .select('id', 'disciplina', 'etapa', 'nota', 'observacao', 'created_at')
+      .select('id', 'disciplina', 'etapa', 'nota', 'bimestre', 'tipo_avaliacao', 'atividade', 'observacao', 'created_at')
       .where({ aluno_id: alunoId, disciplina: atribuicao.materia })
       .orderBy('created_at', 'desc')
       .limit(10),
