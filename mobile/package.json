@@ -27,11 +27,8 @@
   },
   "private": true,
   "devDependencies": {
-<<<<<<< HEAD
-    "jest-expo": "~54.0.12",
-    "react-test-renderer": "^19.1.0"
-=======
-    "jest-expo": "~57.0.5"
->>>>>>> 1ba15d0015afee15fec562f3385589eb4148a8ab
+    "expo-modules-core": "~57.0.18",
+    "jest-expo": "~57.0.5",
+    "react-test-renderer": "19.2.3"
   }
 }
