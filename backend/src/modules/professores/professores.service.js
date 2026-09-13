@@ -177,6 +177,7 @@ async function criarNota(empresaId, professorId, turmaId, dados, filialId = null
   const [nota] = await db('notas_alunos').insert({
     empresa_id: empresaId,
     aluno_id: dados.aluno_id,
+    criado_por_usuario_id: professorId,
     disciplina: dados.disciplina || atribuicao.materia,
     etapa: `Bimestre ${bimestre}`,
     bimestre,
@@ -210,6 +211,7 @@ async function criarObservacao(empresaId, professorId, turmaId, dados, filialId 
   const [observacao] = await db('observacoes_alunos').insert({
     empresa_id: empresaId,
     aluno_id: dados.aluno_id,
+    criado_por_usuario_id: professorId,
     titulo,
     texto,
     autor_nome: String(dados.autor_nome || professor?.nome || 'Professor').trim() || 'Professor',
@@ -249,6 +251,51 @@ async function historicoDoAluno(empresaId, professorId, turmaId, alunoId, atribu
   ]);
 
   return { notas, observacoes };
+}
+
+async function fichaDoAluno(empresaId, professorId, turmaId, alunoId, atribuicaoId, filialId = null) {
+  const atribuicao = await buscarAtribuicao(empresaId, professorId, turmaId, atribuicaoId, false, filialId);
+  const aluno = await db('alunos as a')
+    .join('turmas as t', 't.id', 'a.turma_id')
+    .join('filiais as f', 'f.id', 'a.filial_id')
+    .where({
+      'a.id': alunoId,
+      'a.empresa_id': empresaId,
+      'a.turma_id': turmaId,
+      'a.ativo': true,
+      't.empresa_id': empresaId,
+    })
+    .modify((query) => { if (filialId) query.where('a.filial_id', filialId); })
+    .select(
+      'a.id', 'a.nome', 'a.matricula', 'a.data_nascimento', 'a.nome_responsavel', 'a.contato_responsavel',
+      't.id as turma_id', 't.nome as turma_nome', 'f.id as filial_id', 'f.nome as filial_nome',
+    )
+    .first();
+  if (!aluno) throw new AppError('Aluno nao pertence a esta atribuicao.', 403);
+
+  const [foto, frequencia, presencas, notas, observacoes, avisos] = await Promise.all([
+    db('registros_ponto').where({ empresa_id: empresaId, aluno_id: alunoId }).whereNotNull('foto_url').orderBy('data_hora', 'desc').first('foto_url', 'data_hora'),
+    db('registros_ponto').where({ empresa_id: empresaId, aluno_id: alunoId }).select('id', 'data_hora', 'tipo_batida', 'origem', 'foto_url').orderBy('data_hora', 'desc').limit(100),
+    db('presencas_sala').where({ empresa_id: empresaId, aluno_id: alunoId, atribuicao_id: atribuicao.id }).select('id', 'data', 'presente', 'falta_justificada', 'justificativa', 'observacao', 'materia').orderBy('data', 'desc').limit(100),
+    db('notas_alunos').where({ empresa_id: empresaId, aluno_id: alunoId, criado_por_usuario_id: professorId }).select('id', 'disciplina', 'etapa', 'nota', 'bimestre', 'tipo_avaliacao', 'atividade', 'observacao', 'created_at').orderBy('created_at', 'desc').limit(100),
+    db('observacoes_alunos').where({ empresa_id: empresaId, aluno_id: alunoId, criado_por_usuario_id: professorId }).select('id', 'titulo', 'texto', 'autor_nome', 'created_at').orderBy('created_at', 'desc').limit(5),
+    db('avisos_escola').where({ empresa_id: empresaId, ativo: true }).where((query) => {
+      query.whereNull('turma_id').whereNull('filial_id')
+        .orWhere('turma_id', turmaId)
+        .orWhere('filial_id', aluno.filial_id);
+    }).select('id', 'titulo', 'mensagem', 'publicado_em', 'turma_id', 'filial_id').orderBy('publicado_em', 'desc').limit(100),
+  ]);
+
+  return {
+    aluno,
+    atribuicao: { id: atribuicao.id, turma_id: turmaId, materia: atribuicao.materia },
+    foto_facial_recente: foto || null,
+    frequencia,
+    presencas_sala: presencas,
+    notas,
+    observacoes,
+    avisos,
+  };
 }
 
 async function atribuirProfessor(empresaId, turmaId, dados, filialId = null) {
@@ -313,4 +360,4 @@ async function listarGradeTurma(empresaId, turmaId, filialId = null) {
   return { janela_turma: janela || null, aulas };
 }
 
-module.exports = { listarMinhasTurmas, resumoMinhasTurmas, listarAlunos, registrarPresencas, criarNota, criarObservacao, historicoDoAluno, atribuirProfessor, listarProfessoresDaTurma, listarGradeTurma };
+module.exports = { listarMinhasTurmas, resumoMinhasTurmas, listarAlunos, registrarPresencas, criarNota, criarObservacao, historicoDoAluno, fichaDoAluno, atribuirProfessor, listarProfessoresDaTurma, listarGradeTurma };

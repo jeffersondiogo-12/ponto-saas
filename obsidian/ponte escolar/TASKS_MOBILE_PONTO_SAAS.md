@@ -20,13 +20,47 @@ Backlog derivado do estado confirmado em [[RELATORIO_TECNICO_ARQUITETURA_PONTO_S
 
 ## Ordem recomendada
 
+### MOB-027 — Ficha do aluno para professor
+
+- **Status:** [→] Backend concluído; tela mobile pendente
+- **Prioridade:** P1
+- **Nota detalhada:** [[MOB-027_FICHA_ALUNO_PROFESSOR_BACKEND]]
+- **Escopo:** autoria de notas/observações, endpoint backend autorizado por atribuição e ficha própria do professor no mobile.
+- **Validação:** autorização por empresa/filial/atribuição, autoria, foto facial, limite de observações e diagnósticos.
+- **Implementado:** migration de autoria, endpoint `GET /api/professores/turmas/:turmaId/alunos/:alunoId/ficha`, filtro por atribuição/empresa/filial e serviço `api.fichaAlunoProfessor`.
+- **Validação realizada:** diagnósticos sem erros e `node --check` nos módulos backend/migration; migration e testes de autorização ainda precisam de banco executável.
+- **Pendente:** tela exclusiva do professor e execução da migration/testes de integração.
+
+### MOB-026 — Resiliência e integridade dos dados mobile
+
+- **Status:** [x] Concluída em 2026-09-13, com testes automatizados pendentes
+- **Prioridade:** P1
+- **Nota detalhada:** [[MOB-026_RESILIENCIA_DADOS_MOBILE]]
+- **Escopo:** carregamento parcial do aluno, tipo oficial de batida, data dinâmica da chamada e validação de vínculo.
+- **Validação:** diagnósticos, respostas parciais, fuso/data, tipos de batida e validação antes da fila.
+- **Implementado:** `Promise.allSettled` no detalhe do aluno; tipo oficial de batida com fallback legado; data dinâmica da chamada; validação local de nome, matrícula e CPF.
+- **Validação realizada:** diagnósticos sem erros em `AlunoDetalheScreen.js`, `ChamadaScreen.js` e `AdicionarFilhoScreen.js`.
+- **Pendente:** testes automatizados quando o runner estiver disponível.
+
+### MOB-025 — Fechar autenticação, realtime e sincronização
+
+- **Status:** [x] Concluída em 2026-09-13, com testes de ambiente pendentes
+- **Prioridade:** P0
+- **Nota detalhada:** [[MOB-025_FECHAR_AUTH_REALTIME_SINCRONIZACAO]]
+- **Escopo:** unificar origem HTTP/WS, fechar 401, sincronização manual e atualizar os status das tasks antigas relacionadas.
+- **Validação:** diagnósticos, URL por ambiente, 401/offline, sincronização manual e reconexão WebSocket.
+- **Implementado:** origem WebSocket compartilhada com `api.js`; sincronização manual usa `processarFilaOffline`; `AuthContext` trata restauração offline/401 e pausa a fila.
+- **Validação realizada:** diagnósticos sem erros em `api.js`, `realtime.js`, `AuthContext.js` e `SincronizacaoScreen.js`.
+- **Pendente:** execução em dispositivo/runner de testes.
+
 ### MOB-024 — Atualizar Expo SDK 54 para 57
 
-- **Status:** [ ] Em implementação
+- **Status:** [cancelada] Cancelada em 2026-09-13 por decisão do usuário
 - **Prioridade:** P1
 - **Nota detalhada:** [[MOB-024_UPGRADE_EXPO_SDK_57]]
 - **Escopo:** alinhar Expo, React Native, React, módulos Expo, `jest-expo`, lockfile, plugins e configuração EAS ao SDK 57.
 - **Validação:** `npx expo install --fix`, `npx expo-doctor`, `npm test -- --runInBand`, diagnósticos e configuração Expo pública.
+- **Decisão:** manter Expo SDK 54, React 19.1.0, React Native 0.81.5 e módulos Expo da linha 54; o manifesto e lockfile foram sincronizados novamente.
 
 ### MOB-021 — Isolar fila offline por conta
 
@@ -154,7 +188,7 @@ Backlog derivado do estado confirmado em [[RELATORIO_TECNICO_ARQUITETURA_PONTO_S
 
 #### MOB-005 — Corrigir restauração de sessão e tratamento global de 401
 
-- **Status:** [ ] A fazer
+- **Status:** [→] Substituída pela MOB-025 em 2026-09-13
 - **Prioridade:** P0
 - **Área:** autenticação / API
 - **Arquivos prováveis:** `mobile/src/api.js`, `mobile/src/context/AuthContext.js`
@@ -172,12 +206,13 @@ Backlog derivado do estado confirmado em [[RELATORIO_TECNICO_ARQUITETURA_PONTO_S
   - [ ] fila não tenta reenviar operações com sessão rejeitada.
 - **Dependências:** MOB-003 e MOB-004.
 - **Validação:** testes de `401`, timeout, DNS/offline e resposta válida.
+- **Nota:** o fluxo foi consolidado na [[MOB-025_FECHAR_AUTH_REALTIME_SINCRONIZACAO]]; a validação automatizada permanece dependente da MOB-023.
 
 ### P1 — Contratos e fluxos principais
 
 #### MOB-006 — Corrigir sincronização manual
 
-- **Status:** [ ] A fazer
+- **Status:** [→] Resolvida na MOB-025 em 2026-09-13
 - **Prioridade:** P1
 - **Área:** fila offline
 - **Arquivos prováveis:** `mobile/src/screens/SincronizacaoScreen.js`, `mobile/src/api.js`
@@ -190,10 +225,11 @@ Backlog derivado do estado confirmado em [[RELATORIO_TECNICO_ARQUITETURA_PONTO_S
   - [ ] marca erro HTTP conforme política;
   - [ ] atualiza data e contador sem travar o spinner.
 - **Validação:** teste manual e teste automatizado da tela/serviço.
+- **Resultado:** `SincronizacaoScreen` usa a exportação nomeada `processarFilaOffline` e protege o estado de processamento com `try/finally`.
 
 #### MOB-007 — Unificar configuração HTTP e WebSocket
 
-- **Status:** [ ] A fazer
+- **Status:** [→] Resolvida na MOB-025 em 2026-09-13
 - **Prioridade:** P1
 - **Área:** rede / build
 - **Arquivos prováveis:** `mobile/src/api.js`, `mobile/src/realtime.js`, `mobile/app.json`, `mobile/eas.json`
@@ -211,10 +247,11 @@ Backlog derivado do estado confirmado em [[RELATORIO_TECNICO_ARQUITETURA_PONTO_S
   - [ ] erro de configuração é explícito.
 - **Dependências:** URL e endpoint oficiais do backend.
 - **Validação:** APK/Expo development build em cada ambiente.
+- **Resultado:** `realtime.js` usa `obterBaseUrlWebSocket()` exportada por `api.js`, compartilhando `EXPO_PUBLIC_API_URL` e fallback de produção.
 
 #### MOB-008 — Separar ficha do aluno por perfil
 
-- **Status:** [ ] A fazer
+- **Status:** [→] Contrato backend resolvido na MOB-027; tela mobile pendente
 - **Prioridade:** P1
 - **Área:** navegação / contratos
 - **Arquivos prováveis:** `mobile/src/screens/AlunoDetalheScreen.js`, `mobile/src/navigation/NavegacaoProfessor.js`, `mobile/src/api.js`
@@ -230,10 +267,16 @@ Backlog derivado do estado confirmado em [[RELATORIO_TECNICO_ARQUITETURA_PONTO_S
   - [ ] navegação de chamada abre uma ficha compatível.
 - **Dependências:** contrato backend e autorização por papel.
 - **Validação:** testes de autorização para ambos os tokens.
+- **Bloqueio:** o backend expõe histórico de professor, mas não fornece contratos equivalentes para todas as cinco abas usadas por `AlunoDetalheScreen`; não é seguro resolver apenas no cliente.
+- **Especificação definida:** criar uma nova tela exclusiva para professor, com endpoints backend próprios, acesso somente aos alunos das atribuições do professor e cinco abas.
+- **Dados da ficha:** nome completo, matrícula, turma, filial, data de nascimento, nome/contato do responsável, foto da batida facial mais recente, frequência facial, presença em sala, notas, observações e avisos.
+- **Escopo de notas:** todas as notas lançadas pelo professor atual.
+- **Escopo de observações:** últimas cinco observações lançadas pelo professor atual.
+- **Resultado:** contrato backend e serviço mobile foram criados na [[MOB-027_FICHA_ALUNO_PROFESSOR_BACKEND]]; falta construir a tela exclusiva do professor.
 
 #### MOB-009 — Exibir janela oficial da turma
 
-- **Status:** [ ] A fazer
+- **Status:** [→] Contrato backend confirmado; exibição permanece visual
 - **Prioridade:** P1
 - **Área:** responsável / horário escolar
 - **Arquivos prováveis:** `mobile/src/screens/ResponsavelHomeScreen.js`, `mobile/src/screens/AlunoDetalheScreen.js`, `mobile/src/api.js`
@@ -250,10 +293,11 @@ Backlog derivado do estado confirmado em [[RELATORIO_TECNICO_ARQUITETURA_PONTO_S
   - [ ] ausência de horário exibe estado neutro.
 - **Dependências:** schema do endpoint e regras escolares.
 - **Validação:** fixtures com horário único, múltiplo e ausente.
+- **Resultado:** `horarios_turma` já é retornado pelo backend em listagem/frequência; falta apenas a apresentação na tela, que permanece fora do bloco de backend/camada de dados.
 
 #### MOB-010 — Corrigir carregamento parcial do detalhe do aluno
 
-- **Status:** [ ] A fazer
+- **Status:** [→] Resolvida na MOB-026 em 2026-09-13
 - **Prioridade:** P1
 - **Área:** resiliência de UI
 - **Arquivos prováveis:** `mobile/src/screens/AlunoDetalheScreen.js`
@@ -265,10 +309,11 @@ Backlog derivado do estado confirmado em [[RELATORIO_TECNICO_ARQUITETURA_PONTO_S
   - [ ] loading sempre termina;
   - [ ] cache offline de uma aba não mascara falha das demais.
 - **Validação:** testes com cada endpoint falhando isoladamente.
+- **Resultado:** carregamento usa `Promise.allSettled` e preserva abas que retornaram dados.
 
 #### MOB-011 — Usar tipo oficial das batidas
 
-- **Status:** [ ] A fazer
+- **Status:** [→] Resolvida na MOB-026 em 2026-09-13
 - **Prioridade:** P1
 - **Área:** domínio de ponto
 - **Arquivos prováveis:** `mobile/src/screens/AlunoDetalheScreen.js`, contrato backend
@@ -281,10 +326,11 @@ Backlog derivado do estado confirmado em [[RELATORIO_TECNICO_ARQUITETURA_PONTO_S
   - [ ] payload incompleto tem fallback neutro.
 - **Dependências:** contrato do endpoint de frequência.
 - **Validação:** registros pares, ímpares, duplicados e fora de ordem.
+- **Resultado:** `tipo_batida`/`tipo` oficial prevalece; alternância permanece apenas como fallback legado.
 
 #### MOB-012 — Corrigir data dinâmica da chamada
 
-- **Status:** [ ] A fazer
+- **Status:** [→] Resolvida na MOB-026 em 2026-09-13
 - **Prioridade:** P1
 - **Área:** fuso/data
 - **Arquivos prováveis:** `mobile/src/screens/ChamadaScreen.js`, `mobile/src/screens/InicioScreen.js`
@@ -295,6 +341,7 @@ Backlog derivado do estado confirmado em [[RELATORIO_TECNICO_ARQUITETURA_PONTO_S
   - [ ] payload de chamada usa o dia correto;
   - [ ] resumo e texto da tela são consistentes.
 - **Validação:** teste com relógio/fuso simulado próximo à meia-noite.
+- **Resultado:** data é recalculada ao focar a tela em `America/Sao_Paulo`.
 
 #### MOB-013 — Evitar perda do rascunho da chamada
 
@@ -316,12 +363,13 @@ Backlog derivado do estado confirmado em [[RELATORIO_TECNICO_ARQUITETURA_PONTO_S
 
 #### MOB-014 — Implementar validação de Adicionar Filho
 
-- **Status:** [ ] A fazer
+- **Status:** [→] Resolvida na MOB-026 em 2026-09-13
 - **Prioridade:** P2
 - **Área:** formulário
 - **Arquivos prováveis:** `mobile/src/screens/AdicionarFilhoScreen.js`
 - **Implementação:** validar nome, matrícula, CPF, normalização e dígito verificador; bloquear envio inválido mesmo offline.
 - **Critérios de aceite:** [ ] erros aparecem antes da fila; [ ] CPF é normalizado; [ ] campos obrigatórios não aceitam espaços; [ ] backend continua sendo a validação final.
+- **Resultado:** validação de nome, matrícula e dígitos verificadores do CPF ocorre antes de enviar ou enfileirar.
 
 #### MOB-015 — Corrigir notificações, privacidade e deep links
 

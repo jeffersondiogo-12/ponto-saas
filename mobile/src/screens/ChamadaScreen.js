@@ -2,12 +2,15 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api } from '../api';
+import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { AparecerEm, PressaoAnimada } from '../components/Animacoes';
 import { Aviso, BotaoGrande, Cabecalho, Cartao, FaixaOffline, SeletorTurma, useBarraDeStatusEscura } from '../components/Ui';
 import { cores, raio, sombra } from '../theme';
 
-const HOJE = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
+function dataHoje() {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
+}
 
 const ESTADOS = {
   presente: { texto: 'Presente', fundo: 'verdeSoft', borda: 'verde', cor: 'verde' },
@@ -78,6 +81,13 @@ export default function ChamadaScreen({ navigation }) {
   const [offline, setOffline] = useState(false);
   const [erro, setErro] = useState('');
   const [mensagem, setMensagem] = useState('');
+  const [hoje, setHoje] = useState(dataHoje);
+
+  useFocusEffect(
+    useCallback(() => {
+      setHoje(dataHoje());
+    }, []),
+  );
 
   function tratarErro(err) {
     if (err?.status === 401) return logout();
@@ -149,7 +159,7 @@ export default function ChamadaScreen({ navigation }) {
     setEnviando(true);
     try {
       const resultado = await api.registrarPresencasSala(turma.turma_id, {
-        data: HOJE,
+        data: hoje,
         atribuicao_id: turma.atribuicao_id,
         presencas: alunos.map((aluno) => ({
           aluno_id: aluno.id,
@@ -187,7 +197,7 @@ export default function ChamadaScreen({ navigation }) {
       contentContainerStyle={[estilos.conteudo, { paddingTop: insets.top + 20 }]}
       refreshControl={<RefreshControl refreshing={atualizando} onRefresh={aoAtualizar} tintColor={cores.azul} />}
     >
-      <Cabecalho rotulo="PRESENÇA EM SALA" titulo="Chamada" subtitulo={`Toque para alternar entre presente, ausente e falta justificada · ${HOJE.split('-').reverse().join('/')}`} />
+      <Cabecalho rotulo="PRESENÇA EM SALA" titulo="Chamada" subtitulo={`Toque para alternar entre presente, ausente e falta justificada · ${hoje.split('-').reverse().join('/')}`} />
       <FaixaOffline visivel={offline} />
       <Aviso tipo="erro" texto={erro} />
       <Aviso tipo="ok" texto={mensagem} />

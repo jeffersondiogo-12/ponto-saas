@@ -10,6 +10,7 @@ const staff = [autenticar, exigirTipo('staff'), resolverTenant];
 router.get('/minhas-turmas', ...staff, exigirPermissao('professores', 'ver'), exigirPapel('professor'), controller.minhasTurmas);
 router.get('/minhas-turmas/resumo', ...staff, exigirPermissao('professores', 'ver'), exigirPapel('professor'), controller.resumoMinhasTurmas);
 router.get('/turmas/:turmaId/alunos', ...staff, exigirPermissao('professores', 'ver'), exigirPapel('professor'), controller.alunosDaTurma);
+router.get('/turmas/:turmaId/alunos/:alunoId/ficha', ...staff, exigirPermissao('professores', 'ver'), exigirPapel('professor'), controller.fichaDoAluno);
 router.get('/turmas/:turmaId/grade', ...staff, exigirPermissao('professores', 'ver'), exigirPapel('professor', 'gestor', 'admin', 'super_admin'), controller.listarGrade);
 router.post('/turmas/:turmaId/presencas', ...staff, exigirPermissao('professores', 'atualizar'), exigirPapel('professor', 'gestor', 'admin', 'super_admin'), controller.registrarPresencas);
 router.post('/turmas/:turmaId/notas', ...staff, exigirPermissao('professores', 'adicionar'), exigirPapel('professor'), controller.criarNota);

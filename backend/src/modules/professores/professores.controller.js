@@ -12,6 +12,20 @@ async function alunosDaTurma(req, res, next) {
   try { res.json({ alunos: await service.listarAlunos(req.empresaId, req.usuario.id, req.params.turmaId, req.query.atribuicao_id, req.filialId) }); } catch (err) { next(err); }
 }
 
+async function fichaDoAluno(req, res, next) {
+  try {
+    const ficha = await service.fichaDoAluno(
+      req.empresaId,
+      req.usuario.id,
+      req.params.turmaId,
+      req.params.alunoId,
+      req.query.atribuicao_id,
+      req.filialId,
+    );
+    res.json(ficha);
+  } catch (err) { next(err); }
+}
+
 async function registrarPresencas(req, res, next) {
   try {
     const { data, presencas, atribuicao_id } = req.body;
@@ -47,4 +61,4 @@ async function listarGrade(req, res, next) {
   try { res.json(await service.listarGradeTurma(req.empresaId, req.params.turmaId, req.filialId)); } catch (err) { next(err); }
 }
 
-module.exports = { minhasTurmas, resumoMinhasTurmas, alunosDaTurma, registrarPresencas, criarNota, criarObservacao, historicoDoAluno, atribuirProfessor, listarProfessores, listarGrade };
+module.exports = { minhasTurmas, resumoMinhasTurmas, alunosDaTurma, fichaDoAluno, registrarPresencas, criarNota, criarObservacao, historicoDoAluno, atribuirProfessor, listarProfessores, listarGrade };

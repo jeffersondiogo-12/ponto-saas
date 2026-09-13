@@ -109,9 +109,67 @@ Registro compacto das mudanças de conhecimento, decisões, tasks e validações
 ### MOB-024 — Upgrade Expo SDK 57
 
 - **Tipo:** task / upgrade de dependências
-- **Status:** iniciada em 2026-09-12.
-- **Atualização:** criada [[MOB-024_UPGRADE_EXPO_SDK_57]] para atualizar o mobile do Expo SDK 54 para 57 e alinhar dependências, Jest, plugins, EAS e configuração nativa.
-- **Validação planejada:** Expo Doctor, `expo install --fix`, testes e configuração Expo pública.
+- **Status:** dependências atualizadas; validação de ambiente pendente em 2026-09-13.
+- **Atualização:** `mobile/package.json` e `mobile/package-lock.json` foram alinhados ao SDK 57: React 19.2.3, React Native 0.86.3, `jest-expo ~57.0.5`, módulos Expo 57 e módulos nativos compatíveis.
+- **Configuração:** Secure Store, notificações, StatusBar, OTA e EAS permanecem declarados no `app.json`/`eas.json`.
+- **Validação pendente:** instalação efetiva, `expo-doctor`, `expo config --type public`, testes, prebuild/build nativo e verificação em dispositivo.
+- **Nota:** SDK 57 exige Node >=22.13.x, Android API 36 e iOS 16.4+; `runtimeVersion` ainda precisa de decisão para a nova build nativa.
+
+### MOB-024 — Cancelamento do upgrade Expo
+
+- **Tipo:** decisão / cancelamento
+- **Status:** cancelada em 2026-09-13.
+- **Atualização:** o projeto permanece no Expo SDK 54 conforme solicitado; `package.json` e `package-lock.json` foram sincronizados com a linha 54.
+- **Motivo:** manter estabilidade e adiar o upgrade nativo para uma task futura autorizada.
+
+### MOB-025 — Auth, realtime e sincronização
+
+- **Tipo:** task / implementação
+- **Status:** concluída em 2026-09-13, com testes de ambiente pendentes.
+- **Atualização:** `realtime.js` passou a usar a origem compartilhada do `api.js`; sincronização manual usa `processarFilaOffline` diretamente; restauração/401 e pausa da fila ficam consolidados no fluxo atual.
+- **Arquivos:** `mobile/src/api.js`, `mobile/src/realtime.js`, `mobile/src/context/AuthContext.js`, `mobile/src/screens/SincronizacaoScreen.js`.
+- **Validação:** diagnósticos sem erros nos módulos alterados; runner Jest ainda não está materializado em `node_modules`.
+- **Relação:** MOB-005, MOB-006 e MOB-007 foram substituídas/resolvidas por [[MOB-025_FECHAR_AUTH_REALTIME_SINCRONIZACAO]].
+
+### MOB-026 — Resiliência e integridade dos dados
+
+- **Tipo:** implementação / validação
+- **Status:** concluída em 2026-09-13, com testes automatizados pendentes.
+- **Atualização:** detalhe do aluno usa `Promise.allSettled`; batidas usam tipo oficial quando disponível; chamada recalcula data no foco; vínculo de filho valida nome, matrícula e CPF antes da fila.
+- **Arquivos:** `mobile/src/screens/AlunoDetalheScreen.js`, `mobile/src/screens/ChamadaScreen.js`, `mobile/src/screens/AdicionarFilhoScreen.js`.
+- **Validação:** diagnósticos sem erros; cobertura automatizada permanece dependente do runner da MOB-023.
+
+### MOB-027 — Ficha do aluno para professor
+
+- **Tipo:** task / backend + mobile
+- **Status:** backend concluído em 2026-09-13; tela e integração de banco pendentes.
+- **Atualização:** adicionada migration de autoria em notas/observações, endpoint `GET /api/professores/turmas/:turmaId/alunos/:alunoId/ficha` e serviço mobile `api.fichaAlunoProfessor`.
+- **Segurança:** endpoint exige staff/professor, permissão de leitura, atribuição ativa, empresa e filial; notas/observações são filtradas pelo professor autor.
+- **Validação:** diagnósticos e `node --check` passam; migration/testes de integração dependem de banco executável.
+
+### Auditoria de commits recentes
+
+- **Tipo:** análise de histórico
+- **Status:** concluída em 2026-09-13.
+- **Commits confirmados:** `59d701b` (MOB-001 e SDK 54), `8c0f014` (MOB-005), `43b7959` (MOB-004/testes), `3cd1cd2` (MOB-003), `3a21ffc` (MOB-002).
+- **Classificação:** MOB-001 a MOB-007 possuem implementação recente; MOB-010 a MOB-012 e MOB-014 foram resolvidas pela [[MOB-026_RESILIENCIA_DADOS_MOBILE]].
+- **Pendências reais:** MOB-008 depende de endpoints backend de professor; MOB-009 depende somente da apresentação visual; MOB-023 ainda aguarda runner de testes.
+
+### Especificação MOB-008 — Ficha do professor
+
+- **Tipo:** decisão / especificação de contrato
+- **Status:** definida em 2026-09-13; implementação ainda não iniciada.
+- **Atualização:** será criada uma ficha exclusiva do professor, com endpoints próprios e escopo somente das atribuições do professor.
+- **Dados:** nome completo, matrícula, turma, filial, data de nascimento, nome/contato do responsável, foto da batida facial mais recente, frequência facial, presença em sala, notas, observações e avisos.
+- **Regras:** cinco abas; notas somente do professor atual; últimas cinco observações do professor atual.
+- **Próxima task:** `MOB-027`, a ser criada antes de qualquer alteração de código.
+- **Fonte:** [[TASKS_MOBILE_PONTO_SAAS]], task MOB-008.
+
+### MOB-026 — Resiliência e integridade dos dados
+
+- **Tipo:** task / implementação
+- **Status:** iniciada em 2026-09-13.
+- **Atualização:** criada [[MOB-026_RESILIENCIA_DADOS_MOBILE]] para resolver as tarefas não visuais de carregamento parcial, batida oficial, data dinâmica e validação de vínculo.
 
 ## Como registrar novas atualizações
 

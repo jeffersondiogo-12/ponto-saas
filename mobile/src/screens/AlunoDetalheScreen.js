@@ -49,7 +49,14 @@ function prepararRegistros(registros) {
     const dia = diaNoFuso(registro.data_hora);
     const indice = quantidadePorDia.get(dia) || 0;
     quantidadePorDia.set(dia, indice + 1);
-    return { ...registro, tipoExibicao: indice % 2 === 0 ? 'Chegada' : 'Saída' };
+    const tipoOficial = registro.tipo_batida || registro.tipo;
+    const rotuloOficial = {
+      entrada: 'Chegada',
+      saida: 'Saída',
+      entrada_intervalo: 'Entrada de intervalo',
+      saida_intervalo: 'Saída para intervalo',
+    }[tipoOficial];
+    return { ...registro, tipoExibicao: rotuloOficial || (indice % 2 === 0 ? 'Chegada' : 'Saída') };
   });
   return classificados.reverse();
 }
@@ -82,30 +89,28 @@ export default function AlunoDetalheScreen({ route }) {
   const [avisos, setAvisos] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [offline, setOffline] = useState(false);
+  const [erroCarga, setErroCarga] = useState('');
   const [atualizandoEvento, setAtualizandoEvento] = useState(false);
 
   const carregar = useCallback(async () => {
-    const [frequencia, sala, notasResposta, observacoesResposta, avisosResposta] = await Promise.all([
+    const respostas = await Promise.allSettled([
       api.frequenciaDoAluno(alunoId),
       api.presencaSalaDoAluno(alunoId),
       api.notasDoAluno(alunoId),
       api.observacoesDoAluno(alunoId),
       api.avisosDoAluno(alunoId),
     ]);
-    setRegistros(prepararRegistros(frequencia.registros));
-    setPresencasSala(sala.registros);
-    setNotas(notasResposta.notas);
-    setObservacoes(observacoesResposta.observacoes);
-    setAvisos(avisosResposta.avisos);
-    setOffline(
-      Boolean(
-        frequencia._offline ||
-          sala._offline ||
-          notasResposta._offline ||
-          observacoesResposta._offline ||
-          avisosResposta._offline
-      )
+    const [frequencia, sala, notasResposta, observacoesResposta, avisosResposta] = respostas.map((resultado) =>
+      resultado.status === 'fulfilled' ? resultado.value : null
     );
+    const falhas = respostas.filter((resultado) => resultado.status === 'rejected').length;
+    if (frequencia) setRegistros(prepararRegistros(frequencia.registros));
+    if (sala) setPresencasSala(sala.registros || []);
+    if (notasResposta) setNotas(notasResposta.notas || []);
+    if (observacoesResposta) setObservacoes(observacoesResposta.observacoes || []);
+    if (avisosResposta) setAvisos(avisosResposta.avisos || []);
+    setOffline(Boolean(respostas.some((resultado) => resultado.status === 'fulfilled' && resultado.value?._offline)));
+    setErroCarga(falhas ? 'Algumas informações não puderam ser atualizadas.' : '');
     setCarregando(false);
   }, [alunoId]);
 
@@ -155,6 +160,7 @@ export default function AlunoDetalheScreen({ route }) {
           </Text>
         </Pulsar>
       ) : null}
+      {erroCarga ? <Text style={estilos.erroCarga}>{erroCarga}</Text> : null}
 
       <ScrollView
         horizontal
@@ -337,6 +343,7 @@ const estilos = StyleSheet.create({
     marginTop: 14,
   },
   offline: { color: cores.inkSoft, fontSize: 12.5 },
+  erroCarga: { color: cores.vermelho, fontSize: 12.5, marginHorizontal: 20, marginTop: 12 },
   carregando: { marginTop: 34 },
   seletor: { paddingHorizontal: 20, paddingVertical: 16, gap: 8 },
   opcao: {

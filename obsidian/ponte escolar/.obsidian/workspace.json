@@ -11,14 +11,10 @@
             "id": "6fa2ad77ac18e463",
             "type": "leaf",
             "state": {
-              "type": "markdown",
-              "state": {
-                "file": "REGISTRO DE ATUALIZACOES PONTO SAAS.md",
-                "mode": "source",
-                "source": false
-              },
-              "icon": "lucide-file",
-              "title": "REGISTRO DE ATUALIZACOES PONTO SAAS"
+              "type": "graph",
+              "state": {},
+              "icon": "lucide-git-fork",
+              "title": "Visualização em gráfico"
             }
           }
         ]
@@ -190,6 +186,8 @@
   },
   "active": "6fa2ad77ac18e463",
   "lastOpenFiles": [
+    "MOB-027_FICHA_ALUNO_PROFESSOR_BACKEND.md",
+    "REGISTRO DE ATUALIZACOES PONTO SAAS.md",
     "MOB-023_TESTES_ISOLAMENTO_CACHE_FILA.md",
     "MOB-022_MIGRAR_TOKENS_PARA_SECURE_STORE.md",
     "MOB-021_ISOLAR_FILA_OFFLINE_POR_CONTA.md",
@@ -197,7 +195,6 @@
     "RELATORIO_BANCO_DE_DADOS_PONTO_SAAS.md",
     "Banco de Dados Ponto SaaS.md",
     "RELATORIO_ANALISE_SEGUNDO_CEREBRO_PONTO_SAAS.md",
-    "REGISTRO DE ATUALIZACOES PONTO SAAS.md",
     "Front-end Web Ponto SaaS.md",
     "RELATORIO_TECNICO_ARQUITETURA_PONTO_SAAS.md",
     "Bem-vindo.md",

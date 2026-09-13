@@ -48,6 +48,21 @@ function CampoAnimado({ rotulo, ...props }) {
   );
 }
 
+function cpfValido(valor) {
+  const digitos = String(valor || '').replace(/\D/g, '');
+  if (digitos.length !== 11 || /^([0-9])\1+$/.test(digitos)) return false;
+  let soma = 0;
+  for (let indice = 0; indice < 9; indice += 1) soma += Number(digitos[indice]) * (10 - indice);
+  let primeiro = (soma * 10) % 11;
+  if (primeiro === 10) primeiro = 0;
+  if (primeiro !== Number(digitos[9])) return false;
+  soma = 0;
+  for (let indice = 0; indice < 10; indice += 1) soma += Number(digitos[indice]) * (11 - indice);
+  let segundo = (soma * 10) % 11;
+  if (segundo === 10) segundo = 0;
+  return segundo === Number(digitos[10]);
+}
+
 export default function AdicionarFilhoScreen({ navigation }) {
   const [nome, setNome] = useState('');
   const [cpf, setCpf] = useState('');
@@ -58,6 +73,18 @@ export default function AdicionarFilhoScreen({ navigation }) {
 
   async function adicionar() {
     setErro(null);
+    if (nome.trim().length < 2) {
+      setErro('Informe o nome completo do aluno.');
+      return;
+    }
+    if (!matricula.trim()) {
+      setErro('Informe a matrícula do aluno.');
+      return;
+    }
+    if (!cpfValido(cpf)) {
+      setErro('Informe um CPF válido.');
+      return;
+    }
     setCarregando(true);
     try {
       const resultado = await api.vincularFilho({

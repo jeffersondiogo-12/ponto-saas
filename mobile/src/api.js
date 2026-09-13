@@ -10,6 +10,10 @@ import { enfileirar, obterFila, removerDaFila, marcarFalhaNaFila, limparFilaName
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL
   || (__DEV__ ? 'http://192.168.0.10:3000' : 'https://ponto-saas-u8zf.onrender.com');
 
+export function obterBaseUrlWebSocket() {
+  return BASE_URL.replace(/^http(s?):\/\//, (_, seguro) => seguro ? 'wss://' : 'ws://');
+}
+
 const CHAVES_PERFIL = {
   responsavel: { token: '@ponto_saas_responsavel_token', sessao: '@ponto_saas_responsavel_sessao' },
   professor: { token: '@ponto_saas_professor_token', sessao: '@ponto_saas_professor_sessao' },
@@ -385,6 +389,14 @@ export const api = {
       return Promise.reject(erro);
     }
     return requisitar(`/api/professores/turmas/${turmaId}/alunos?atribuicao_id=${encodeURIComponent(atribuicaoId)}`);
+  },
+  fichaAlunoProfessor: (turmaId, alunoId, atribuicaoId) => {
+    if (!atribuicaoId) {
+      const erro = new Error('atribuicao_id e obrigatorio para abrir a ficha do professor.');
+      erro.status = 409;
+      return Promise.reject(erro);
+    }
+    return requisitar(`/api/professores/turmas/${turmaId}/alunos/${alunoId}/ficha?atribuicao_id=${encodeURIComponent(atribuicaoId)}`);
   },
   listarHorariosTurma: (turmaId) => requisitar(`/api/turmas/${turmaId}/horarios`),
   registrarPresencasSala: (turmaId, dados) =>
