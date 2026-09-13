@@ -106,6 +106,13 @@ Registro compacto das mudanças de conhecimento, decisões, tasks e validações
 - **Validação:** diagnósticos sem erros; `npm test` iniciou o script, mas `jest-expo` não está presente em `mobile/node_modules`.
 - **Pendência:** instalar dependências de desenvolvimento e executar `npm test -- --runInBand`; só então fechar os critérios de teste das MOB-002 e MOB-021.
 
+### MOB-024 — Upgrade Expo SDK 57
+
+- **Tipo:** task / upgrade de dependências
+- **Status:** iniciada em 2026-09-12.
+- **Atualização:** criada [[MOB-024_UPGRADE_EXPO_SDK_57]] para atualizar o mobile do Expo SDK 54 para 57 e alinhar dependências, Jest, plugins, EAS e configuração nativa.
+- **Validação planejada:** Expo Doctor, `expo install --fix`, testes e configuração Expo pública.
+
 ## Como registrar novas atualizações
 
 - Use uma entrada curta com data, tipo, resumo, área e links.

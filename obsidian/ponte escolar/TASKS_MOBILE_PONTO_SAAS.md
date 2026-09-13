@@ -20,6 +20,14 @@ Backlog derivado do estado confirmado em [[RELATORIO_TECNICO_ARQUITETURA_PONTO_S
 
 ## Ordem recomendada
 
+### MOB-024 — Atualizar Expo SDK 54 para 57
+
+- **Status:** [ ] Em implementação
+- **Prioridade:** P1
+- **Nota detalhada:** [[MOB-024_UPGRADE_EXPO_SDK_57]]
+- **Escopo:** alinhar Expo, React Native, React, módulos Expo, `jest-expo`, lockfile, plugins e configuração EAS ao SDK 57.
+- **Validação:** `npx expo install --fix`, `npx expo-doctor`, `npm test -- --runInBand`, diagnósticos e configuração Expo pública.
+
 ### MOB-021 — Isolar fila offline por conta
 
 - **Status:** [x] Concluída em 2026-09-12
