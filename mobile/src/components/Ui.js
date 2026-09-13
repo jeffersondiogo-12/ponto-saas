@@ -1,6 +1,23 @@
+import { useCallback } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
+import { setStatusBarStyle } from 'expo-status-bar';
 import { AparecerEm, PressaoAnimada, Pulsar } from './Animacoes';
 import { cores, raio, sombra } from '../theme';
+
+/**
+ * O padrao do app e barra de status clara (icones brancos), que some sobre
+ * as telas de fundo claro. Telas claras chamam este hook: enquanto estao em
+ * foco os icones ficam escuros; ao sair ou desmontar, voltam ao padrao.
+ */
+export function useBarraDeStatusEscura() {
+  useFocusEffect(
+    useCallback(() => {
+      setStatusBarStyle('dark');
+      return () => setStatusBarStyle('light');
+    }, [])
+  );
+}
 
 /** Cabecalho padrao do "Hub de fichas". */
 export function Cabecalho({ rotulo, titulo, subtitulo, acao }) {
@@ -117,12 +134,12 @@ const estilos = StyleSheet.create({
   topo: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 },
   topoTextos: { flex: 1 },
   rotulo: { fontSize: 11, letterSpacing: 1.4, fontWeight: '700', color: cores.azul },
-  titulo: { fontSize: 26, fontWeight: '800', color: cores.ink ?? '#101828', marginTop: 4 },
+  titulo: { fontSize: 26, fontWeight: '800', color: cores.ink, marginTop: 4 },
   subtitulo: { fontSize: 13, color: cores.inkSoft, marginTop: 4 },
 
   faixaOffline: {
     backgroundColor: cores.azulSoft,
-    borderRadius: raio.md ?? 12,
+    borderRadius: raio.md,
     padding: 12,
     borderWidth: 1,
     borderColor: cores.azul,
@@ -131,7 +148,7 @@ const estilos = StyleSheet.create({
 
   faixaPendente: {
     backgroundColor: cores.surfaceAlt,
-    borderRadius: raio.md ?? 12,
+    borderRadius: raio.md,
     padding: 12,
     borderWidth: 1,
     borderColor: cores.linha,
@@ -140,7 +157,7 @@ const estilos = StyleSheet.create({
 
   aviso: {
     backgroundColor: cores.surfaceAlt,
-    borderRadius: raio.md ?? 12,
+    borderRadius: raio.md,
     padding: 12,
     borderWidth: 1,
     borderColor: cores.linha,
@@ -151,27 +168,27 @@ const estilos = StyleSheet.create({
 
   fichaEnvolucro: { flex: 1 },
   ficha: {
-    backgroundColor: cores.surface ?? cores.surfaceAlt,
-    borderRadius: raio.lg ?? 16,
+    backgroundColor: cores.surface,
+    borderRadius: raio.lg,
     borderWidth: 1,
     borderColor: cores.linha,
     padding: 14,
     minHeight: 88,
     justifyContent: 'space-between',
-    ...(sombra?.leve || {}),
+    ...sombra.cartao,
   },
   fichaDestaque: { backgroundColor: cores.azulSoft, borderColor: cores.azul },
-  fichaValor: { fontSize: 26, fontWeight: '800', color: cores.ink ?? '#101828' },
+  fichaValor: { fontSize: 26, fontWeight: '800', color: cores.ink },
   fichaValorDestaque: { color: cores.azul },
   fichaRotulo: { fontSize: 11, color: cores.inkSoft, fontWeight: '600' },
   fichaRotuloDestaque: { color: cores.azul },
 
   botao: {
     backgroundColor: cores.azul,
-    borderRadius: raio.lg ?? 16,
+    borderRadius: raio.lg,
     paddingVertical: 16,
     alignItems: 'center',
-    ...(sombra?.media || sombra?.leve || {}),
+    ...sombra.destaque,
   },
   botaoSecundario: { backgroundColor: cores.surfaceAlt, borderWidth: 1, borderColor: cores.linha },
   botaoDesativado: { opacity: 0.5 },
@@ -182,7 +199,7 @@ const estilos = StyleSheet.create({
   trilho: { gap: 10, paddingRight: 8 },
   chip: {
     backgroundColor: cores.surfaceAlt,
-    borderRadius: raio.md ?? 12,
+    borderRadius: raio.md,
     borderWidth: 1,
     borderColor: cores.linha,
     paddingVertical: 10,
@@ -190,17 +207,17 @@ const estilos = StyleSheet.create({
     minWidth: 130,
   },
   chipAtivo: { backgroundColor: cores.azulSoft, borderColor: cores.azul },
-  chipNome: { fontWeight: '800', color: cores.ink ?? '#101828' },
+  chipNome: { fontWeight: '800', color: cores.ink },
   chipNomeAtivo: { color: cores.azul },
   chipDetalhe: { fontSize: 11, color: cores.inkSoft, marginTop: 2 },
   chipDetalheAtivo: { color: cores.azul },
 
   cartao: {
-    backgroundColor: cores.surface ?? cores.surfaceAlt,
-    borderRadius: raio.lg ?? 16,
+    backgroundColor: cores.surface,
+    borderRadius: raio.lg,
     borderWidth: 1,
     borderColor: cores.linha,
     padding: 16,
-    ...(sombra?.leve || {}),
+    ...sombra.cartao,
   },
 });

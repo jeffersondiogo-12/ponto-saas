@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { AppState } from 'react-native';
 import * as Updates from 'expo-updates';
 import { StatusBar } from 'expo-status-bar';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
@@ -118,12 +119,17 @@ function AtualizarAplicativo() {
   return null;
 }
 
+// O Android desenha o app por baixo da barra de status e da barra de
+// navegacao (edge-to-edge). O SafeAreaProvider informa essas alturas para as
+// telas que nao tem cabecalho nativo reservarem o espaco certo.
 export default function App() {
   return (
-    <AuthProvider>
-      <AtualizarAplicativo />
-      <Navegacao />
-      <StatusBar style="light" />
-    </AuthProvider>
+    <SafeAreaProvider>
+      <AuthProvider>
+        <AtualizarAplicativo />
+        <Navegacao />
+        <StatusBar style="light" />
+      </AuthProvider>
+    </SafeAreaProvider>
   );
 }

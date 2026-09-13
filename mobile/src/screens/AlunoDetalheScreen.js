@@ -73,7 +73,8 @@ const ABAS = [
 
 export default function AlunoDetalheScreen({ route }) {
   const { alunoId, nome } = route.params;
-  const [aba, setAba] = useState('frequencia');
+  // Quem abre a ficha pode escolher a aba inicial (ex.: "avisos" pela Home do responsavel).
+  const [aba, setAba] = useState(ABAS.some((item) => item.chave === route.params?.aba) ? route.params.aba : 'frequencia');
   const [registros, setRegistros] = useState([]);
   const [presencasSala, setPresencasSala] = useState([]);
   const [notas, setNotas] = useState([]);

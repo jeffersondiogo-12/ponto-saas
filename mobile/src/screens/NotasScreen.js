@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { AparecerEm, PressaoAnimada } from '../components/Animacoes';
-import { Aviso, BotaoGrande, Cabecalho, Cartao, FaixaOffline, SeletorTurma } from '../components/Ui';
+import { Aviso, BotaoGrande, Cabecalho, Cartao, FaixaOffline, SeletorTurma, useBarraDeStatusEscura } from '../components/Ui';
 import { cores, raio, sombra } from '../theme';
 
 const BIMESTRES = ['1', '2', '3', '4'];
@@ -32,6 +33,8 @@ function Opcoes({ itens, valor, aoEscolher }) {
 
 export default function NotasScreen({ navigation }) {
   const { logout } = useAuth();
+  const insets = useSafeAreaInsets();
+  useBarraDeStatusEscura();
   const [turmas, setTurmas] = useState([]);
   const [turma, setTurma] = useState(null);
   const [alunos, setAlunos] = useState([]);
@@ -120,7 +123,7 @@ export default function NotasScreen({ navigation }) {
   if (carregando) return <View style={estilos.centro}><ActivityIndicator color={cores.azul} /></View>;
 
   return (
-    <ScrollView style={estilos.tela} contentContainerStyle={estilos.conteudo}>
+    <ScrollView style={estilos.tela} contentContainerStyle={[estilos.conteudo, { paddingTop: insets.top + 20 }]}>
       <Cabecalho rotulo="AVALIAÇÕES" titulo="Notas" subtitulo="Lance uma nota por aluno e acompanhe o histórico." acao={navigation?.goBack ? <PressaoAnimada style={estilos.voltar} onPress={() => navigation.goBack()}><Text style={estilos.voltarTexto}>Voltar</Text></PressaoAnimada> : null} />
       <FaixaOffline visivel={offline} />
       <Aviso tipo="erro" texto={erro} />
@@ -144,5 +147,5 @@ export default function NotasScreen({ navigation }) {
 }
 
 const estilos = StyleSheet.create({
-  tela: { flex: 1, backgroundColor: cores.paper }, conteudo: { padding: 20, paddingBottom: 40, gap: 12 }, centro: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: cores.paper }, secao: { fontSize: 13, fontWeight: '700', color: cores.inkSoft, marginTop: 6, marginBottom: 6 }, opcoes: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 }, opcao: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: raio.md ?? 12, borderWidth: 1, borderColor: cores.linha, backgroundColor: cores.surfaceAlt }, opcaoAtiva: { borderColor: cores.azul, backgroundColor: cores.azulSoft }, opcaoTexto: { fontSize: 12, color: cores.inkSoft, fontWeight: '600' }, opcaoTextoAtivo: { color: cores.azul, fontWeight: '800' }, input: { marginTop: 10, borderWidth: 1, borderColor: cores.linha, borderRadius: raio.md ?? 12, paddingHorizontal: 12, paddingVertical: 12, backgroundColor: cores.surfaceAlt, color: cores.ink ?? '#101828', marginBottom: 6 }, linhaHistorico: { flexDirection: 'row', alignItems: 'center', padding: 14, borderRadius: raio.lg ?? 16, borderWidth: 1, borderColor: cores.linha, backgroundColor: cores.surface ?? cores.surfaceAlt, marginBottom: 10, ...(sombra?.leve || {}) }, historicoTitulo: { fontWeight: '800', color: cores.ink ?? '#101828' }, historicoDetalhe: { fontSize: 11, color: cores.inkSoft, marginTop: 2 }, historicoNota: { fontSize: 20, fontWeight: '800', color: cores.azul }, voltar: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: raio.md ?? 12, borderWidth: 1, borderColor: cores.linha }, voltarTexto: { color: cores.inkSoft, fontWeight: '700', fontSize: 12 }, vazio: { color: cores.inkSoft, textAlign: 'center', paddingVertical: 16 },
+  tela: { flex: 1, backgroundColor: cores.paper }, conteudo: { padding: 20, paddingBottom: 40, gap: 12 }, centro: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: cores.paper }, secao: { fontSize: 13, fontWeight: '700', color: cores.inkSoft, marginTop: 6, marginBottom: 6 }, opcoes: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 }, opcao: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: raio.md, borderWidth: 1, borderColor: cores.linha, backgroundColor: cores.surfaceAlt }, opcaoAtiva: { borderColor: cores.azul, backgroundColor: cores.azulSoft }, opcaoTexto: { fontSize: 12, color: cores.inkSoft, fontWeight: '600' }, opcaoTextoAtivo: { color: cores.azul, fontWeight: '800' }, input: { marginTop: 10, borderWidth: 1, borderColor: cores.linha, borderRadius: raio.md, paddingHorizontal: 12, paddingVertical: 12, backgroundColor: cores.surfaceAlt, color: cores.ink, marginBottom: 6 }, linhaHistorico: { flexDirection: 'row', alignItems: 'center', padding: 14, borderRadius: raio.lg, borderWidth: 1, borderColor: cores.linha, backgroundColor: cores.surface, marginBottom: 10, ...sombra.cartao }, historicoTitulo: { fontWeight: '800', color: cores.ink }, historicoDetalhe: { fontSize: 11, color: cores.inkSoft, marginTop: 2 }, historicoNota: { fontSize: 20, fontWeight: '800', color: cores.azul }, voltar: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: raio.md, borderWidth: 1, borderColor: cores.linha }, voltarTexto: { color: cores.inkSoft, fontWeight: '700', fontSize: 12 }, vazio: { color: cores.inkSoft, textAlign: 'center', paddingVertical: 16 },
 });

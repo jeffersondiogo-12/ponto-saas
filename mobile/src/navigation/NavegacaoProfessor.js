@@ -20,7 +20,7 @@ export default function NavegacaoProfessor() {
         animation: 'slide_from_right',
       }}
     >
-      <Stack.Screen name="Professor" component={BarraInferior} />
+      <Stack.Screen name="ProfessorAbas" component={BarraInferior} />
       <Stack.Screen name="Notas" component={NotasScreen} />
       <Stack.Screen name="Observacoes" component={ObservacoesScreen} />
       <Stack.Screen name="AlunoDetalhe" component={AlunoDetalheScreen} />

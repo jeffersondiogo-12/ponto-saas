@@ -29,7 +29,7 @@
         }
       ],
       "expo-secure-store",
-      "expo-status-bar"
+      "expo-font"
     ],
     "extra": {
       "eas": {

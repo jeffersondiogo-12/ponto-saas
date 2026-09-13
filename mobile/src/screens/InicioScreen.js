@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api, obterNamespaceCache } from '../api';
 import { obterFila, ouvirFila } from '../filaOffline';
 import { useAuth } from '../context/AuthContext';
 import { AparecerEm, PressaoAnimada } from '../components/Animacoes';
-import { Aviso, BotaoGrande, Cabecalho, Cartao, FaixaOffline, FaixaPendente, Ficha } from '../components/Ui';
+import { Aviso, BotaoGrande, Cabecalho, Cartao, FaixaOffline, FaixaPendente, Ficha, useBarraDeStatusEscura } from '../components/Ui';
 import { cores, raio, sombra } from '../theme';
 
 const HOJE = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
@@ -20,6 +21,8 @@ function saudacao() {
 
 export default function InicioScreen({ navigation }) {
   const { logout } = useAuth();
+  const insets = useSafeAreaInsets();
+  useBarraDeStatusEscura();
   const [turmas, setTurmas] = useState([]);
   const [resumo, setResumo] = useState([]);
   const [pendentes, setPendentes] = useState([]);
@@ -86,7 +89,7 @@ export default function InicioScreen({ navigation }) {
   return (
     <ScrollView
       style={estilos.tela}
-      contentContainerStyle={estilos.conteudo}
+      contentContainerStyle={[estilos.conteudo, { paddingTop: insets.top + 20 }]}
       refreshControl={
         <RefreshControl refreshing={atualizando} onRefresh={aoAtualizar} tintColor={cores.azul} colors={[cores.azul, cores.verde]} />
       }
@@ -161,7 +164,7 @@ const estilos = StyleSheet.create({
   sair: {
     paddingHorizontal: 14,
     paddingVertical: 8,
-    borderRadius: raio.md ?? 12,
+    borderRadius: raio.md,
     borderWidth: 1,
     borderColor: cores.linha,
     backgroundColor: cores.surfaceAlt,
@@ -172,13 +175,13 @@ const estilos = StyleSheet.create({
   atalho: {
     flex: 1,
     padding: 14,
-    borderRadius: raio.lg ?? 16,
+    borderRadius: raio.lg,
     borderWidth: 1,
     borderColor: cores.linha,
-    backgroundColor: cores.surface ?? cores.surfaceAlt,
-    ...(sombra?.leve || {}),
+    backgroundColor: cores.surface,
+    ...sombra.cartao,
   },
-  atalhoTitulo: { fontWeight: '800', color: cores.ink ?? '#101828' },
+  atalhoTitulo: { fontWeight: '800', color: cores.ink },
   atalhoTexto: { fontSize: 11, color: cores.inkSoft, marginTop: 2 },
   secao: { fontSize: 13, fontWeight: '700', color: cores.inkSoft, marginTop: 6 },
   linhaTurma: {
@@ -186,16 +189,16 @@ const estilos = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: 14,
-    borderRadius: raio.lg ?? 16,
+    borderRadius: raio.lg,
     borderWidth: 1,
     borderColor: cores.linha,
-    backgroundColor: cores.surface ?? cores.surfaceAlt,
+    backgroundColor: cores.surface,
     marginBottom: 10,
   },
   linhaTextos: { flex: 1 },
-  linhaNome: { fontWeight: '800', color: cores.ink ?? '#101828' },
+  linhaNome: { fontWeight: '800', color: cores.ink },
   linhaDetalhe: { fontSize: 12, color: cores.inkSoft, marginTop: 2 },
-  selo: { backgroundColor: cores.azulSoft, borderRadius: raio.md ?? 12, paddingHorizontal: 10, paddingVertical: 6 },
+  selo: { backgroundColor: cores.azulSoft, borderRadius: raio.md, paddingHorizontal: 10, paddingVertical: 6 },
   seloTexto: { color: cores.azul, fontWeight: '800', fontSize: 12 },
   vazio: { color: cores.inkSoft, textAlign: 'center' },
 });

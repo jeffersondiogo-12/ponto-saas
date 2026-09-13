@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { AparecerEm, PressaoAnimada } from '../components/Animacoes';
-import { Aviso, BotaoGrande, Cabecalho, Cartao, FaixaOffline, SeletorTurma } from '../components/Ui';
+import { Aviso, BotaoGrande, Cabecalho, Cartao, FaixaOffline, SeletorTurma, useBarraDeStatusEscura } from '../components/Ui';
 import { cores, raio, sombra } from '../theme';
 
 const HOJE = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
@@ -63,6 +64,8 @@ function LinhaAluno({ aluno, estado, justificativa, onToggle, onJustificativa, o
 
 export default function ChamadaScreen({ navigation }) {
   const { logout } = useAuth();
+  const insets = useSafeAreaInsets();
+  useBarraDeStatusEscura();
   const [turmas, setTurmas] = useState([]);
   const [turma, setTurma] = useState(null);
   const [alunos, setAlunos] = useState([]);
@@ -181,7 +184,7 @@ export default function ChamadaScreen({ navigation }) {
   return (
     <ScrollView
       style={estilos.tela}
-      contentContainerStyle={estilos.conteudo}
+      contentContainerStyle={[estilos.conteudo, { paddingTop: insets.top + 20 }]}
       refreshControl={<RefreshControl refreshing={atualizando} onRefresh={aoAtualizar} tintColor={cores.azul} />}
     >
       <Cabecalho rotulo="PRESENÇA EM SALA" titulo="Chamada" subtitulo={`Toque para alternar entre presente, ausente e falta justificada · ${HOJE.split('-').reverse().join('/')}`} />
@@ -240,33 +243,33 @@ const estilos = StyleSheet.create({
   tela: { flex: 1, backgroundColor: cores.paper },
   conteudo: { padding: 20, paddingBottom: 40, gap: 14 },
   centro: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: cores.paper },
-  resumoTexto: { fontWeight: '800', color: cores.ink ?? '#101828', marginBottom: 8 },
+  resumoTexto: { fontWeight: '800', color: cores.ink, marginBottom: 8 },
   barraFundo: { height: 8, borderRadius: 8, backgroundColor: cores.surfaceAlt, overflow: 'hidden' },
   barraProgresso: { height: 8, backgroundColor: cores.verde },
   alunoCartao: {
-    backgroundColor: cores.surface ?? cores.surfaceAlt,
-    borderRadius: raio.lg ?? 16,
+    backgroundColor: cores.surface,
+    borderRadius: raio.lg,
     borderWidth: 1,
     borderColor: cores.linha,
     padding: 12,
     marginBottom: 10,
-    ...(sombra?.leve || {}),
+    ...sombra.cartao,
   },
   alunoLinha: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   alunoTextos: { flex: 1 },
-  alunoNome: { fontWeight: '800', color: cores.ink ?? '#101828' },
+  alunoNome: { fontWeight: '800', color: cores.ink },
   alunoDetalhe: { fontSize: 11, color: cores.inkSoft, marginTop: 2 },
-  chave: { borderWidth: 1, borderRadius: raio.md ?? 12, paddingHorizontal: 12, paddingVertical: 8 },
+  chave: { borderWidth: 1, borderRadius: raio.md, paddingHorizontal: 12, paddingVertical: 8 },
   chaveTexto: { fontSize: 11, fontWeight: '800' },
   justificativa: {
     marginTop: 10,
     borderWidth: 1,
     borderColor: cores.linha,
-    borderRadius: raio.md ?? 12,
+    borderRadius: raio.md,
     paddingHorizontal: 12,
     paddingVertical: 10,
     backgroundColor: cores.surfaceAlt,
-    color: cores.ink ?? '#101828',
+    color: cores.ink,
   },
   verMais: { marginTop: 10, alignSelf: 'flex-start' },
   verMaisTexto: { color: cores.azul, fontWeight: '700', fontSize: 12 },
