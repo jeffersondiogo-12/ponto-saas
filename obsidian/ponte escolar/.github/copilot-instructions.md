@@ -11,6 +11,8 @@ Este workspace é o vault `ponte escolar` e deve ser tratado como um segundo cé
 - Use links Obsidian no formato `[[Nome da Nota]]`.
 - Para sínteses, separe fatos, decisões, hipóteses e lacunas.
 - Toda atualização relevante da conversa deve ser registrada no vault: análise, decisão, descoberta, task, mudança de status, validação ou pendência.
+- Toda atualização de código deve criar uma nova task `MOB-xxx` antes da implementação; não reutilize nem reabra uma task concluída.
+- Cada nova task de código deve conter problema, escopo, arquivos, critérios de aceite, dependências e validação.
 - Antes de responder que uma atualização foi concluída, crie ou atualize uma nota Markdown no vault e informe o caminho alterado.
 - Use [[REGISTRO DE ATUALIZACOES PONTO SAAS]] para mudanças curtas; use uma nota temática própria quando o conteúdo for extenso.
 - Mantenha as respostas compactas para economizar tokens.

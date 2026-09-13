@@ -4,21 +4,17 @@
     "type": "split",
     "children": [
       {
-        "id": "e7f3b1fa0ac8bd2c",
+        "id": "0bfd478e5177c7bf",
         "type": "tabs",
         "children": [
           {
-            "id": "8d0648ece0d741bc",
+            "id": "6fa2ad77ac18e463",
             "type": "leaf",
             "state": {
-              "type": "markdown",
-              "state": {
-                "file": "RELATORIO_ANALISE_SEGUNDO_CEREBRO_PONTO_SAAS.md",
-                "mode": "source",
-                "source": false
-              },
-              "icon": "lucide-file",
-              "title": "RELATORIO_ANALISE_SEGUNDO_CEREBRO_PONTO_SAAS"
+              "type": "graph",
+              "state": {},
+              "icon": "lucide-git-fork",
+              "title": "Visualização em gráfico"
             }
           }
         ]
@@ -83,7 +79,7 @@
       }
     ],
     "direction": "horizontal",
-    "width": 300
+    "width": 276.5
   },
   "right": {
     "id": "93e0f1f07f03b528",
@@ -99,7 +95,6 @@
             "state": {
               "type": "backlink",
               "state": {
-                "file": "RELATORIO_ANALISE_SEGUNDO_CEREBRO_PONTO_SAAS.md",
                 "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -118,7 +113,6 @@
             "state": {
               "type": "outgoing-link",
               "state": {
-                "file": "RELATORIO_ANALISE_SEGUNDO_CEREBRO_PONTO_SAAS.md",
                 "linksCollapsed": false,
                 "unlinkedCollapsed": true
               },
@@ -161,7 +155,6 @@
             "state": {
               "type": "outline",
               "state": {
-                "file": "RELATORIO_ANALISE_SEGUNDO_CEREBRO_PONTO_SAAS.md",
                 "followCursor": false,
                 "showSearch": false,
                 "searchQuery": ""
@@ -188,14 +181,16 @@
       "bases:Criar nova base": false
     }
   },
-  "active": "8d0648ece0d741bc",
+  "active": "6fa2ad77ac18e463",
   "lastOpenFiles": [
+    "RELATORIO_BANCO_DE_DADOS_PONTO_SAAS.md",
+    "Banco de Dados Ponto SaaS.md",
+    "RELATORIO_ANALISE_SEGUNDO_CEREBRO_PONTO_SAAS.md",
     "REGISTRO DE ATUALIZACOES PONTO SAAS.md",
     "Front-end Web Ponto SaaS.md",
     "RELATORIO_TECNICO_ARQUITETURA_PONTO_SAAS.md",
     "Bem-vindo.md",
     "TASKS_MOBILE_PONTO_SAAS.md",
-    "RELATORIO_ANALISE_SEGUNDO_CEREBRO_PONTO_SAAS.md",
     "crie um link.md"
   ]
 }

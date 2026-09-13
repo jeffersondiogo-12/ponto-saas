@@ -119,7 +119,16 @@ Não mover as notas existentes automaticamente. Primeiro criar um MOC e validar 
 4. [[Contratos API Mobile Ponto SaaS]] — endpoints, payloads, erros e permissões.
 5. [[Modelo de Dados Escolar]] — entidades, vínculos, escopos e regras.
 6. [[Operação Offline Mobile]] — cache, fila, idempotência e troca de conta.
+7. [[RELATORIO_BANCO_DE_DADOS_PONTO_SAAS]] — modelo, integridade, migrations e riscos do PostgreSQL.
 
 ## Conclusão operacional
 
 O segundo cérebro já tem uma base técnica útil, mas ainda funciona como arquivo de relatório, não como sistema de conhecimento conectado. A primeira melhoria é separar contexto estável, decisões, contratos e tasks. O backlog em [[Tasks Mobile Ponto SaaS]] transforma os problemas já confirmados em trabalho executável sem duplicar o relatório técnico.
+
+## Atualização de implementação — 2026-09-12
+
+- A task `MOB-002` em [[TASKS_MOBILE_PONTO_SAAS]] foi implementada no mobile.
+- O cache agora usa namespace por perfil, identidade, empresa e filial, possui TTL de 7 dias e remove entradas legadas versionadas.
+- O logout limpa o namespace do perfil atual.
+- A fila offline continua pendente e permanece acompanhada pela task `MOB-003` em [[TASKS_MOBILE_PONTO_SAAS]].
+- Validação estática dos arquivos alterados não encontrou erros; testes automatizados ficam para a task `MOB-020` em [[TASKS_MOBILE_PONTO_SAAS]].

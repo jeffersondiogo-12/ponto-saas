@@ -32,6 +32,40 @@ Registro compacto das mudanças de conhecimento, decisões, tasks e validações
 - **Atualização:** as tasks do mobile estão centralizadas em [[TASKS_MOBILE_PONTO_SAAS]].
 - **Prioridades atuais:** isolamento de conta/cache/fila, autenticação, sincronização manual, configuração HTTP/WS, contratos por perfil, rascunho da chamada e testes.
 
+### MOB-002 — Cache por conta
+
+- **Tipo:** implementação / validação
+- **Status:** concluída em 2026-09-12.
+- **Atualização:** cache do mobile foi versionado e namespaceado por perfil, identidade, empresa e filial; TTL definido em 7 dias; cache legado é removido uma vez; logout limpa o namespace do perfil.
+- **Arquivos:** `mobile/src/storage.js`, `mobile/src/api.js`, `mobile/src/context/AuthContext.js`.
+- **Validação:** diagnósticos estáticos sem erros; testes automatizados permanecem em [[MOB-020]].
+- **Próxima dependência:** task `MOB-003` em [[TASKS_MOBILE_PONTO_SAAS]] para isolar a fila offline pelo mesmo critério de identidade.
+
+### Política de tasks para código mobile
+
+- **Tipo:** decisão / processo
+- **Status:** ativa a partir de 2026-09-12.
+- **Atualização:** toda alteração de código no mobile deverá criar uma nova task `MOB-xxx` antes da implementação.
+- **Regra:** tasks concluídas não serão reabertas nem reutilizadas; mudanças posteriores devem criar uma nova task relacionada.
+- **Critérios mínimos da nova task:** problema, escopo, arquivos, critérios de aceite, dependências e validação.
+- **Fonte:** [[TASKS_MOBILE_PONTO_SAAS]], [[.github/copilot-instructions.md]], [[.github/skills/obsidian-second-brain/SKILL.md]]
+
+### Relatório do banco de dados
+
+- **Tipo:** análise / arquitetura
+- **Status:** concluída em 2026-09-12.
+- **Atualização:** criado [[RELATORIO_BANCO_DE_DADOS_PONTO_SAAS]] com inventário de tabelas, domínios trabalhista e escolar, integridade, tenant, índices, migrations, riscos de legado e tasks DB-001 a DB-007.
+- **Achados principais:** `schema.sql` está atrás das migrations atuais; `horarios_alunos` é uma estrutura legada sem `empresa_id`/`filial_id`; o isolamento multi-tenant precisa ser comprovado por testes negativos; backup/restore verificável não foi encontrado neste escopo.
+- **Notas relacionadas:** [[RELATORIO_TECNICO_ARQUITETURA_PONTO_SAAS]], [[RELATORIO_ANALISE_SEGUNDO_CEREBRO_PONTO_SAAS]], [[Banco de Dados Ponto SaaS]]
+
+### Análise dos documentos de modelagem e RLS
+
+- **Tipo:** análise / backlog de banco
+- **Status:** concluída em 2026-09-12.
+- **Atualização:** os PDFs recebidos foram comparados com migrations e `schema.sql`; o relatório [[RELATORIO_BANCO_DE_DADOS_PONTO_SAAS]] foi ampliado com a matriz de divergências e as tasks DB-008 a DB-014.
+- **Conclusão:** RLS por empresa/filial ainda não existe no banco; hoje o isolamento é feito pela API. O gatilho de `updated_at` existe parcialmente e não foi identificado gatilho de proteção de campos de segurança.
+- **Prioridades:** preparar contexto seguro no pool, implementar RLS incremental, completar triggers, proteger campos tenant e testar concorrência.
+
 ## Como registrar novas atualizações
 
 - Use uma entrada curta com data, tipo, resumo, área e links.

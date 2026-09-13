@@ -26,6 +26,8 @@ Use this skill to work with the Obsidian vault as a searchable, low-token knowle
 11. Record every substantive update in the vault, not only when the user explicitly asks for a note.
 12. For short updates, append a dated entry to `REGISTRO DE ATUALIZACOES PONTO SAAS.md`; for substantial topics, create or update a dedicated note and link it from the register.
 13. After recording an update, report the changed note path and the topic recorded.
+14. Every code change in the mobile project must have a new `MOB-xxx` task before implementation; never reuse or reopen a completed task.
+15. A new code task must include problem, scope, likely files, acceptance criteria, dependencies, and validation.
 
 ## Token-Efficient Workflow
 
@@ -76,6 +78,8 @@ Every substantive response that changes project knowledge must leave a compact r
 - affected area or files when known;
 - links to related notes;
 - unresolved assumptions, if any.
+
+For mobile code changes, also require a new task ID in `TASKS_MOBILE_PONTO_SAAS.md`. Link related tasks instead of modifying the identity of a completed task.
 
 Do not copy the entire conversation into the register. Store the durable knowledge only.
 

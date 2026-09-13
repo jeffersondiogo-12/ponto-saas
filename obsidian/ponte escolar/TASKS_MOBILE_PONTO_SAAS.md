@@ -11,6 +11,13 @@ fonte: "[[RELATORIO_ANALISE_SEGUNDO_CEREBRO_PONTO_SAAS]]"
 
 Backlog derivado do estado confirmado em [[RELATORIO_TECNICO_ARQUITETURA_PONTO_SAAS]], do contexto técnico do mobile e da análise do vault em [[RELATORIO_ANALISE_SEGUNDO_CEREBRO_PONTO_SAAS]].
 
+## Regra de execução
+
+- Toda atualização de código no mobile deve criar uma nova task `MOB-xxx` antes da implementação.
+- Tasks concluídas são históricas e não devem ser reabertas ou reutilizadas.
+- Uma nova task relacionada deve apontar para a task anterior e descrever a diferença de escopo.
+- Nenhuma alteração de código deve ser iniciada sem problema, arquivos, critérios de aceite, dependências e validação definidos.
+
 ## Ordem recomendada
 
 ### P0 — Segurança e integridade de dados
@@ -38,7 +45,7 @@ Backlog derivado do estado confirmado em [[RELATORIO_TECNICO_ARQUITETURA_PONTO_S
 
 #### MOB-002 — Isolar cache por conta, perfil e empresa
 
-- **Status:** [ ] A fazer
+- **Status:** [x] Concluída em 2026-09-12
 - **Prioridade:** P0
 - **Área:** persistência local
 - **Arquivos prováveis:** `mobile/src/storage.js`, `mobile/src/api.js`, `mobile/src/context/AuthContext.js`
@@ -50,12 +57,15 @@ Backlog derivado do estado confirmado em [[RELATORIO_TECNICO_ARQUITETURA_PONTO_S
   - invalidar cache no logout e na troca de perfil/empresa;
   - adicionar TTL por tipo de recurso.
 - **Critérios de aceite:**
-  - [ ] dois usuários no mesmo aparelho nunca compartilham fallback;
-  - [ ] logout remove ou invalida cache privado;
-  - [ ] cache expirado não é exibido como atual;
+  - [x] dois usuários no mesmo aparelho nunca compartilham fallback;
+  - [x] logout remove ou invalida cache privado;
+  - [x] cache expirado não é exibido como atual;
   - [ ] testes cobrem troca de responsável para professor e vice-versa.
 - **Dependências:** decisão sobre identidade/tenant retornada por `/api/auth/me`.
 - **Validação:** testes unitários com duas sessões e falha de rede.
+- **Implementado:** cache versionado em `@ponto_saas_cache:v2`, namespaceado por perfil, id, empresa e filial; entradas legadas são removidas uma vez; TTL de 7 dias; cache do perfil é limpo no logout; sem identidade conhecida, nenhuma leitura ou gravação de cache ocorre.
+- **Validação realizada:** diagnósticos estáticos sem erros em `storage.js`, `api.js` e `AuthContext.js`; referências de `salvarCache`/`lerCache` foram conferidas.
+- **Pendente:** criar testes automatizados de isolamento quando a infraestrutura de testes do mobile for adicionada em MOB-020.
 
 #### MOB-003 — Isolar e proteger a fila offline por conta
 
