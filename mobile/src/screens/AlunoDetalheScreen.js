@@ -12,54 +12,14 @@ import {
 import { api } from '../api';
 import { AparecerEm, PressaoAnimada, Pulsar } from '../components/Animacoes';
 import { cores, raio, sombra } from '../theme';
+import { formatarData, formatarDataHora, formatarDataSemHora } from '../datas';
+import { prepararRegistros } from '../batidas';
 
-function formatarDataHora(iso) {
-  const data = new Date(iso);
-  return data.toLocaleString('pt-BR', {
-    day: '2-digit',
-    month: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
-
-function formatarData(iso) {
-  const data = new Date(iso);
-  return data.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-}
-
-const FUSO_BRASILIA = 'America/Sao_Paulo';
 const ROTULOS_ALCANCE = {
   rede: 'Aviso da rede',
   escola: 'Aviso da escola',
   turma: 'Aviso da turma',
 };
-
-function diaNoFuso(iso) {
-  return new Intl.DateTimeFormat('en-CA', { timeZone: FUSO_BRASILIA }).format(new Date(iso));
-}
-
-function prepararRegistros(registros) {
-  const ordenados = [...(registros || [])].sort((a, b) => {
-    const diferenca = new Date(a.data_hora).getTime() - new Date(b.data_hora).getTime();
-    return diferenca || String(a.id || '').localeCompare(String(b.id || ''));
-  });
-  const quantidadePorDia = new Map();
-  const classificados = ordenados.map((registro) => {
-    const dia = diaNoFuso(registro.data_hora);
-    const indice = quantidadePorDia.get(dia) || 0;
-    quantidadePorDia.set(dia, indice + 1);
-    const tipoOficial = registro.tipo_batida || registro.tipo;
-    const rotuloOficial = {
-      entrada: 'Chegada',
-      saida: 'Saída',
-      entrada_intervalo: 'Entrada de intervalo',
-      saida_intervalo: 'Saída para intervalo',
-    }[tipoOficial];
-    return { ...registro, tipoExibicao: rotuloOficial || (indice % 2 === 0 ? 'Chegada' : 'Saída') };
-  });
-  return classificados.reverse();
-}
 
 function iniciais(nome = '') {
   return nome
@@ -135,6 +95,7 @@ export default function AlunoDetalheScreen({ route }) {
   }, [alunoId, recarregarPorEvento]);
 
   const listaPadrao = {
+    style: estilos.listaArea,
     contentContainerStyle: estilos.lista,
     showsVerticalScrollIndicator: false,
   };
@@ -165,6 +126,7 @@ export default function AlunoDetalheScreen({ route }) {
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
+        style={estilos.seletorBarra}
         contentContainerStyle={estilos.seletor}
       >
         {ABAS.map((item, indice) => (
@@ -198,10 +160,21 @@ export default function AlunoDetalheScreen({ route }) {
                   <View
                     style={[
                       estilos.ponto,
-                      tipo === 'Chegada' ? estilos.pontoVerde : estilos.pontoAzul,
+                      !item.tipoConfirmado
+                        ? estilos.pontoNeutro
+                        : tipo === 'Chegada'
+                          ? estilos.pontoVerde
+                          : estilos.pontoAzul,
                     ]}
                   />
-                  <Text style={estilos.tipoTexto}>{tipo}</Text>
+                  <View style={estilos.linhaTexto}>
+                    <Text style={estilos.tipoTexto}>{tipo}</Text>
+                    {!item.tipoConfirmado ? (
+                      <Text style={estilos.linhaSubtexto}>
+                        O aparelho não informou se foi chegada ou saída.
+                      </Text>
+                    ) : null}
+                  </View>
                   <Text style={estilos.dataTexto}>{formatarDataHora(item.data_hora)}</Text>
                 </View>
               </AparecerEm>
@@ -231,7 +204,7 @@ export default function AlunoDetalheScreen({ route }) {
                     <Text style={estilos.linhaSubtexto}>{item.observacao}</Text>
                   ) : null}
                 </View>
-                <Text style={estilos.dataTexto}>{formatarData(item.data)}</Text>
+                <Text style={estilos.dataTexto}>{formatarDataSemHora(item.data)}</Text>
               </View>
             </AparecerEm>
           )}
@@ -345,6 +318,12 @@ const estilos = StyleSheet.create({
   offline: { color: cores.inkSoft, fontSize: 12.5 },
   erroCarga: { color: cores.vermelho, fontSize: 12.5, marginHorizontal: 20, marginTop: 12 },
   carregando: { marginTop: 34 },
+  // A ScrollView do RN nasce com flexGrow/flexShrink 1, e a FlatList abaixo e
+  // outra ScrollView. Com muitos itens as duas disputam altura e a fita de abas
+  // encolhe ate cortar os rotulos. A fita nao cresce nem encolhe; a lista fica
+  // com o resto e rola por dentro.
+  seletorBarra: { flexGrow: 0, flexShrink: 0 },
+  listaArea: { flex: 1 },
   seletor: { paddingHorizontal: 20, paddingVertical: 16, gap: 8 },
   opcao: {
     paddingVertical: 10,
@@ -375,6 +354,7 @@ const estilos = StyleSheet.create({
   pontoVerde: { backgroundColor: cores.verde },
   pontoAzul: { backgroundColor: cores.azul },
   pontoVermelho: { backgroundColor: cores.vermelho },
+  pontoNeutro: { backgroundColor: cores.inkSoft },
   tipoTexto: { flex: 1, color: cores.ink, fontWeight: '700', fontSize: 14 },
   dataTexto: { color: cores.inkSoft, fontSize: 12.5 },
   cartao: {

@@ -272,7 +272,14 @@ export default function ChamadaScreen({ navigation }) {
           justificativa={justificativas[aluno.id] || ''}
           onToggle={() => alternar(aluno)}
           onJustificativa={(valor) => setJustificativas({ ...justificativas, [aluno.id]: valor })}
-          onAbrir={() => navigation.navigate('AlunoDetalhe', { alunoId: aluno.id, nome: aluno.nome || 'Aluno' })}
+          onAbrir={() =>
+            navigation.navigate('FichaAluno', {
+              alunoId: aluno.id,
+              nome: aluno.nome || 'Aluno',
+              turmaId: turma?.turma_id,
+              atribuicaoId: turma?.atribuicao_id,
+            })
+          }
         />
       )}
       ListHeaderComponent={cabecalho}

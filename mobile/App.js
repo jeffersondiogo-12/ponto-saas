@@ -111,7 +111,8 @@ function Navegacao() {
         ) : ehProfessor ? (
           <>
             <Stack.Screen name="Professor" component={NavegacaoProfessor} options={{ headerShown: false }} />
-            <Stack.Screen name="AlunoDetalhe" component={AlunoDetalheScreen} options={{ title: '' }} />
+            {/* A ficha do professor vive no stack de NavegacaoProfessor, como
+                "FichaAluno". A AlunoDetalhe e do responsavel e nao entra aqui. */}
             <Stack.Screen name="Sincronizacao" component={SincronizacaoScreen} options={{ title: '' }} />
             <Stack.Screen name="Agenda" component={AgendaScreen} options={{ title: '' }} />
             <Stack.Screen name="Relatorios" component={RelatoriosScreen} options={{ title: '' }} />
