@@ -1,9 +1,10 @@
 import { useCallback } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { setStatusBarStyle } from 'expo-status-bar';
 import { AparecerEm, PressaoAnimada, Pulsar } from './Animacoes';
 import { cores, raio, sombra } from '../theme';
+import { formatarDataHora } from '../datas';
 
 /**
  * O padrao do app e barra de status clara (icones brancos), que some sobre
@@ -20,6 +21,60 @@ export function useBarraDeStatusEscura() {
 }
 
 /** Cabecalho padrao do "Hub de fichas". */
+function iniciaisDoNome(nome = '') {
+  return nome
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((parte) => parte[0]?.toUpperCase() || '')
+    .join('');
+}
+
+/**
+ * Cabecalho das telas iniciais de professor e responsavel.
+ *
+ * As duas homes tinham cabecalho proprio, com escalas diferentes: o
+ * responsavel trazia a logo e o avatar, o professor tinha a tipografia maior.
+ * Este componente junta os dois, e e a unica copia.
+ *
+ * Nao substitui o `Cabecalho`, que serve as telas de formulario.
+ */
+export function CabecalhoHome({ papel, titulo, subtitulo, nome, onSair }) {
+  const iniciais = iniciaisDoNome(nome);
+  return (
+    <AparecerEm>
+      <View style={estilos.homeMarcaLinha}>
+        <View style={estilos.homeMarca}>
+          {/* Versao de 84px (28pt x3). O app-icon.png tem 407px e serve a tela
+              de Login, que mostra a logo a 116pt; aqui so decodificaria em vao. */}
+          <Image
+            source={require('../../assets/logo-cabecalho.png')}
+            style={estilos.homeLogo}
+            accessibilityLabel="Ponte Escolar"
+          />
+          <Text style={estilos.homeMarcaTexto}>PONTE · ESCOLAR</Text>
+        </View>
+        <View style={estilos.homeConta}>
+          {iniciais ? (
+            <View style={estilos.homeAvatar}>
+              <Text style={estilos.homeAvatarTexto}>{iniciais}</Text>
+            </View>
+          ) : null}
+          {onSair ? (
+            <PressaoAnimada style={estilos.homeSair} onPress={onSair} accessibilityRole="button">
+              <Text style={estilos.homeSairTexto}>Sair</Text>
+            </PressaoAnimada>
+          ) : null}
+        </View>
+      </View>
+
+      {papel ? <Text style={estilos.homePapel}>{papel}</Text> : null}
+      <Text style={estilos.homeTitulo}>{titulo}</Text>
+      {subtitulo ? <Text style={estilos.homeSubtitulo}>{subtitulo}</Text> : null}
+    </AparecerEm>
+  );
+}
+
 export function Cabecalho({ rotulo, titulo, subtitulo, acao }) {
   return (
     <AparecerEm style={estilos.topo}>
@@ -33,46 +88,93 @@ export function Cabecalho({ rotulo, titulo, subtitulo, acao }) {
   );
 }
 
-export function FaixaOffline({ visivel, texto }) {
-  if (!visivel) return null;
+/**
+ * Faixa unica de estado: sem conexao e fila pendente na mesma linha.
+ *
+ * Eram duas faixas empilhadas. Com as duas condicoes ativas o usuario via dois
+ * blocos empurrando a tela para baixo; agora e uma linha so. E o aviso de
+ * "sem conexao" passa a dizer de quando sao os dados que estao na tela.
+ *
+ * `offlineEm` e a data do cache (`_cacheEm` da resposta). Sem ela, a faixa
+ * ainda aparece, so nao informa a data.
+ */
+export function FaixaEstado({ offlineEm, offline, pendentes = 0, onSincronizar }) {
+  const semConexao = Boolean(offlineEm || offline);
+  if (!semConexao && !pendentes) return null;
+
+  const partes = [];
+  if (semConexao) {
+    // Data invalida nao pode virar "dados de" pendurado, sem nada depois.
+    const quando = offlineEm ? formatarDataHora(offlineEm) : '';
+    partes.push(
+      quando
+        ? `Sem conexão · dados de ${quando}`
+        : 'Sem conexão · mostrando o que está salvo no aparelho'
+    );
+  }
+  if (pendentes) {
+    partes.push(pendentes === 1 ? '1 ação aguardando envio' : `${pendentes} ações aguardando envio`);
+  }
+
   return (
-    <Pulsar style={estilos.faixaOffline}>
-      <Text style={estilos.faixaOfflineTexto}>{texto || 'Sem conexão — mostrando os dados salvos no aparelho.'}</Text>
+    <Pulsar style={estilos.faixaEstado}>
+      <View style={estilos.faixaEstadoLinha}>
+        <View style={estilos.faixaEstadoPonto} />
+        <Text style={estilos.faixaEstadoTexto}>{partes.join(' · ')}</Text>
+      </View>
+      {onSincronizar ? (
+        <PressaoAnimada
+          style={estilos.faixaEstadoAcaoArea}
+          onPress={onSincronizar}
+          accessibilityRole="button"
+        >
+          <Text style={estilos.faixaEstadoAcao}>Sincronizar</Text>
+        </PressaoAnimada>
+      ) : null}
     </Pulsar>
   );
 }
 
-export function FaixaPendente({ quantidade, onPress }) {
-  if (!quantidade) return null;
-  return (
-    <PressaoAnimada style={estilos.faixaPendente} onPress={onPress}>
-      <Text style={estilos.faixaPendenteTexto}>
-        {quantidade === 1
-          ? '1 ação aguardando conexão. Toque para sincronizar.'
-          : `${quantidade} ações aguardando conexão. Toque para sincronizar.`}
-      </Text>
-    </PressaoAnimada>
-  );
-}
-
+/**
+ * Aviso de erro ou de sucesso.
+ *
+ * O erro era cinza como qualquer outro bloco e nao se distinguia do resto da
+ * tela. Passou a usar o vermelho com faixa lateral que a home do responsavel
+ * ja tinha, e que era a leitura mais clara das duas.
+ */
 export function Aviso({ tipo, texto }) {
   if (!texto) return null;
   const erro = tipo === 'erro';
   return (
-    <AparecerEm deslocamento={8} style={erro ? estilos.aviso : [estilos.aviso, estilos.avisoOk]}>
-      <Text style={erro ? estilos.avisoTexto : [estilos.avisoTexto, estilos.avisoTextoOk]}>{texto}</Text>
+    <AparecerEm deslocamento={8} style={[estilos.aviso, erro ? estilos.avisoErro : estilos.avisoOk]}>
+      <Text style={[estilos.avisoTexto, erro ? estilos.avisoTextoErro : estilos.avisoTextoOk]}>{texto}</Text>
     </AparecerEm>
   );
 }
 
-/** Ficha compacta de numero (usada no dashboard). */
+/**
+ * Ficha compacta de numero (usada nas telas iniciais).
+ *
+ * Sem `onPress` a ficha e so leitura: vira uma View simples, em vez de um
+ * botao que o leitor de tela anuncia como tocavel e nao leva a lugar nenhum.
+ */
 export function Ficha({ rotulo, valor, destaque, atraso = 0, onPress }) {
+  const conteudo = (
+    <>
+      <Text style={[estilos.fichaValor, destaque && estilos.fichaValorDestaque]}>{valor}</Text>
+      <Text style={[estilos.fichaRotulo, destaque && estilos.fichaRotuloDestaque]}>{rotulo}</Text>
+    </>
+  );
+  const forma = [estilos.ficha, destaque && estilos.fichaDestaque];
   return (
     <AparecerEm atraso={atraso} deslocamento={10} style={estilos.fichaEnvolucro}>
-      <PressaoAnimada style={[estilos.ficha, destaque && estilos.fichaDestaque]} onPress={onPress} escala={0.97}>
-        <Text style={[estilos.fichaValor, destaque && estilos.fichaValorDestaque]}>{valor}</Text>
-        <Text style={[estilos.fichaRotulo, destaque && estilos.fichaRotuloDestaque]}>{rotulo}</Text>
-      </PressaoAnimada>
+      {onPress ? (
+        <PressaoAnimada style={forma} onPress={onPress} escala={0.97}>
+          {conteudo}
+        </PressaoAnimada>
+      ) : (
+        <View style={forma}>{conteudo}</View>
+      )}
     </AparecerEm>
   );
 }
@@ -163,39 +265,84 @@ export const estilosBase = StyleSheet.create({
 });
 
 const estilos = StyleSheet.create({
+  // Cabecalho das homes: estrutura do responsavel (marca, avatar, papel) na
+  // escala tipografica do professor, que era a legivel das duas.
+  homeMarcaLinha: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  homeMarca: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  homeLogo: { width: 28, height: 28, borderRadius: 8 },
+  homeMarcaTexto: { color: cores.inkSoft, fontSize: 11, letterSpacing: 1.8, fontWeight: '700' },
+  homeConta: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  homeAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: cores.surfaceAlt,
+    borderWidth: 1,
+    borderColor: cores.linha,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  homeAvatarTexto: { color: cores.ink, fontSize: 12, fontWeight: '800' },
+  // 44px e o alvo minimo de toque. Os dois botoes Sair tinham ~30px.
+  homeSair: {
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+    borderRadius: raio.pill,
+    borderWidth: 1,
+    borderColor: cores.linha,
+    backgroundColor: cores.surface,
+  },
+  homeSairTexto: { color: cores.inkSoft, fontSize: 13, fontWeight: '700' },
+  homePapel: { color: cores.azul, fontSize: 11, letterSpacing: 1.4, fontWeight: '700' },
+  homeTitulo: { color: cores.ink, fontSize: 26, fontWeight: '800', marginTop: 4 },
+  homeSubtitulo: { color: cores.inkSoft, fontSize: 13, marginTop: 4 },
+
   topo: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 },
   topoTextos: { flex: 1 },
   rotulo: { fontSize: 11, letterSpacing: 1.4, fontWeight: '700', color: cores.azul },
   titulo: { fontSize: 26, fontWeight: '800', color: cores.ink, marginTop: 4 },
   subtitulo: { fontSize: 13, color: cores.inkSoft, marginTop: 4 },
 
-  faixaOffline: {
+  // Fusao das duas faixas antigas: o formato compacto que o responsavel ja
+  // usava, no tamanho legivel de 12px que o professor ja usava.
+  faixaEstado: {
     backgroundColor: cores.azulSoft,
     borderRadius: raio.md,
-    padding: 12,
     borderWidth: 1,
     borderColor: cores.azul,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
   },
-  faixaOfflineTexto: { color: cores.azul, fontSize: 12, fontWeight: '600' },
-
-  faixaPendente: {
-    backgroundColor: cores.surfaceAlt,
-    borderRadius: raio.md,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: cores.linha,
-  },
-  faixaPendenteTexto: { color: cores.inkSoft, fontSize: 12, fontWeight: '600' },
+  faixaEstadoLinha: { flexDirection: 'row', alignItems: 'center', gap: 7, flex: 1 },
+  faixaEstadoPonto: { width: 6, height: 6, borderRadius: 3, backgroundColor: cores.azul },
+  faixaEstadoTexto: { color: cores.azul, fontSize: 12, fontWeight: '600', flexShrink: 1 },
+  faixaEstadoAcaoArea: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 8, marginVertical: -6 },
+  faixaEstadoAcao: { color: cores.azul, fontSize: 12, fontWeight: '800' },
 
   aviso: {
-    backgroundColor: cores.surfaceAlt,
     borderRadius: raio.md,
     padding: 12,
     borderWidth: 1,
-    borderColor: cores.linha,
+  },
+  avisoErro: {
+    backgroundColor: cores.vermelhoSoft,
+    borderColor: cores.vermelhoSoft,
+    borderLeftWidth: 3,
+    borderLeftColor: cores.vermelho,
   },
   avisoOk: { backgroundColor: cores.verdeSoft, borderColor: cores.verde },
-  avisoTexto: { fontSize: 12, fontWeight: '600', color: cores.inkSoft },
+  avisoTexto: { fontSize: 12.5, fontWeight: '600' },
+  avisoTextoErro: { color: cores.vermelho },
   avisoTextoOk: { color: cores.verde },
 
   fichaEnvolucro: { flex: 1 },

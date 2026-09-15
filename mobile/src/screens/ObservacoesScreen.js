@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { AparecerEm, PressaoAnimada } from '../components/Animacoes';
-import { Aviso, BotaoGrande, Cabecalho, Cartao, FaixaOffline, SeletorTurma, useBarraDeStatusEscura } from '../components/Ui';
+import { Aviso, BotaoGrande, Cabecalho, Cartao, FaixaEstado, SeletorTurma, useBarraDeStatusEscura } from '../components/Ui';
 import { cores, raio, sombra } from '../theme';
 
 export default function ObservacoesScreen({ navigation }) {
@@ -20,6 +20,7 @@ export default function ObservacoesScreen({ navigation }) {
   const [carregando, setCarregando] = useState(true);
   const [enviando, setEnviando] = useState(false);
   const [offline, setOffline] = useState(false);
+  const [cacheEm, setCacheEm] = useState(null);
   const [erro, setErro] = useState('');
   const [mensagem, setMensagem] = useState('');
 
@@ -60,6 +61,7 @@ export default function ObservacoesScreen({ navigation }) {
         const lista = res.turmas || [];
         setTurmas(lista);
         setOffline(Boolean(res._offline));
+        setCacheEm(res._offline ? res._cacheEm || null : null);
         if (lista.length) await selecionarTurma(lista[0]);
       } catch (err) {
         tratarErro(err);
@@ -93,7 +95,7 @@ export default function ObservacoesScreen({ navigation }) {
   return (
     <ScrollView style={estilos.tela} contentContainerStyle={[estilos.conteudo, { paddingTop: insets.top + 20 }]}>
       <Cabecalho rotulo="ACOMPANHAMENTO" titulo="Observações" subtitulo="Recados que chegam ao responsável do aluno." acao={navigation?.goBack ? <PressaoAnimada style={estilos.voltar} onPress={() => navigation.goBack()}><Text style={estilos.voltarTexto}>Voltar</Text></PressaoAnimada> : null} />
-      <FaixaOffline visivel={offline} />
+      <FaixaEstado offlineEm={cacheEm} offline={offline} />
       <Aviso tipo="erro" texto={erro} />
       <Aviso tipo="ok" texto={mensagem} />
       <SeletorTurma turmas={turmas} turmaAtiva={turma} aoSelecionar={selecionarTurma} />

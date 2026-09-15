@@ -6,30 +6,20 @@ import { api, obterNamespaceCache } from '../api';
 import { obterFila, ouvirFila } from '../filaOffline';
 import { useAuth } from '../context/AuthContext';
 import { AparecerEm, PressaoAnimada } from '../components/Animacoes';
-import { Aviso, BotaoGrande, Cabecalho, Cartao, FaixaOffline, FaixaPendente, Ficha, useBarraDeStatusEscura } from '../components/Ui';
+import { Aviso, BotaoGrande, CabecalhoHome, Cartao, FaixaEstado, Ficha, useBarraDeStatusEscura } from '../components/Ui';
+import { dataHoje, rotuloDoDia, saudacaoDoDia } from '../datas';
 import { cores, raio, sombra } from '../theme';
 
-function dataHoje() {
-  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
-}
-
-function saudacao() {
-  const hora = Number(
-    new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', hour12: false }).format(new Date())
-  );
-  if (hora < 12) return 'Bom dia';
-  if (hora < 18) return 'Boa tarde';
-  return 'Boa noite';
-}
-
 export default function InicioScreen({ navigation }) {
-  const { logout } = useAuth();
+  const { usuario, logout } = useAuth();
+  const primeiroNome = usuario?.nome?.trim().split(/\s+/)[0];
   const insets = useSafeAreaInsets();
   useBarraDeStatusEscura();
   const [turmas, setTurmas] = useState([]);
   const [resumo, setResumo] = useState([]);
   const [pendentes, setPendentes] = useState([]);
   const [offline, setOffline] = useState(false);
+  const [cacheEm, setCacheEm] = useState(null);
   const [carregando, setCarregando] = useState(true);
   const [atualizando, setAtualizando] = useState(false);
   const [erro, setErro] = useState('');
@@ -66,6 +56,7 @@ export default function InicioScreen({ navigation }) {
       setTurmas(respostaTurmas.turmas || []);
       setResumo(respostaResumo.resumo || []);
       setOffline(Boolean(respostaTurmas._offline));
+      setCacheEm(respostaTurmas._offline ? respostaTurmas._cacheEm || null : null);
       setErro('');
     } catch (err) {
       if (err?.status === 401) return logout();
@@ -123,19 +114,20 @@ export default function InicioScreen({ navigation }) {
         <RefreshControl refreshing={atualizando} onRefresh={aoAtualizar} tintColor={cores.azul} colors={[cores.azul, cores.verde]} />
       }
     >
-      <Cabecalho
-        rotulo="PONTE·ESCOLAR"
-        titulo={`${saudacao()}, professor`}
-        subtitulo={`Seu dia em ${hoje.split('-').reverse().join('/')}`}
-        acao={
-          <PressaoAnimada style={estilos.sair} onPress={sair}>
-            <Text style={estilos.sairTexto}>Sair</Text>
-          </PressaoAnimada>
-        }
+      <CabecalhoHome
+        papel="PROFESSOR"
+        titulo={`${saudacaoDoDia()}, ${primeiroNome || 'professor'}`}
+        subtitulo={rotuloDoDia(hoje)}
+        nome={usuario?.nome}
+        onSair={sair}
       />
 
-      <FaixaOffline visivel={offline} texto="Sem conexão — mostrando as turmas salvas no aparelho." />
-      <FaixaPendente quantidade={pendentes.length} onPress={() => navigation.navigate('sincronizar')} />
+      <FaixaEstado
+        offlineEm={cacheEm}
+        offline={offline}
+        pendentes={pendentes.length}
+        onSincronizar={() => navigation.navigate('sincronizar')}
+      />
       <Aviso tipo="erro" texto={erro} />
 
       <View style={estilos.fichas}>
@@ -190,15 +182,6 @@ const estilos = StyleSheet.create({
   tela: { flex: 1, backgroundColor: cores.paper },
   conteudo: { padding: 20, paddingBottom: 32, gap: 14 },
   centro: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: cores.paper },
-  sair: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: raio.md,
-    borderWidth: 1,
-    borderColor: cores.linha,
-    backgroundColor: cores.surfaceAlt,
-  },
-  sairTexto: { color: cores.inkSoft, fontWeight: '700', fontSize: 12 },
   fichas: { flexDirection: 'row', gap: 10 },
   atalhos: { flexDirection: 'row', gap: 10 },
   atalho: {
@@ -213,6 +196,8 @@ const estilos = StyleSheet.create({
   atalhoTitulo: { fontWeight: '800', color: cores.ink },
   atalhoTexto: { fontSize: 11, color: cores.inkSoft, marginTop: 2 },
   secao: { fontSize: 13, fontWeight: '700', color: cores.inkSoft, marginTop: 6 },
+  // Sem marginBottom: cada turma e filha direta do container, que ja tem
+  // gap 14. Os dois somados davam 24px entre os blocos.
   linhaTurma: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -222,7 +207,6 @@ const estilos = StyleSheet.create({
     borderWidth: 1,
     borderColor: cores.linha,
     backgroundColor: cores.surface,
-    marginBottom: 10,
   },
   linhaTextos: { flex: 1 },
   linhaNome: { fontWeight: '800', color: cores.ink },

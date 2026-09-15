@@ -5,7 +5,7 @@ import { api } from '../api';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { AparecerEm, PressaoAnimada } from '../components/Animacoes';
-import { Aviso, BotaoGrande, Cabecalho, Cartao, FaixaOffline, SeletorTurma, useBarraDeStatusEscura } from '../components/Ui';
+import { Aviso, BotaoGrande, Cabecalho, Cartao, FaixaEstado, SeletorTurma, useBarraDeStatusEscura } from '../components/Ui';
 import { cores, raio, sombra } from '../theme';
 
 function dataHoje() {
@@ -82,6 +82,7 @@ export default function ChamadaScreen({ navigation }) {
   const [atualizando, setAtualizando] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [offline, setOffline] = useState(false);
+  const [cacheEm, setCacheEm] = useState(null);
   const [erro, setErro] = useState('');
   const [mensagem, setMensagem] = useState('');
   const [hoje, setHoje] = useState(dataHoje);
@@ -124,6 +125,7 @@ export default function ChamadaScreen({ navigation }) {
         const lista = res.turmas || [];
         setTurmas(lista);
         setOffline(Boolean(res._offline));
+        setCacheEm(res._offline ? res._cacheEm || null : null);
         setErro('');
         if (!lista.length) {
           setTurma(null);
@@ -213,7 +215,7 @@ export default function ChamadaScreen({ navigation }) {
   const cabecalho = (
     <View style={estilos.blocoGap}>
       <Cabecalho rotulo="PRESENÇA EM SALA" titulo="Chamada" subtitulo={`Toque para alternar entre presente, ausente e falta justificada · ${hoje.split('-').reverse().join('/')}`} />
-      <FaixaOffline visivel={offline} />
+      <FaixaEstado offlineEm={cacheEm} offline={offline} />
       <Aviso tipo="erro" texto={erro} />
       <Aviso tipo="ok" texto={mensagem} />
 

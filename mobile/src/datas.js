@@ -43,3 +43,35 @@ export function formatarDataSemHora(valor) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dia)) return formatarData(valor);
   return dia.split('-').reverse().join('/');
 }
+
+const DIAS_SEMANA = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+
+/** Hoje no fuso da escola, como `AAAA-MM-DD`. */
+export function dataHoje() {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: FUSO_BRASILIA }).format(new Date());
+}
+
+/**
+ * Dia da semana e data, sem preposicao. Ex.: "Quinta, 14/09".
+ *
+ * Recebe `AAAA-MM-DD`. A data e montada com os numeros soltos, e nao pelo
+ * parser de ISO, que leria a string como UTC e devolveria o dia anterior.
+ */
+export function rotuloDoDia(dia) {
+  const dataTexto = String(dia || '').slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dataTexto)) return '';
+  const [ano, mes, diaMes] = dataTexto.split('-').map(Number);
+  const data = new Date(ano, mes - 1, diaMes);
+  if (Number.isNaN(data.getTime())) return '';
+  return `${DIAS_SEMANA[data.getDay()]}, ${dataTexto.slice(8, 10)}/${dataTexto.slice(5, 7)}`;
+}
+
+/** "Bom dia" / "Boa tarde" / "Boa noite", pelo relogio de Brasilia. */
+export function saudacaoDoDia() {
+  const hora = Number(
+    new Intl.DateTimeFormat('pt-BR', { timeZone: FUSO_BRASILIA, hour: '2-digit', hour12: false }).format(new Date())
+  );
+  if (hora < 12) return 'Bom dia';
+  if (hora < 18) return 'Boa tarde';
+  return 'Boa noite';
+}

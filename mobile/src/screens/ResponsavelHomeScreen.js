@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Image, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api, obterNamespaceCache } from '../api';
 import { obterFila, ouvirFila } from '../filaOffline';
 import { useAuth } from '../context/AuthContext';
-import { AparecerEm, PressaoAnimada, Pulsar } from '../components/Animacoes';
+import { AparecerEm, PressaoAnimada } from '../components/Animacoes';
 import BarraNavegacao from '../components/BarraNavegacao';
-import { useBarraDeStatusEscura } from '../components/Ui';
+import { Aviso, BotaoGrande, CabecalhoHome, FaixaEstado, Ficha, useBarraDeStatusEscura } from '../components/Ui';
+import { dataHoje, formatarDataHora, rotuloDoDia, saudacaoDoDia } from '../datas';
 import { cores, raio, sombra } from '../theme';
 
 // Home do responsavel (MOB-001). Tudo que aparece aqui vem da API ou do cache
@@ -23,26 +24,6 @@ function iniciais(nome = '') {
     .slice(0, 2)
     .map((parte) => parte[0].toUpperCase())
     .join('');
-}
-
-function saudacao() {
-  const hora = Number(
-    new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', hour12: false }).format(new Date())
-  );
-  if (hora < 12) return 'Bom dia';
-  if (hora < 18) return 'Boa tarde';
-  return 'Boa noite';
-}
-
-function formatarDataHora(valor) {
-  if (!valor) return '';
-  const data = new Date(valor);
-  if (Number.isNaN(data.getTime())) return '';
-  return data.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
-}
-
-function textoPendencias(quantidade) {
-  return quantidade === 1 ? '1 ação aguardando envio' : `${quantidade} ações aguardando envio`;
 }
 
 export default function ResponsavelHomeScreen({ navigation }) {
@@ -153,58 +134,40 @@ export default function ResponsavelHomeScreen({ navigation }) {
           <RefreshControl refreshing={atualizando} onRefresh={aoAtualizar} tintColor={cores.azul} colors={[cores.azul, cores.verde]} />
         }
       >
-        <AparecerEm style={estilos.cabecalho}>
-          <View style={estilos.marcaLinha}>
-            <Image source={require('../../assets/app-icon.png')} style={estilos.logo} accessibilityLabel="Ponte Escolar" />
-            <Text style={estilos.marca}>PONTE · ESCOLAR</Text>
-          </View>
-          <View style={estilos.contaLinha}>
-            <View style={estilos.avatar}>
-              <Text style={estilos.avatarTexto}>{iniciais(usuario?.nome) || '?'}</Text>
-            </View>
-            <PressaoAnimada style={estilos.sair} onPress={sair}>
-              <Text style={estilos.sairTexto}>Sair</Text>
-            </PressaoAnimada>
-          </View>
-        </AparecerEm>
-
-        <AparecerEm atraso={50}>
-          <Text style={estilos.rotulo}>RESPONSÁVEL</Text>
-          <Text style={estilos.titulo}>{saudacao()}, {primeiroNome || 'família'}.</Text>
-        </AparecerEm>
+        <CabecalhoHome
+          papel="RESPONSÁVEL"
+          titulo={`${saudacaoDoDia()}, ${primeiroNome || 'família'}`}
+          subtitulo={rotuloDoDia(dataHoje())}
+          nome={usuario?.nome}
+          onSair={sair}
+        />
 
         {cacheEm || pendentes.length > 0 ? (
           <AparecerEm atraso={90}>
-            <Pulsar style={estilos.faixa}>
-              <View style={estilos.faixaLinha}>
-                <View style={estilos.ponto} />
-                <Text style={estilos.faixaTexto}>
-                  {cacheEm ? `Sem conexão · dados de ${formatarDataHora(cacheEm)}` : textoPendencias(pendentes.length)}
-                  {cacheEm && pendentes.length > 0 ? ` · ${textoPendencias(pendentes.length)}` : ''}
-                </Text>
-              </View>
-              <PressaoAnimada onPress={() => navigation.navigate('Sincronizacao')}>
-                <Text style={estilos.faixaAcao}>Sincronizar</Text>
-              </PressaoAnimada>
-            </Pulsar>
+            <FaixaEstado
+              offlineEm={cacheEm}
+              pendentes={pendentes.length}
+              onSincronizar={() => navigation.navigate('Sincronizacao')}
+            />
           </AparecerEm>
         ) : null}
 
-        {erro && filhos.length > 0 ? (
-          <View style={estilos.erroFaixa}>
-            <Text style={estilos.erroTexto}>{erro}</Text>
-          </View>
-        ) : null}
+        <Aviso tipo="erro" texto={filhos.length > 0 ? erro : ''} />
 
-        <AparecerEm atraso={130} style={estilos.metricas}>
-          <Metrica rotulo="FILHOS" valor={carregado ? filhos.length : '–'} />
-          <Metrica rotulo="AVISOS" valor={carregado ? avisos.length : '–'} azul />
-          <Metrica rotulo="PENDÊNCIAS" valor={pendentes.length} />
-        </AparecerEm>
+        <View style={estilos.metricas}>
+          <Ficha rotulo="Filhos" valor={carregado ? filhos.length : '–'} atraso={130} />
+          <Ficha rotulo="Avisos" valor={carregado ? avisos.length : '–'} atraso={200} destaque />
+          <Ficha
+            rotulo="Pendências"
+            valor={pendentes.length}
+            atraso={270}
+            onPress={() => navigation.navigate('Sincronizacao')}
+          />
+        </View>
 
         <AparecerEm atraso={170} style={estilos.secaoLinha}>
-          <Text style={estilos.secao}>SEUS FILHOS</Text>
-          <PressaoAnimada onPress={() => navigation.navigate('AdicionarFilho')}>
+          <Text style={estilos.secao}>Seus filhos</Text>
+          <PressaoAnimada style={estilos.adicionarArea} onPress={() => navigation.navigate('AdicionarFilho')}>
             <Text style={estilos.adicionar}>+ Adicionar</Text>
           </PressaoAnimada>
         </AparecerEm>
@@ -215,17 +178,17 @@ export default function ResponsavelHomeScreen({ navigation }) {
           <View style={estilos.estadoCartao}>
             <Text style={estilos.estadoTitulo}>Não deu para carregar</Text>
             <Text style={estilos.estadoTexto}>{erro}</Text>
-            <PressaoAnimada style={estilos.estadoBotao} onPress={carregar}>
-              <Text style={estilos.estadoBotaoTexto}>Tentar de novo</Text>
-            </PressaoAnimada>
+            <View style={estilos.estadoAcao}>
+              <BotaoGrande texto="Tentar de novo" onPress={carregar} />
+            </View>
           </View>
         ) : filhos.length === 0 ? (
           <View style={estilos.estadoCartao}>
             <Text style={estilos.estadoTitulo}>Nenhum filho vinculado ainda</Text>
             <Text style={estilos.estadoTexto}>Adicione seu filho com a matrícula informada pela escola.</Text>
-            <PressaoAnimada style={estilos.estadoBotao} onPress={() => navigation.navigate('AdicionarFilho')}>
-              <Text style={estilos.estadoBotaoTexto}>Adicionar filho</Text>
-            </PressaoAnimada>
+            <View style={estilos.estadoAcao}>
+              <BotaoGrande texto="Adicionar filho" onPress={() => navigation.navigate('AdicionarFilho')} />
+            </View>
           </View>
         ) : (
           filhos.map((filho, indice) => (
@@ -255,7 +218,7 @@ export default function ResponsavelHomeScreen({ navigation }) {
             {ultimoAviso.mensagem ? (
               <Text style={estilos.detalheAviso} numberOfLines={2}>{ultimoAviso.mensagem}</Text>
             ) : null}
-            <PressaoAnimada onPress={() => abrirAvisos(ultimoAviso)}>
+            <PressaoAnimada style={estilos.verAvisosArea} onPress={() => abrirAvisos(ultimoAviso)}>
               <Text style={estilos.verAvisos}>Ver avisos de {ultimoAviso.alunoNome} →</Text>
             </PressaoAnimada>
           </AparecerEm>
@@ -277,61 +240,34 @@ export default function ResponsavelHomeScreen({ navigation }) {
   );
 }
 
-function Metrica({ rotulo, valor, azul }) {
-  return (
-    <View style={estilos.metrica}>
-      <Text style={estilos.rotuloMetrica}>{rotulo}</Text>
-      <Text style={[estilos.valorMetrica, azul && { color: cores.azul }]}>{valor}</Text>
-    </View>
-  );
-}
-
 const estilos = StyleSheet.create({
   tela: { flex: 1, backgroundColor: cores.paper },
-  conteudo: { paddingHorizontal: 18 },
-  cabecalho: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 },
-  marcaLinha: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  logo: { width: 28, height: 28, borderRadius: 8 },
-  marca: { color: cores.inkSoft, fontSize: 8, letterSpacing: 2.2, fontWeight: '700' },
-  contaLinha: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  avatar: { width: 34, height: 34, borderRadius: 17, backgroundColor: cores.surfaceAlt, alignItems: 'center', justifyContent: 'center' },
-  avatarTexto: { color: cores.ink, fontSize: 10, fontWeight: '800' },
-  sair: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: raio.pill, borderWidth: 1, borderColor: cores.linha, backgroundColor: cores.surface },
-  sairTexto: { color: cores.inkSoft, fontSize: 11, fontWeight: '700' },
-  rotulo: { color: cores.inkSoft, fontSize: 9, letterSpacing: 1.8, fontWeight: '700' },
-  titulo: { color: cores.ink, fontSize: 22, fontWeight: '800', marginTop: 5 },
-  faixa: { marginTop: 14, backgroundColor: cores.azulSoft, borderRadius: raio.md, padding: 11, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  faixaLinha: { flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 },
-  ponto: { width: 5, height: 5, borderRadius: 3, backgroundColor: cores.azul },
-  faixaTexto: { color: cores.azul, fontSize: 10, fontWeight: '700', flexShrink: 1 },
-  faixaAcao: { color: cores.azul, fontSize: 10, fontWeight: '800' },
-  erroFaixa: { marginTop: 12, backgroundColor: cores.vermelhoSoft, borderLeftWidth: 3, borderLeftColor: cores.vermelho, borderRadius: raio.sm, padding: 10 },
-  erroTexto: { color: cores.vermelho, fontSize: 11, fontWeight: '600' },
-  metricas: { flexDirection: 'row', gap: 8, marginTop: 12 },
-  metrica: { flex: 1, minHeight: 60, padding: 10, backgroundColor: cores.surface, borderRadius: raio.md, borderWidth: 1, borderColor: cores.linha },
-  rotuloMetrica: { color: cores.inkSoft, fontSize: 8, letterSpacing: 1.1, fontWeight: '700' },
-  valorMetrica: { color: cores.ink, fontSize: 20, fontWeight: '800', marginTop: 5 },
-  secaoLinha: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 18, marginBottom: 8 },
-  secao: { color: cores.inkSoft, fontSize: 9, letterSpacing: 1.5, fontWeight: '700' },
-  adicionar: { color: cores.azul, fontSize: 10, fontWeight: '800' },
+  conteudo: { padding: 20, gap: 14 },
+  metricas: { flexDirection: 'row', gap: 10 },
+  secaoLinha: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 },
+  secao: { color: cores.inkSoft, fontSize: 13, fontWeight: '700' },
+  // 44px e o alvo minimo de toque; este era um texto de 10px sem area nenhuma.
+  adicionarArea: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 8, marginRight: -8 },
+  adicionar: { color: cores.azul, fontSize: 13, fontWeight: '800' },
   carregando: { marginVertical: 24 },
-  estadoCartao: { backgroundColor: cores.surface, borderRadius: raio.md, borderWidth: 1, borderColor: cores.linha, padding: 16, marginBottom: 8, alignItems: 'center', ...sombra.cartao },
-  estadoTitulo: { color: cores.ink, fontSize: 13, fontWeight: '800', textAlign: 'center' },
-  estadoTexto: { color: cores.inkSoft, fontSize: 11, marginTop: 4, textAlign: 'center', lineHeight: 16 },
-  estadoBotao: { marginTop: 12, backgroundColor: cores.azul, borderRadius: raio.pill, paddingHorizontal: 16, paddingVertical: 9 },
-  estadoBotaoTexto: { color: cores.claro, fontSize: 11, fontWeight: '800' },
-  cartao: { flexDirection: 'row', alignItems: 'center', backgroundColor: cores.surface, borderRadius: raio.md, borderWidth: 1, borderColor: cores.linha, padding: 12, marginBottom: 8, ...sombra.cartao },
-  avatarFilho: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', marginRight: 10, backgroundColor: cores.azulSoft },
-  avatarFilhoTexto: { fontSize: 12, fontWeight: '800', color: cores.azul },
+  estadoCartao: { backgroundColor: cores.surface, borderRadius: raio.lg, borderWidth: 1, borderColor: cores.linha, padding: 18, alignItems: 'center', ...sombra.cartao },
+  estadoTitulo: { color: cores.ink, fontSize: 15, fontWeight: '800', textAlign: 'center' },
+  estadoTexto: { color: cores.inkSoft, fontSize: 13, marginTop: 5, textAlign: 'center', lineHeight: 19 },
+  estadoAcao: { alignSelf: 'stretch', marginTop: 14 },
+  // Medidas do cartao de turma do professor: raio lg, padding 14.
+  cartao: { flexDirection: 'row', alignItems: 'center', backgroundColor: cores.surface, borderRadius: raio.lg, borderWidth: 1, borderColor: cores.linha, padding: 14, ...sombra.cartao },
+  avatarFilho: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', marginRight: 12, backgroundColor: cores.azulSoft },
+  avatarFilhoTexto: { fontSize: 13, fontWeight: '800', color: cores.azul },
   filhoTexto: { flex: 1 },
-  nome: { color: cores.ink, fontSize: 13, fontWeight: '800' },
-  detalhe: { color: cores.inkSoft, fontSize: 10, marginTop: 2 },
-  seta: { width: 22, height: 22, borderRadius: 11, backgroundColor: cores.verdeSoft, alignItems: 'center', justifyContent: 'center' },
-  setaTexto: { color: cores.verde, fontSize: 16, fontWeight: '800', marginTop: -2 },
-  aviso: { backgroundColor: cores.surface, borderRadius: raio.md, borderWidth: 1, borderColor: cores.linha, padding: 13, marginTop: 4, ...sombra.cartao },
-  rotuloAviso: { color: cores.inkSoft, fontSize: 8, letterSpacing: 1.5, fontWeight: '700' },
-  tituloAviso: { color: cores.ink, fontSize: 12, fontWeight: '800', marginTop: 5 },
-  detalheAviso: { color: cores.inkSoft, fontSize: 10, marginTop: 3, lineHeight: 14 },
-  verAvisos: { color: cores.azul, fontSize: 10, fontWeight: '800', marginTop: 11 },
+  nome: { color: cores.ink, fontSize: 14, fontWeight: '800' },
+  detalhe: { color: cores.inkSoft, fontSize: 12, marginTop: 2 },
+  seta: { width: 26, height: 26, borderRadius: 13, backgroundColor: cores.verdeSoft, alignItems: 'center', justifyContent: 'center' },
+  setaTexto: { color: cores.verde, fontSize: 18, fontWeight: '800', marginTop: -2 },
+  aviso: { backgroundColor: cores.surface, borderRadius: raio.lg, borderWidth: 1, borderColor: cores.linha, padding: 15, ...sombra.cartao },
+  rotuloAviso: { color: cores.inkSoft, fontSize: 11, letterSpacing: 1.1, fontWeight: '700' },
+  tituloAviso: { color: cores.ink, fontSize: 15, fontWeight: '800', marginTop: 6 },
+  detalheAviso: { color: cores.inkSoft, fontSize: 13, marginTop: 4, lineHeight: 18 },
+  verAvisosArea: { minHeight: 44, justifyContent: 'center', marginTop: 4 },
+  verAvisos: { color: cores.azul, fontSize: 13, fontWeight: '800' },
   navegacao: { position: 'absolute', bottom: 0, left: 0, right: 0 },
 });
