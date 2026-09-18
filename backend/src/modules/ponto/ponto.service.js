@@ -2,11 +2,12 @@ const db = require('../../config/db');
 const { AppError } = require('../../middlewares/errorHandler');
 const { calcularApontamentoDoDia } = require('./calculoJornada');
 const bancoHorasService = require('./bancoHoras.service');
-const { horaLocalParaUTC, partesNoFuso } = require('../../utils/tempo');
+const { horaLocalParaUTC } = require('../../utils/tempo');
 const notificacoesService = require('../responsaveis/notificacoes.service');
 const { caminhoAbsoluto } = require('../dispositivos/fotoStorage');
 const alunosService = require('../alunos/alunos.service');
 const { publicarEvento } = require('../../realtime');
+const { classificarBatidasDeAluno, janelaDeDiasCompletos } = require('./classificacaoBatidas');
 
 const FUSO_PADRAO = 'America/Sao_Paulo';
 
@@ -37,37 +38,10 @@ function normalizarTipoBatida(codigoBruto) {
   return TIPO_BATIDA_POR_CODIGO[codigoBruto] || 'indefinido';
 }
 
-function classificarBatidasAlunos(registros) {
-  const grupos = new Map();
-
-  registros.forEach((registro) => {
-    const timeZone = registro.filial_fuso_horario || FUSO_PADRAO;
-    const partes = partesNoFuso(new Date(registro.data_hora), timeZone);
-    const chave = `${registro.aluno_id}:${partes.year}-${partes.month}-${partes.day}`;
-    if (!grupos.has(chave)) grupos.set(chave, []);
-    grupos.get(chave).push(registro);
-  });
-
-  grupos.forEach((grupo) => {
-    grupo.sort((a, b) => {
-      const diferenca = new Date(a.data_hora).getTime() - new Date(b.data_hora).getTime();
-      return diferenca || Number(a.id) - Number(b.id);
-    });
-
-    const tiposBrutos = grupo.map((registro) => registro.tipo_batida);
-    const possuiTipoOficial = tiposBrutos.some((tipo) => tipo && tipo !== 'indefinido');
-
-    // O tipo informado pelo dispositivo e a fonte de verdade. So usamos a
-    // alternancia como compatibilidade para lotes legados sem tipo oficial.
-    if (!possuiTipoOficial) {
-      grupo.forEach((registro, indice) => {
-        registro.tipo_batida = indice % 2 === 0 ? 'entrada' : 'saida';
-      });
-    }
-  });
-
-  return registros;
-}
+// A regra de entrada/saida de aluno saiu daqui e virou modulo proprio
+// (classificacaoBatidas.js), porque cinco consultas diferentes precisavam
+// dela e so esta aplicava. Ver o cabecalho daquele arquivo para o porque de
+// o equipamento nao poder ser a fonte de verdade.
 
 /**
  * Recebe os registros ja lidos do dispositivo (via adapter) e persiste em
@@ -420,12 +394,17 @@ async function listarRegistrosAlunos(empresaId, { alunoId, filialId, turmaId, de
   if (alunoId) query.where('r.aluno_id', alunoId);
   if (filialId) query.where('r.filial_id', filialId);
   if (turmaId) query.where('a.turma_id', turmaId);
-  if (de) query.where('r.data_hora', '>=', de);
-  if (ate) query.where('r.data_hora', '<=', ate);
+
+  // Dias fechados, e sem `limit` no SQL: a alternancia precisa do dia inteiro
+  // para acertar a fase, e um corte no meio do dia deslocaria todas as batidas
+  // daquele dia. O corte acontece depois de classificar.
+  const janela = janelaDeDiasCompletos(de, ate, FUSO_PADRAO);
+  if (janela.de) query.where('r.data_hora', '>=', janela.de);
+  if (janela.ate) query.where('r.data_hora', '<=', janela.ate);
 
   const limiteSeguro = Math.min(Math.max(Number(limite) || 100, 1), 500);
-  const registros = await query.limit(500);
-  classificarBatidasAlunos(registros);
+  const registros = await query;
+  classificarBatidasDeAluno(registros);
 
   return registros
     .sort((a, b) => {

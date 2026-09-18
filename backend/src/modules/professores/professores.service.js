@@ -2,6 +2,7 @@ const db = require('../../config/db');
 const { AppError } = require('../../middlewares/errorHandler');
 const { publicarEvento } = require('../../realtime');
 const notificacoesService = require('../responsaveis/notificacoes.service');
+const { classificarBatidasDeAluno } = require('../ponto/classificacaoBatidas');
 
 function horaEmMinutos(valor) {
   const [hora, minuto] = String(valor || '').split(':').map(Number);
@@ -275,7 +276,15 @@ async function fichaDoAluno(empresaId, professorId, turmaId, alunoId, atribuicao
 
   const [foto, frequencia, presencas, notas, observacoes, avisos] = await Promise.all([
     db('registros_ponto').where({ empresa_id: empresaId, aluno_id: alunoId }).whereNotNull('foto_url').orderBy('data_hora', 'desc').first('foto_url', 'data_hora'),
-    db('registros_ponto').where({ empresa_id: empresaId, aluno_id: alunoId }).select('id', 'data_hora', 'tipo_batida', 'origem', 'foto_url').orderBy('data_hora', 'desc').limit(100),
+    // Janela por DIAS, nao por numero de linhas: `limit` cortaria o dia mais
+    // antigo no meio e trocaria a fase da alternancia chegada/saida daquele
+    // dia (ver ponto/classificacaoBatidas.js). O corte em 100 e feito depois.
+    db('registros_ponto as r')
+      .leftJoin('filiais as f', 'f.id', 'r.filial_id')
+      .where({ 'r.empresa_id': empresaId, 'r.aluno_id': alunoId })
+      .where('r.data_hora', '>=', db.raw("now() - interval '90 days'"))
+      .select('r.id', 'r.aluno_id', 'r.data_hora', 'r.tipo_batida', 'r.origem', 'r.foto_url', 'f.fuso_horario as filial_fuso_horario')
+      .orderBy('r.data_hora', 'desc'),
     db('presencas_sala').where({ empresa_id: empresaId, aluno_id: alunoId, atribuicao_id: atribuicao.id }).select('id', 'data', 'presente', 'falta_justificada', 'justificativa', 'observacao', 'materia').orderBy('data', 'desc').limit(100),
     db('notas_alunos').where({ empresa_id: empresaId, aluno_id: alunoId, criado_por_usuario_id: professorId }).select('id', 'disciplina', 'etapa', 'nota', 'bimestre', 'tipo_avaliacao', 'atividade', 'observacao', 'created_at').orderBy('created_at', 'desc').limit(100),
     db('observacoes_alunos').where({ empresa_id: empresaId, aluno_id: alunoId, criado_por_usuario_id: professorId }).select('id', 'titulo', 'texto', 'autor_nome', 'created_at').orderBy('created_at', 'desc').limit(5),
@@ -286,11 +295,16 @@ async function fichaDoAluno(empresaId, professorId, turmaId, alunoId, atribuicao
     }).select('id', 'titulo', 'mensagem', 'publicado_em', 'turma_id', 'filial_id').orderBy('publicado_em', 'desc').limit(100),
   ]);
 
+  // Quem decide se a batida foi chegada ou saida e o sistema, nunca o
+  // equipamento (ele manda `inout: 0` sempre). Mesma regra da tela do
+  // responsavel e do painel do web.
+  classificarBatidasDeAluno(frequencia);
+
   return {
     aluno,
     atribuicao: { id: atribuicao.id, turma_id: turmaId, materia: atribuicao.materia },
     foto_facial_recente: foto || null,
-    frequencia,
+    frequencia: frequencia.slice(0, 100).map(({ filial_fuso_horario, ...registro }) => registro),
     presencas_sala: presencas,
     notas,
     observacoes,

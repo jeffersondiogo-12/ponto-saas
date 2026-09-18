@@ -1,5 +1,6 @@
 const db = require('../../config/db');
 const { inicioDoDiaNoFuso, fimDoDiaNoFuso } = require('../../utils/tempo');
+const { tipoDaBatidaNoDia } = require('../ponto/classificacaoBatidas');
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 const FUSO_PADRAO = 'America/Sao_Paulo';
@@ -19,6 +20,12 @@ async function enviarPush({ to, title, body, data }) {
   }
 }
 
+/**
+ * Chegada ou saida desta batida, pela MESMA regra que as telas usam
+ * (ponto/classificacaoBatidas.js): conta quantas passagens do aluno ja
+ * existem antes desta no mesmo dia e alterna. Sem isso, o push e a ficha
+ * podiam discordar sobre a mesma batida.
+ */
 async function inferirTipoParaNotificacao(alunoId, dataHora, timeZone) {
   const inicioDia = inicioDoDiaNoFuso(dataHora, timeZone);
   const fimDia = fimDoDiaNoFuso(dataHora, timeZone);
@@ -28,7 +35,7 @@ async function inferirTipoParaNotificacao(alunoId, dataHora, timeZone) {
     .andWhere('data_hora', '<', dataHora)
     .count('id as total')
     .first();
-  return Number(total) % 2 === 0 ? 'chegada' : 'saida';
+  return tipoDaBatidaNoDia(total);
 }
 
 async function notificarBatidaDeAluno({ alunoId, dataHora, timeZone = FUSO_PADRAO }) {
@@ -41,7 +48,7 @@ async function notificarBatidaDeAluno({ alunoId, dataHora, timeZone = FUSO_PADRA
 
   const tipo = await inferirTipoParaNotificacao(alunoId, dataHora, timeZone);
   const horaLocal = new Intl.DateTimeFormat('pt-BR', { timeZone, hour: '2-digit', minute: '2-digit' }).format(new Date(dataHora));
-  const corpo = tipo === 'chegada' ? `Chegada registrada às ${horaLocal}` : `Saída registrada às ${horaLocal}`;
+  const corpo = tipo === 'entrada' ? `Chegada registrada às ${horaLocal}` : `Saída registrada às ${horaLocal}`;
   await Promise.all(tokens.map((token) => enviarPush({
     to: token.token,
     title: aluno.nome,

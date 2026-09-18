@@ -1,6 +1,7 @@
 const db = require('../../config/db');
 const { AppError } = require('../../middlewares/errorHandler');
 const responsaveisService = require('../responsaveis/responsaveis.service');
+const { classificarBatidasDeAluno, janelaDeDiasCompletos } = require('../ponto/classificacaoBatidas');
 
 async function listar(empresaId, { turmaId, filialId, ativo } = {}) {
   const query = db('alunos as a')
@@ -232,15 +233,28 @@ async function vincularDispositivo(empresaId, alunoId, dispositivoId, idNoDispos
 async function frequencia(empresaId, alunoId, { de, ate } = {}, filialId = null) {
   await buscarPorId(empresaId, alunoId, filialId);
 
-  const query = db('registros_ponto')
-    .select('data_hora', 'origem')
-    .where({ empresa_id: empresaId, aluno_id: alunoId })
-    .orderBy('data_hora', 'desc');
+  const query = db('registros_ponto as r')
+    .select(
+      'r.id',
+      'r.aluno_id',
+      'r.data_hora',
+      'r.origem',
+      'r.tipo_batida',
+      'f.fuso_horario as filial_fuso_horario',
+    )
+    .leftJoin('filiais as f', 'f.id', 'r.filial_id')
+    .where({ 'r.empresa_id': empresaId, 'r.aluno_id': alunoId })
+    .orderBy('r.data_hora', 'desc');
 
-  if (de) query.where('data_hora', '>=', de);
-  if (ate) query.where('data_hora', '<=', ate);
+  // Dias fechados, pelo mesmo motivo das outras consultas de batida de aluno.
+  const janela = janelaDeDiasCompletos(de, ate);
+  if (janela.de) query.where('r.data_hora', '>=', janela.de);
+  if (janela.ate) query.where('r.data_hora', '<=', janela.ate);
 
-  return query;
+  const registros = await query;
+  classificarBatidasDeAluno(registros);
+
+  return registros.map(({ filial_fuso_horario, ...registro }) => registro);
 }
 
 async function excluir(empresaId, alunoId, filialId = null) {

@@ -2,6 +2,7 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const db = require('../../config/db');
 const { AppError } = require('../../middlewares/errorHandler');
+const { classificarBatidasDeAluno, janelaDeDiasCompletos } = require('../ponto/classificacaoBatidas');
 
 function normalizarDadosDeAcesso(dados = {}) {
   const nome = String(dados.nome || '').trim();
@@ -269,17 +270,37 @@ async function listarAlunosVinculados(empresaId, alunoIds) {
 async function frequenciaDoAluno(empresaId, alunoIdsPermitidos, alunoId, { de, ate } = {}) {
   const alunoComHorario = await buscarAlunoVinculadoComHorario(empresaId, alunoIdsPermitidos, alunoId);
 
-  const query = db('registros_ponto')
-    .select('data_hora', 'origem', 'nsr', 'tipo_batida', 'tipo_verificacao_bruto', 'dispositivo_id')
-    .where({ empresa_id: empresaId, aluno_id: alunoId })
-    .orderBy('data_hora', 'desc');
+  const query = db('registros_ponto as r')
+    .select(
+      'r.id',
+      'r.aluno_id',
+      'r.data_hora',
+      'r.origem',
+      'r.nsr',
+      'r.tipo_batida',
+      'r.tipo_verificacao_bruto',
+      'r.dispositivo_id',
+      'f.fuso_horario as filial_fuso_horario',
+    )
+    .leftJoin('filiais as f', 'f.id', 'r.filial_id')
+    .where({ 'r.empresa_id': empresaId, 'r.aluno_id': alunoId })
+    .orderBy('r.data_hora', 'desc');
 
-  if (de) query.where('data_hora', '>=', de);
-  if (ate) query.where('data_hora', '<=', ate);
+  // Dias fechados: quem decide chegada/saida e o sistema, pela ordem das
+  // passagens no dia, e um recorte no meio do dia trocaria a fase.
+  const janela = janelaDeDiasCompletos(de, ate);
+  if (janela.de) query.where('r.data_hora', '>=', janela.de);
+  if (janela.ate) query.where('r.data_hora', '<=', janela.ate);
 
   const registros = await query;
+  classificarBatidasDeAluno(registros);
+
   const { horarios_turma, ...aluno } = alunoComHorario;
-  return { aluno, horarios_turma, registros };
+  return {
+    aluno,
+    horarios_turma,
+    registros: registros.map(({ filial_fuso_horario, ...registro }) => registro),
+  };
 }
 
 async function notasDoAluno(alunoIdsPermitidos, alunoId) {

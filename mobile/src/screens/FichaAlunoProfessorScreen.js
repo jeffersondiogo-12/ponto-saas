@@ -247,7 +247,7 @@ export default function FichaAlunoProfessorScreen({ route, navigation }) {
                   <Text style={estilos.tipoTexto}>{item.tipoExibicao}</Text>
                   {!item.tipoConfirmado ? (
                     <Text style={estilos.linhaSubtexto}>
-                      O aparelho não informou se foi chegada ou saída.
+                      Sem classificação nesta cópia salva. Reabra a tela para atualizar.
                     </Text>
                   ) : null}
                 </View>
