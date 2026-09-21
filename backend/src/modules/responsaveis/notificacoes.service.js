@@ -40,10 +40,19 @@ async function inferirTipoParaNotificacao(alunoId, dataHora, timeZone) {
 
 async function notificarBatidaDeAluno({ alunoId, dataHora, timeZone = FUSO_PADRAO }) {
   const aluno = await db('alunos').where({ id: alunoId }).first();
-  if (!aluno) return;
-  const vinculos = await db('responsavel_alunos').where({ aluno_id: alunoId });
-  if (!vinculos.length) return;
-  const tokens = await db('push_tokens').whereIn('responsavel_id', vinculos.map((v) => v.responsavel_id));
+  if (!aluno || !aluno.ativo) return;
+  const tokens = await db('push_tokens as pt')
+    .join('responsaveis as r', 'r.id', 'pt.responsavel_id')
+    .join('responsavel_alunos as ra', 'ra.responsavel_id', 'r.id')
+    .join('alunos as a', 'a.id', 'ra.aluno_id')
+    .where({
+      'ra.aluno_id': alunoId,
+      'a.id': alunoId,
+      'a.empresa_id': aluno.empresa_id,
+      'r.empresa_id': aluno.empresa_id,
+      'r.ativo': true,
+    })
+    .distinct('pt.token');
   if (!tokens.length) return;
 
   const tipo = await inferirTipoParaNotificacao(alunoId, dataHora, timeZone);
@@ -60,10 +69,19 @@ async function notificarBatidaDeAluno({ alunoId, dataHora, timeZone = FUSO_PADRA
 async function notificarFaltaEmSala({ alunoId, turmaId, atribuicaoId, materia, data, presente }) {
   if (presente) return;
   const aluno = await db('alunos').where({ id: alunoId }).first();
-  if (!aluno) return;
-  const vinculos = await db('responsavel_alunos').where({ aluno_id: alunoId });
-  if (!vinculos.length) return;
-  const tokens = await db('push_tokens').whereIn('responsavel_id', vinculos.map((v) => v.responsavel_id));
+  if (!aluno || !aluno.ativo) return;
+  const tokens = await db('push_tokens as pt')
+    .join('responsaveis as r', 'r.id', 'pt.responsavel_id')
+    .join('responsavel_alunos as ra', 'ra.responsavel_id', 'r.id')
+    .join('alunos as a', 'a.id', 'ra.aluno_id')
+    .where({
+      'ra.aluno_id': alunoId,
+      'a.id': alunoId,
+      'a.empresa_id': aluno.empresa_id,
+      'r.empresa_id': aluno.empresa_id,
+      'r.ativo': true,
+    })
+    .distinct('pt.token');
   if (!tokens.length) return;
   await Promise.all(tokens.map((token) => enviarPush({
     to: token.token,
