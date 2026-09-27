@@ -116,8 +116,17 @@ async function registrarPushToken(req, res, next) {
 
 async function registrarPushWeb(req, res, next) {
   try {
-    const registro = await responsaveisService.registrarPushWeb(req.usuario.responsavelId, req.body.subscription);
+    const registro = await responsaveisService.registrarPushWeb(req.usuario.responsavelId, req.body);
     res.status(201).json({ registro });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function removerPushWeb(req, res, next) {
+  try {
+    await responsaveisService.removerPushWeb(req.usuario.responsavelId, req.body);
+    res.status(204).send();
   } catch (err) {
     next(err);
   }
@@ -154,6 +163,7 @@ module.exports = {
   registrarLeituraAviso,
   registrarPushToken,
   registrarPushWeb,
+  removerPushWeb,
   vincularAluno,
   vincularNovoFilho,
   excluir,

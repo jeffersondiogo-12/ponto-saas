@@ -476,17 +476,25 @@ async function registrarPushToken(responsavelId, token, plataforma) {
   return registro;
 }
 
-async function registrarPushWeb(responsavelId, subscription) {
-  const endpoint = typeof subscription?.endpoint === 'string' ? subscription.endpoint.trim() : '';
-  const p256dh = subscription?.keys?.p256dh;
-  const auth = subscription?.keys?.auth;
+function validarEndpointPushWeb(valor) {
+  const endpoint = typeof valor === 'string' ? valor.trim() : '';
   let endpointUrl;
   try {
     endpointUrl = new URL(endpoint);
   } catch {
     throw new AppError('Inscricao Web Push invalida.', 400);
   }
-  if (endpointUrl.protocol !== 'https:' || endpoint.length > 2048 || typeof p256dh !== 'string' || !p256dh || p256dh.length > 200 || typeof auth !== 'string' || !auth || auth.length > 200) {
+  if (endpointUrl.protocol !== 'https:' || endpoint.length > 2048) {
+    throw new AppError('Inscricao Web Push invalida.', 400);
+  }
+  return endpoint;
+}
+
+async function registrarPushWeb(responsavelId, subscription) {
+  const endpoint = validarEndpointPushWeb(subscription?.endpoint);
+  const p256dh = subscription?.keys?.p256dh;
+  const auth = subscription?.keys?.auth;
+  if (typeof p256dh !== 'string' || !p256dh || p256dh.length > 200 || typeof auth !== 'string' || !auth || auth.length > 200) {
     throw new AppError('Inscricao Web Push invalida.', 400);
   }
 
@@ -496,6 +504,11 @@ async function registrarPushWeb(responsavelId, subscription) {
     .merge({ responsavel_id: responsavelId, p256dh, auth, updated_at: db.fn.now() })
     .returning(['id']);
   return registro;
+}
+
+async function removerPushWeb(responsavelId, dados) {
+  const endpoint = validarEndpointPushWeb(dados?.endpoint);
+  return db('push_web').where({ responsavel_id: responsavelId, endpoint }).del();
 }
 
 module.exports = {
@@ -513,6 +526,7 @@ module.exports = {
   registrarLeituraAviso,
   registrarPushToken,
   registrarPushWeb,
+  removerPushWeb,
   obterAlunoIdsVinculados,
   buscarPorId,
   excluir,
