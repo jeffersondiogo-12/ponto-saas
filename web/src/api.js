@@ -309,9 +309,9 @@ export const api = {
     vincularFilho: (dados) => requisitar('/api/responsaveis/alunos/vincular', {
       method: 'POST', body: dados, fila: `Vincular ${dados?.nome_completo || 'filho'}`,
     }),
-    registrarPushWeb: (subscription) => requisitar('/api/responsaveis/push-web', {
-      method: 'POST', body: { subscription },
-    }),
+    // A inscricao vai inteira no corpo: { endpoint, keys: { p256dh, auth } }.
+    registrarPushWeb: (inscricao) => requisitar('/api/responsaveis/push-web', { method: 'POST', body: inscricao }),
+    removerPushWeb: (endpoint) => requisitar('/api/responsaveis/push-web', { method: 'DELETE', body: { endpoint } }),
   },
 
   /**

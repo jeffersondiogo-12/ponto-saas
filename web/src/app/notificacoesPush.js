@@ -3,7 +3,8 @@ import { ehIos, instalado } from './instalacao';
 
 /**
  * Notificacao com o app fechado (Web Push), so para o responsavel — como no
- * APK. O backend guarda a inscricao (`POST /api/responsaveis/push-web`) e
+ * APK. O backend guarda a inscricao (`POST /api/responsaveis/push-web`, com a
+ * inscricao inteira no corpo), apaga ao sair (`DELETE`, com o endpoint) e
  * envia pelo web-push nos mesmos pontos do Expo: passagem no equipamento,
  * falta em sala e aviso. Quem mostra a notificacao e o `public/sw.js`.
  */
@@ -59,15 +60,18 @@ export async function renovarInscricao() {
 }
 
 /**
- * Ao sair da conta: o navegador cancela a inscricao, o proximo envio do
- * backend recebe 410 e a linha e apagada. Sem isto, um iPhone emprestado
- * continuaria recebendo os avisos do filho de quem saiu.
+ * Ao sair da conta, ainda com a sessao valida: o backend apaga a inscricao e
+ * o navegador a cancela. Sem isto, um iPhone emprestado continuaria recebendo
+ * os avisos do filho de quem saiu. Sem rede, o cancelamento no navegador basta:
+ * o proximo envio do backend recebe 410 e a linha e apagada la.
  */
 export async function cancelarInscricao() {
   try {
     const registro = await navigator.serviceWorker?.getRegistration();
     const inscricao = await registro?.pushManager.getSubscription();
-    await inscricao?.unsubscribe();
+    if (!inscricao) return;
+    await api.responsavel.removerPushWeb(inscricao.endpoint).catch(() => {});
+    await inscricao.unsubscribe();
   } catch {
     // Sem inscricao, nada a cancelar.
   }
