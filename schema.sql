@@ -661,6 +661,21 @@ CREATE TABLE public.push_tokens (
 
 
 --
+-- Name: push_web; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.push_web (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    responsavel_id uuid NOT NULL,
+    endpoint text NOT NULL,
+    p256dh character varying(200) NOT NULL,
+    auth character varying(200) NOT NULL,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+
+--
 -- Name: registros_ponto; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -1005,6 +1020,22 @@ ALTER TABLE ONLY public.push_tokens
 
 
 --
+-- Name: push_web push_web_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.push_web
+    ADD CONSTRAINT push_web_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: push_web push_web_endpoint_unique; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.push_web
+    ADD CONSTRAINT push_web_endpoint_unique UNIQUE (endpoint);
+
+
+--
 -- Name: registros_ponto registros_ponto_dispositivo_id_nsr_unique; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1168,6 +1199,13 @@ CREATE INDEX justificativas_empresa_id_funcionario_id_data_inicio_data_fim_i ON 
 
 
 --
+-- Name: push_web_responsavel_id_index; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX push_web_responsavel_id_index ON public.push_web USING btree (responsavel_id);
+
+
+--
 -- Name: registros_ponto_empresa_id_funcionario_id_data_hora_index; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1277,6 +1315,13 @@ CREATE TRIGGER trg_justificativas_updated_at BEFORE UPDATE ON public.justificati
 --
 
 CREATE TRIGGER trg_push_tokens_updated_at BEFORE UPDATE ON public.push_tokens FOR EACH ROW EXECUTE FUNCTION public.definir_updated_at();
+
+
+--
+-- Name: push_web trg_push_web_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trg_push_web_updated_at BEFORE UPDATE ON public.push_web FOR EACH ROW EXECUTE FUNCTION public.definir_updated_at();
 
 
 --
@@ -1561,6 +1606,14 @@ ALTER TABLE ONLY public.justificativas
 
 ALTER TABLE ONLY public.push_tokens
     ADD CONSTRAINT push_tokens_responsavel_id_foreign FOREIGN KEY (responsavel_id) REFERENCES public.responsaveis(id) ON DELETE CASCADE;
+
+
+--
+-- Name: push_web push_web_responsavel_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.push_web
+    ADD CONSTRAINT push_web_responsavel_id_foreign FOREIGN KEY (responsavel_id) REFERENCES public.responsaveis(id) ON DELETE CASCADE;
 
 
 --
