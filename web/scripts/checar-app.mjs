@@ -1,4 +1,4 @@
-// Confere a logica da cara do app (fila, cache e card do filho). Sem framework:
+// Confere a logica da cara do app (fila, cache, card do filho e chave VAPID). Sem framework:
 //   node web/scripts/checar-app.mjs
 // Termina com "ok" ou para no primeiro assert que falhar.
 import assert from 'node:assert/strict';
@@ -95,5 +95,15 @@ assert.equal(resumo.ultima, null);
 
 assert.equal(novidades.rotuloDaPassagem({ tipoExibicao: 'Chegada' }), 'Chegada registrada');
 assert.equal(novidades.rotuloDaPassagem({ tipoExibicao: 'Registro' }), 'Passagem registrada');
+
+// Chave VAPID: a inscricao presa a outra chave precisa ser refeita.
+const vapid = await import('../src/app/chaveVapid.js');
+const chaveA = 'BAjJUwtAB4MkUF4z0zbBswevw2vwicLBCC7StYJFwGDgNe8G4RUw0Cbj7ujpbPn1xoFZ0nujeyer_bTsjlFa6J8';
+const chaveB = 'BLc4xRzKlKORKWlbdgFaBrrPK3ydWAHo4M0gs0i1oEKgPpWC5cW8OCzVrOQRv-1npXRWk8udnW3oYhIO4475rds';
+assert.equal(vapid.bytesDaChave(chaveA).length, 65);
+const inscricaoA = { options: { applicationServerKey: vapid.bytesDaChave(chaveA).buffer } };
+assert.equal(vapid.inscritaComChave(inscricaoA, chaveA), true);
+assert.equal(vapid.inscritaComChave(inscricaoA, chaveB), false);
+assert.equal(vapid.inscritaComChave({}, chaveB), true); // navegador que nao informa: nao refaz
 
 console.log('ok');
