@@ -66,12 +66,13 @@ async function listarMinhasTurmas(empresaId, professorId, filialId = null) {
 }
 
 async function resumoMinhasTurmas(empresaId, professorId, filialId = null) {
-  const atribuicoes = await db('turma_professores as tp')
+  const query = db('turma_professores as tp')
     .join('turmas as t', 't.id', 'tp.turma_id')
     .join('filiais as f', 'f.id', 't.filial_id')
     .select('tp.id as atribuicao_id', 'tp.turma_id', 'tp.materia', 'tp.hora_inicio', 'tp.hora_fim', 'f.fuso_horario', 't.nome as turma_nome')
     .where({ 'tp.empresa_id': empresaId, 'tp.professor_id': professorId, 'tp.ativo': true, 't.ativo': true });
-  if (filialId) atribuicoes.where('t.filial_id', filialId);
+  if (filialId) query.where('t.filial_id', filialId);
+  const atribuicoes = await query;
 
   return Promise.all(atribuicoes.map(async (atribuicao) => {
     const hoje = new Intl.DateTimeFormat('en-CA', { timeZone: atribuicao.fuso_horario || 'America/Sao_Paulo' }).format(new Date());

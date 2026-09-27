@@ -133,7 +133,7 @@ function aplicarEscopoDeGestao(query, empresaId, filialId, modo = 'leitura') {
           this.whereNull('a.filial_id').orWhere('a.filial_id', filialId);
         });
     }).orWhere(function multiAlvo() {
-      this.whereExists(subconsultaAlvos()).andWhereNotExists(alvosForaDaFilial);
+      this.whereExists(subconsultaAlvos()).whereNotExists(alvosForaDaFilial);
     });
   });
 }
