@@ -114,6 +114,15 @@ async function registrarPushToken(req, res, next) {
   }
 }
 
+async function registrarPushWeb(req, res, next) {
+  try {
+    const registro = await responsaveisService.registrarPushWeb(req.usuario.responsavelId, req.body.subscription);
+    res.status(201).json({ registro });
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function vincularAluno(req, res, next) {
   try {
     const { responsavel_id, matricula_aluno, parentesco } = req.body;
@@ -144,6 +153,7 @@ module.exports = {
   avisosDoAluno,
   registrarLeituraAviso,
   registrarPushToken,
+  registrarPushWeb,
   vincularAluno,
   vincularNovoFilho,
   excluir,

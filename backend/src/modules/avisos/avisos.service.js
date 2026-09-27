@@ -52,10 +52,14 @@ function filtroAlvo(query, aviso) {
 }
 
 async function notificarAviso(empresaId, aviso) {
-  const query = db('responsavel_alunos as ra').join('responsaveis as r', 'r.id', 'ra.responsavel_id').join('alunos as a', 'a.id', 'ra.aluno_id').join('push_tokens as pt', 'pt.responsavel_id', 'r.id').where({ 'r.empresa_id': empresaId, 'r.ativo': true, 'a.empresa_id': empresaId, 'a.ativo': true });
+  const query = db('responsavel_alunos as ra').join('responsaveis as r', 'r.id', 'ra.responsavel_id').join('alunos as a', 'a.id', 'ra.aluno_id').where({ 'r.empresa_id': empresaId, 'r.ativo': true, 'a.empresa_id': empresaId, 'a.ativo': true });
   filtroAlvo(query, aviso);
-  const tokens = await query.distinct('pt.token');
-  await Promise.all(tokens.map(({ token }) => notificacoesService.enviarPush({ to: token, title: aviso.titulo, body: aviso.mensagem, data: { tipo: 'aviso.lancado', avisoId: aviso.id } })));
+  const responsaveis = await query.distinct('r.id');
+  await notificacoesService.enviarParaResponsaveis(responsaveis.map(({ id }) => id), {
+    title: aviso.titulo,
+    body: aviso.mensagem,
+    data: { tipo: 'aviso.lancado', avisoId: aviso.id },
+  });
 }
 
 async function destinatarios(empresaId, aviso) {
