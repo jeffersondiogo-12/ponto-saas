@@ -10,17 +10,16 @@ import {
   obterFilialSelecionada,
   salvarFilialSelecionada,
   limparFilialSelecionada,
+  lerUsuarioSalvo,
+  gravarUsuario,
+  limparUsuario,
+  limparDadosOffline,
 } from '../api';
 import { normalizarPermissoes, pode as podeNaMatriz, ehSuperAdmin } from '../utils/permissoes';
 
 const AuthContext = createContext(null);
 
 const CHAVE_PERMISSOES = 'ponto_saas_permissoes';
-
-function lerUsuarioSalvo() {
-  const bruto = localStorage.getItem('ponto_saas_usuario');
-  return bruto ? JSON.parse(bruto) : null;
-}
 
 /**
  * A matriz fica no localStorage para o menu nao piscar entre o F5 e a resposta
@@ -53,6 +52,8 @@ export function AuthProvider({ children }) {
 
   const carregarPermissoes = useCallback(async () => {
     if (!usuario) { setPermissoes({}); return; }
+    // Responsavel nao tem matriz: `/api/permissoes` e so da equipe (staff).
+    if (usuario.tipo === 'responsavel') return;
     // `/api/permissoes` passa por resolverTenant: sem empresa escolhida, o
     // super_admin leva 400. Ele nao precisa da matriz de qualquer forma —
     // `pode()` ja o deixa passar, igual ao middleware do servidor.
@@ -81,13 +82,13 @@ export function AuthProvider({ children }) {
 
   useEffect(() => { carregarPermissoes(); }, [carregarPermissoes]);
 
-  const login = useCallback(async (email, senha, unidade) => {
+  const login = useCallback(async (email, senha, unidade, persistir = true) => {
     const resposta = await api.login(email, senha, unidade);
     const { token, usuario: dadosUsuario, empresaSelecionada, filialSelecionada } = resposta;
 
     setSessaoEncerrada(null);
-    salvarToken(token);
-    localStorage.setItem('ponto_saas_usuario', JSON.stringify(dadosUsuario));
+    salvarToken(token, persistir);
+    gravarUsuario(dadosUsuario);
     setUsuario(dadosUsuario);
 
     if (empresaSelecionada) {
@@ -126,9 +127,25 @@ export function AuthProvider({ children }) {
     setFilialSelecionada(null);
   }, []);
 
-  const logout = useCallback(() => {
+  /**
+   * Login do responsavel — so pela cara do app. Ele nao escolhe ambiente nem
+   * unidade: o backend escopa tudo pelos filhos vinculados a conta.
+   */
+  const loginResponsavel = useCallback(async (email, senha, persistir = true) => {
+    const { token, responsavel } = await api.loginResponsavel(email, senha);
+    setSessaoEncerrada(null);
+    salvarToken(token, persistir);
+    gravarUsuario(responsavel);
+    limparEmpresa();
+    setUsuario(responsavel);
+    return responsavel;
+  }, [limparEmpresa]);
+
+  const logout = useCallback(({ preservarFila = false } = {}) => {
+    // Antes do usuario: a fila e o cache sao achados pela conta que esta saindo.
+    limparDadosOffline({ preservarFila });
     limparToken();
-    localStorage.removeItem('ponto_saas_usuario');
+    limparUsuario();
     localStorage.removeItem(CHAVE_PERMISSOES);
     limparEmpresa();
     setPermissoes({});
@@ -145,7 +162,7 @@ export function AuthProvider({ children }) {
       // So na queda, nao no logout normal: quem clicou em "Sair" sabe por que
       // esta vendo a tela de login.
       setSessaoEncerrada('Sua sessão terminou. Entre de novo para continuar.');
-      logout();
+      logout({ preservarFila: true });
     };
     window.addEventListener('sessao-encerrada', aoEncerrar);
     return () => window.removeEventListener('sessao-encerrada', aoEncerrar);
@@ -181,7 +198,7 @@ export function AuthProvider({ children }) {
           nome: atual.nome ?? anterior.nome,
           email: atual.email ?? anterior.email,
         };
-        localStorage.setItem('ponto_saas_usuario', JSON.stringify(atualizado));
+        gravarUsuario(atualizado);
         return atualizado;
       });
     } catch {
@@ -229,7 +246,7 @@ export function AuthProvider({ children }) {
       value={{
         usuario, empresaSelecionada, filialSelecionada,
         permissoes, pode, carregarPermissoes, sessaoEncerrada,
-        login, selecionarEmpresa, selecionarFilial, limparEmpresa, logout,
+        login, loginResponsavel, selecionarEmpresa, selecionarFilial, limparEmpresa, logout,
       }}
     >
       {children}

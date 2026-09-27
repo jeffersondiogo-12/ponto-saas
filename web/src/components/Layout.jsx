@@ -1,6 +1,7 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { itensVisiveis, operaEmEscola, useCelular } from '../utils/navegacao';
+import { itensVisiveis, operaEmEscola, useCaraApp, useCelular } from '../utils/navegacao';
+import LayoutGestao from '../app/LayoutGestao';
 
 /**
  * Icones em SVG inline. Sao 9 icones de traco simples — nao vale puxar uma
@@ -85,6 +86,10 @@ export default function Layout({ children, empresaNome }) {
    */
   const celular = useCelular();
   const itens = itensVisiveis({ usuario, pode, filialSelecionada, ehEscola }, celular);
+
+  // Cara do app (PWA): as mesmas paginas, com o cabecalho e a barra do app.
+  const caraApp = useCaraApp();
+  if (caraApp) return <LayoutGestao empresaNome={empresaNome}>{children}</LayoutGestao>;
 
   return (
     <div className="shell">

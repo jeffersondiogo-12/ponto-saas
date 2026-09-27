@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { instalado } from '../app/instalacao';
 
 /**
  * Uma unica fonte para o que aparece no menu — no computador e no celular.
@@ -177,6 +178,20 @@ export function useCelular() {
   }, []);
 
   return celular;
+}
+
+/** Instalado na tela de inicio de um aparelho de toque (iPhone, iPad, Android). */
+function instaladoEmToque() {
+  return instalado() && window.matchMedia('(pointer: coarse)').matches;
+}
+
+/**
+ * Verdadeiro quando o sistema deve mostrar a "cara do app" (PWA): tela de
+ * celular, ou instalado num aparelho de toque. No computador — mesmo instalado
+ * como app — continua a cara do web, sem mudanca nenhuma.
+ */
+export function useCaraApp() {
+  return useCelular() || instaladoEmToque();
 }
 
 /** Os itens do menu que existem para esta pessoa, na ordem certa. */

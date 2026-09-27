@@ -82,3 +82,55 @@ self.addEventListener('fetch', (evento) => {
     })),
   );
 });
+
+/**
+ * Notificacao com o app fechado (Web Push). O backend manda
+ * `{ title, body, data }` (notificacoes.service.js › enviarWebPush), nos mesmos
+ * pontos do app: passagem no equipamento, falta em sala e aviso.
+ *
+ * Todo push PRECISA virar notificacao visivel: o Chrome e o Safari cancelam a
+ * inscricao de quem recebe push e nao mostra nada.
+ */
+self.addEventListener('push', (evento) => {
+  let conteudo = {};
+  try {
+    conteudo = evento.data ? evento.data.json() : {};
+  } catch {
+    conteudo = { body: evento.data ? evento.data.text() : '' };
+  }
+  const dados = conteudo.data || {};
+  evento.waitUntil(self.registration.showNotification(conteudo.title || 'Ponte Escolar', {
+    body: conteudo.body || '',
+    icon: '/icone-192.png',
+    data: dados,
+    // O mesmo aviso reenviado troca a notificacao, em vez de empilhar outra.
+    tag: dados.avisoId ? `aviso-${dados.avisoId}` : undefined,
+  }));
+});
+
+/**
+ * Tocar na notificacao abre o app na tela certa. Passagem e falta levam a
+ * ficha do filho (a falta, na aba Sala); aviso nao traz o filho no `data`, entao
+ * leva a Home, onde o card mostra o aviso pendente.
+ */
+function destinoDaNotificacao(dados = {}) {
+  if (dados.alunoId && dados.tipo === 'falta_sala') return `/filho/${dados.alunoId}?aba=sala`;
+  if (dados.alunoId) return `/filho/${dados.alunoId}`;
+  return '/';
+}
+
+self.addEventListener('notificationclick', (evento) => {
+  evento.notification.close();
+  const url = new URL(destinoDaNotificacao(evento.notification.data), self.location.origin).href;
+  evento.waitUntil((async () => {
+    const janelas = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    const janela = janelas.find((item) => item.url.startsWith(self.location.origin));
+    if (!janela) return self.clients.openWindow(url);
+    try {
+      await janela.navigate(url);
+    } catch {
+      // Janela que este worker nao controla: so traz para a frente.
+    }
+    return janela.focus();
+  })());
+});

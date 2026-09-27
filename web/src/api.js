@@ -1,3 +1,6 @@
+import { enfileirar, limparFila, marcarFalhaNaFila, obterFila, removerDaFila } from './app/filaOffline';
+import { lerCache, limparCache, salvarCache } from './app/cacheOffline';
+
 export const BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3000' : '');
 const CHAVE_TOKEN = 'ponto_saas_token';
 const CHAVE_EMPRESA_ID = 'ponto_saas_empresa_id';
@@ -6,16 +9,49 @@ const CHAVE_FILIAL_ID = 'ponto_saas_filial_id';
 const CHAVE_FILIAL_NOME = 'ponto_saas_filial_nome';
 const CHAVE_FILIAL_TIPO = 'ponto_saas_filial_tipo';
 
+/**
+ * "Manter login salvo" desligado (cara do app) guarda a sessao no
+ * `sessionStorage`: ela some quando o app fecha, como no APK. O web do
+ * computador sempre persiste, como antes.
+ */
 export function obterToken() {
-  return localStorage.getItem(CHAVE_TOKEN);
+  return localStorage.getItem(CHAVE_TOKEN) || sessionStorage.getItem(CHAVE_TOKEN);
 }
 
-export function salvarToken(token) {
-  localStorage.setItem(CHAVE_TOKEN, token);
+export function salvarToken(token, persistir = true) {
+  limparToken();
+  (persistir ? localStorage : sessionStorage).setItem(CHAVE_TOKEN, token);
 }
 
 export function limparToken() {
   localStorage.removeItem(CHAVE_TOKEN);
+  sessionStorage.removeItem(CHAVE_TOKEN);
+}
+
+/** A sessao atual sobrevive ao fechar o app? */
+export function sessaoPersistente() {
+  return !sessionStorage.getItem(CHAVE_TOKEN);
+}
+
+const CHAVE_USUARIO = 'ponto_saas_usuario';
+
+export function lerUsuarioSalvo() {
+  const bruto = localStorage.getItem(CHAVE_USUARIO) || sessionStorage.getItem(CHAVE_USUARIO);
+  return bruto ? JSON.parse(bruto) : null;
+}
+
+/**
+ * Grava no mesmo lugar do token: uma sessao que nao persiste (o "Manter login
+ * salvo" desligado na cara do app) nao pode virar persistente por uma
+ * atualizacao do usuario.
+ */
+export function gravarUsuario(usuario) {
+  (sessaoPersistente() ? localStorage : sessionStorage).setItem(CHAVE_USUARIO, JSON.stringify(usuario));
+}
+
+export function limparUsuario() {
+  localStorage.removeItem(CHAVE_USUARIO);
+  sessionStorage.removeItem(CHAVE_USUARIO);
 }
 
 export function obterEmpresaSelecionada() {
@@ -53,7 +89,7 @@ export function limparFilialSelecionada() {
   localStorage.removeItem(CHAVE_FILIAL_TIPO);
 }
 
-async function requisitar(caminho, { method = 'GET', body } = {}) {
+async function chamarServidor(caminho, { method = 'GET', body } = {}) {
   const headers = { 'Content-Type': 'application/json' };
   const token = obterToken();
   if (token) headers.Authorization = `Bearer ${token}`;
@@ -113,6 +149,137 @@ async function requisitar(caminho, { method = 'GET', body } = {}) {
   return dados;
 }
 
+/*
+ * --- Sem internet (cara do app) ---------------------------------------------
+ *
+ * Porte do que o APK faz em mobile/src/api.js, so para quem pede:
+ * - `fila: 'Rotulo'` numa escrita: sem rede, a acao fica guardada e sobe
+ *   quando a conexao voltar;
+ * - `cache: true` numa leitura: sem rede, volta a ultima resposta boa, com
+ *   `_offline` e `_cacheEm` para a tela dizer de quando e.
+ * Sem essas opcoes, tudo segue como antes — o web do computador nao usa nenhuma.
+ */
+
+const CHAVE_ULTIMA_SINCRONIZACAO = 'ponto_saas_ultima_sincronizacao';
+
+/**
+ * `fetch` so REJEITA por falha de rede de verdade (sem internet, DNS, servidor
+ * fora do ar). Erro do backend chega como resposta, com `status` — e nao conta
+ * como "sem internet".
+ */
+export function ehFalhaDeRede(erro) {
+  return !erro?.status && erro instanceof TypeError;
+}
+
+/** Uma fila e um cache por conta: tipo, id, ambiente e unidade. */
+export function namespaceOffline() {
+  const usuario = lerUsuarioSalvo();
+  if (!usuario) return null;
+  const id = usuario.tipo === 'responsavel'
+    ? usuario.responsavelId || usuario.id
+    : usuario.usuario_id || usuario.id;
+  if (!id) return null;
+  return [usuario.tipo, id, usuario.empresa_id || 'global', usuario.filial_id || 'global']
+    .map((valor) => encodeURIComponent(String(valor)))
+    .join(':');
+}
+
+export function obterUltimaSincronizacao() {
+  return localStorage.getItem(CHAVE_ULTIMA_SINCRONIZACAO);
+}
+
+/**
+ * Ao sair da conta, o cache desta conta sai junto. A fila so sai quando a
+ * pessoa escolhe sair: se a sessao expirou, ela fica guardada e sobe quando a
+ * mesma conta entrar de novo — como no APK. Sem isso, a chamada feita sem sinal
+ * se perderia porque o token venceu no caminho.
+ */
+export function limparDadosOffline({ preservarFila = false } = {}) {
+  const namespace = namespaceOffline();
+  if (!preservarFila) limparFila(namespace);
+  limparCache(namespace);
+}
+
+let processandoFila = false;
+
+/**
+ * Reenvia, em ordem, o que ficou guardado. Roda depois de cada requisicao que
+ * deu certo (prova de que a conexao voltou), no evento `online` e quando o
+ * app volta a aparecer. Para na primeira falha de rede; erro "de verdade" do
+ * servidor marca o item, que fica visivel para a pessoa decidir.
+ */
+export async function processarFila() {
+  const namespace = namespaceOffline();
+  const token = obterToken();
+  if (processandoFila || !namespace || !token) return;
+  processandoFila = true;
+  try {
+    for (const item of obterFila(namespace)) {
+      // Uma conta nova nunca empresta o token para a pendencia de outra.
+      if (namespaceOffline() !== namespace || obterToken() !== token) break;
+      if (item.falhaDefinitiva) continue;
+      try {
+        await chamarServidor(item.caminho, { method: item.method, body: item.body });
+        removerDaFila(namespace, item.id);
+        localStorage.setItem(CHAVE_ULTIMA_SINCRONIZACAO, new Date().toISOString());
+      } catch (erro) {
+        if (ehFalhaDeRede(erro) || erro?.status === 401) break;
+        marcarFalhaNaFila(namespace, item.id, erro.message || 'O servidor recusou a ação.');
+      }
+    }
+  } finally {
+    processandoFila = false;
+  }
+}
+
+async function requisitar(caminho, { method = 'GET', body, fila, cache } = {}) {
+  let dados;
+  try {
+    dados = await chamarServidor(caminho, { method, body });
+  } catch (erro) {
+    if (!ehFalhaDeRede(erro) || (!fila && !cache)) throw erro;
+
+    const namespace = namespaceOffline();
+    if (method === 'GET') {
+      const salvo = lerCache(namespace, caminho);
+      if (salvo) return { ...salvo.dados, _offline: true, _cacheEm: salvo.em };
+      const semDados = new Error('Sem conexão e sem dados salvos neste aparelho ainda.');
+      semDados.offline = true;
+      throw semDados;
+    }
+    const item = enfileirar(namespace, { rotulo: fila, caminho, method, body });
+    return { _fila: true, _tempId: item.id };
+  }
+
+  if (cache && method === 'GET') salvarCache(namespaceOffline(), caminho, dados);
+  if (obterFila(namespaceOffline()).length) processarFila();
+  return dados;
+}
+
+/** Escrita do professor sem atribuicao_id: o backend recusaria (igual ao APK). */
+function exigirAtribuicao(dados) {
+  if (dados?.atribuicao_id) return;
+  const erro = new Error('Aula sem atribuicao_id. Atualize as turmas antes de registrar esta acao.');
+  erro.status = 409;
+  throw erro;
+}
+
+/**
+ * Foto da ultima batida facial. A rota e autenticada e o <img> nao manda
+ * cabecalho, entao a foto vem por aqui e vira um endereco local (blob).
+ * Quem chama libera com `URL.revokeObjectURL`. Sem foto ou sem rede: null.
+ */
+export async function urlDaFotoDoRegistro(registroId) {
+  try {
+    const resposta = await fetch(`${BASE_URL}/api/ponto/registros/${registroId}/foto`, {
+      headers: { Authorization: `Bearer ${obterToken()}` },
+    });
+    return resposta.ok ? URL.createObjectURL(await resposta.blob()) : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Monta a query string ignorando filtro vazio, que a API trataria como valor. */
 function consulta(params) {
   return new URLSearchParams(
@@ -122,6 +289,78 @@ function consulta(params) {
 
 export const api = {
   login: (email, senha, unidade) => requisitar('/api/auth/login', { method: 'POST', body: { email, senha, unidade } }),
+  loginResponsavel: (email, senha) => requisitar('/api/responsaveis/login', { method: 'POST', body: { email, senha } }),
+
+  /**
+   * Responsavel, so pela cara do app. Mesmos nomes do mobile/src/api.js.
+   * Sem `cache`: dado de crianca nao fica guardado para o responsavel. As
+   * duas escritas usam a fila offline, como no APK.
+   */
+  responsavel: {
+    listarAlunos: () => requisitar('/api/responsaveis/alunos'),
+    frequenciaDoAluno: (alunoId, filtros = {}) => requisitar(`/api/responsaveis/alunos/${alunoId}/frequencia?${consulta(filtros)}`),
+    notasDoAluno: (alunoId) => requisitar(`/api/responsaveis/alunos/${alunoId}/notas`),
+    observacoesDoAluno: (alunoId) => requisitar(`/api/responsaveis/alunos/${alunoId}/observacoes`),
+    presencaSalaDoAluno: (alunoId) => requisitar(`/api/responsaveis/alunos/${alunoId}/presenca-sala`),
+    avisosDoAluno: (alunoId) => requisitar(`/api/responsaveis/alunos/${alunoId}/avisos`),
+    registrarLeituraAviso: (avisoId) => requisitar(`/api/responsaveis/avisos/${avisoId}/lido`, {
+      method: 'POST', fila: 'Confirmar leitura de aviso',
+    }),
+    vincularFilho: (dados) => requisitar('/api/responsaveis/alunos/vincular', {
+      method: 'POST', body: dados, fila: `Vincular ${dados?.nome_completo || 'filho'}`,
+    }),
+    registrarPushWeb: (subscription) => requisitar('/api/responsaveis/push-web', {
+      method: 'POST', body: { subscription },
+    }),
+  },
+
+  /**
+   * Professor, pela cara do app. Mesmos nomes do mobile/src/api.js.
+   * `cache` so no que a chamada precisa para abrir sem internet — turmas,
+   * resumo e alunos da turma (excecao aberta pelo Samuel em 2026-09-26). A
+   * ficha do aluno nao fica guardada: tem contato do responsavel. As tres
+   * escritas usam a fila offline, como no APK.
+   */
+  professor: {
+    listarMinhasTurmas: () => requisitar('/api/professores/minhas-turmas', { cache: true }),
+    resumoProfessor: () => requisitar('/api/professores/minhas-turmas/resumo', { cache: true }),
+    listarAlunosDaTurma: async (turmaId, atribuicaoId) => {
+      if (!atribuicaoId) {
+        const erro = new Error('Aula legada sem atribuicao_id. Atualize as turmas antes de registrar a chamada.');
+        erro.status = 409;
+        throw erro;
+      }
+      return requisitar(`/api/professores/turmas/${turmaId}/alunos?${consulta({ atribuicao_id: atribuicaoId })}`, { cache: true });
+    },
+    fichaAlunoProfessor: async (turmaId, alunoId, atribuicaoId) => {
+      if (!atribuicaoId) {
+        const erro = new Error('atribuicao_id e obrigatorio para abrir a ficha do professor.');
+        erro.status = 409;
+        throw erro;
+      }
+      return requisitar(`/api/professores/turmas/${turmaId}/alunos/${alunoId}/ficha?${consulta({ atribuicao_id: atribuicaoId })}`);
+    },
+    historicoDoAluno: async (turmaId, alunoId, atribuicaoId) => {
+      if (!atribuicaoId) throw new Error('Historico indisponivel para aula legada sem atribuicao_id.');
+      return requisitar(`/api/professores/turmas/${turmaId}/alunos/${alunoId}/historico?${consulta({ atribuicao_id: atribuicaoId })}`);
+    },
+    registrarPresencasSala: async (turmaId, dados) => {
+      exigirAtribuicao(dados);
+      return requisitar(`/api/professores/turmas/${turmaId}/presencas`, { method: 'POST', body: dados, fila: 'Chamada da turma' });
+    },
+    criarNotaProfessor: async (turmaId, dados) => {
+      exigirAtribuicao(dados);
+      return requisitar(`/api/professores/turmas/${turmaId}/notas`, {
+        method: 'POST', body: dados, fila: `Nota de ${dados?.disciplina || 'aluno'}`,
+      });
+    },
+    criarObservacaoProfessor: async (turmaId, dados) => {
+      exigirAtribuicao(dados);
+      return requisitar(`/api/professores/turmas/${turmaId}/observacoes`, {
+        method: 'POST', body: dados, fila: 'Observação para o responsável',
+      });
+    },
+  },
 
   /**
    * Conta atual, relida do banco pelo middleware `autenticar`. Serve para o
