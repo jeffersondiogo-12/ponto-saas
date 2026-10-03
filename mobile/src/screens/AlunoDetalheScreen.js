@@ -5,21 +5,21 @@ import {
   FlatList,
   StyleSheet,
   ActivityIndicator,
-  DeviceEventEmitter,
   ScrollView,
-  Pressable,
 } from 'react-native';
-import { api } from '../api';
+import { useFocusEffect } from '@react-navigation/native';
+import { api, obterNamespaceCache } from '../api';
+import { useRecarregarAoVivo } from '../realtime';
 import { AparecerEm, PressaoAnimada, Pulsar } from '../components/Animacoes';
 import { cores, raio, sombra } from '../theme';
 import { formatarData, formatarDataHora, formatarDataSemHora } from '../datas';
 import { prepararRegistros } from '../batidas';
+import { avisosLidos, ehLido, marcarFichaVista, ROTULOS_ALCANCE } from '../novidades';
 
-const ROTULOS_ALCANCE = {
-  rede: 'Aviso da rede',
-  escola: 'Aviso da escola',
-  turma: 'Aviso da turma',
-};
+// A aba Avisos mostra so os avisos deste filho, e tocar num aviso abre a tela
+// dele - la a leitura e confirmada ao chegar no fim do texto (#57). Espelho da
+// FichaFilho do PWA.
+const EVENTOS = ['ponto.criado', 'presenca.sala', 'nota.criada', 'observacao.criada', 'aviso.lancado', 'aviso.atualizado', 'aviso.removido'];
 
 function iniciais(nome = '') {
   return nome
@@ -38,7 +38,7 @@ const ABAS = [
   { chave: 'avisos', rotulo: 'Avisos' },
 ];
 
-export default function AlunoDetalheScreen({ route }) {
+export default function AlunoDetalheScreen({ navigation, route }) {
   const { alunoId, nome } = route.params;
   // Quem abre a ficha pode escolher a aba inicial (ex.: "avisos" pela Home do responsavel).
   const [aba, setAba] = useState(ABAS.some((item) => item.chave === route.params?.aba) ? route.params.aba : 'frequencia');
@@ -50,7 +50,7 @@ export default function AlunoDetalheScreen({ route }) {
   const [carregando, setCarregando] = useState(true);
   const [offline, setOffline] = useState(false);
   const [erroCarga, setErroCarga] = useState('');
-  const [atualizandoEvento, setAtualizandoEvento] = useState(false);
+  const [lidos, setLidos] = useState(() => new Set());
 
   const carregar = useCallback(async () => {
     const respostas = await Promise.allSettled([
@@ -74,25 +74,27 @@ export default function AlunoDetalheScreen({ route }) {
     setCarregando(false);
   }, [alunoId]);
 
-  const recarregarPorEvento = useCallback(async () => {
-    if (atualizandoEvento) return;
-    setAtualizandoEvento(true);
-    try { await carregar(); } finally { setAtualizandoEvento(false); }
-  }, [atualizandoEvento, carregar]);
-
+  // Abrir a ficha e o que conta como "visto" para os selos de nota e observacao.
   useEffect(() => {
+    obterNamespaceCache().then((namespace) => marcarFichaVista(namespace, alunoId));
     carregar();
-  }, [carregar]);
+  }, [alunoId, carregar]);
+
+  // "Lido" e relido ao voltar da tela do aviso.
+  useFocusEffect(
+    useCallback(() => {
+      obterNamespaceCache().then(avisosLidos).then(setLidos);
+    }, [])
+  );
 
   // O professor pode lancar presenca/nota/observacao pra este aluno enquanto
   // a tela esta aberta, e a escola pode publicar um aviso novo - o
   // realtime.js emite esse evento local (ver conectarRealtime em App.js).
-  useEffect(() => {
-    const assinatura = DeviceEventEmitter.addListener('ponto-saas:atualizado', (mensagem) => {
-      if (mensagem?.dados?.alunoId === alunoId || mensagem?.tipo === 'aviso.criado') recarregarPorEvento();
-    });
-    return () => assinatura.remove();
-  }, [alunoId, recarregarPorEvento]);
+  // Evento de aluno so conta se for deste; aviso nao traz aluno e conta sempre.
+  useRecarregarAoVivo(EVENTOS, carregar, (mensagem) => {
+    const doAluno = mensagem?.dados?.alunoId;
+    return !doAluno || doAluno === alunoId;
+  });
 
   const listaPadrao = {
     style: estilos.listaArea,
@@ -265,19 +267,27 @@ export default function AlunoDetalheScreen({ route }) {
           ListEmptyComponent={
             <Text style={estilos.vazio}>Nenhum aviso publicado pela escola ainda.</Text>
           }
-          renderItem={({ item, index }) => (
-            <AparecerEm atraso={index * 55}>
-              <Pressable
-                style={[estilos.cartao, estilos.cartaoAviso]}
-                onPress={() => api.registrarLeituraAviso(item.id).catch(() => {})}
-              >
-                <Text style={estilos.cartaoTitulo}>{item.titulo}</Text>
-                {item.alcance ? <Text style={estilos.avisoAlcance}>{ROTULOS_ALCANCE[item.alcance] || 'Aviso'}</Text> : null}
-                <Text style={estilos.cartaoTexto}>{item.mensagem}</Text>
-                <Text style={estilos.cartaoRodape}>{formatarDataHora(item.publicado_em)}</Text>
-              </Pressable>
-            </AparecerEm>
-          )}
+          renderItem={({ item, index }) => {
+            const lido = ehLido(item, lidos);
+            return (
+              <AparecerEm atraso={index * 55}>
+                <PressaoAnimada
+                  style={[estilos.cartao, estilos.cartaoAviso]}
+                  onPress={() => navigation.navigate('Aviso', { alunoId, aviso: item })}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${item.titulo}, ${lido ? 'lido' : 'novo'}. Abrir aviso.`}
+                >
+                  <View style={estilos.avisoTopo}>
+                    <Text style={[estilos.cartaoTitulo, estilos.avisoTitulo]}>{item.titulo}</Text>
+                    <Text style={[estilos.marca, lido ? estilos.marcaLido : estilos.marcaNovo]}>{lido ? 'Lido' : 'Novo'}</Text>
+                  </View>
+                  {item.alcance ? <Text style={estilos.avisoAlcance}>{ROTULOS_ALCANCE[item.alcance] || 'Aviso'}</Text> : null}
+                  <Text style={estilos.cartaoTexto} numberOfLines={2}>{item.mensagem}</Text>
+                  <Text style={estilos.cartaoRodape}>{formatarDataHora(item.publicado_em)}</Text>
+                </PressaoAnimada>
+              </AparecerEm>
+            );
+          }}
         />
       )}
     </View>
@@ -369,6 +379,12 @@ const estilos = StyleSheet.create({
     ...sombra.cartao,
   },
   cartaoAviso: { borderLeftColor: cores.verde },
+  avisoTopo: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 },
+  avisoTitulo: { flex: 1 },
+  marca: { paddingHorizontal: 9, paddingVertical: 3, borderRadius: raio.pill, overflow: 'hidden', fontSize: 11, fontWeight: '800' },
+  // Tons escuros: o azul e o verde puros nao passam de 4,5:1 sobre o fundo claro.
+  marcaNovo: { backgroundColor: cores.azulSoft, color: cores.azulEscuro },
+  marcaLido: { backgroundColor: cores.verdeSoft, color: cores.verdeEscuro },
   avisoAlcance: { color: cores.azul, fontWeight: '800', fontSize: 11.5, marginTop: 5, textTransform: 'uppercase' },
   cartaoTitulo: { color: cores.ink, fontWeight: '800', fontSize: 15 },
   cartaoTexto: { color: cores.ink, fontSize: 13.5, lineHeight: 19, marginTop: 6 },

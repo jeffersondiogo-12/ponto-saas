@@ -355,12 +355,18 @@ export const api = {
       sincronizarFila: false,
     }),
   listarAlunos: () => requisitar('/api/responsaveis/alunos'),
-  frequenciaDoAluno: (alunoId) => requisitar(`/api/responsaveis/alunos/${alunoId}/frequencia`),
+  // `de` e a janela de 7 dias da Home (#56). Com ele, sem cache: o `de` muda todo
+  // dia, e cada dia deixaria no AsyncStorage uma entrada que ninguem le de novo.
+  frequenciaDoAluno: (alunoId, { de } = {}) =>
+    de
+      ? requisitar(`/api/responsaveis/alunos/${alunoId}/frequencia?de=${encodeURIComponent(de)}`, { usarCache: false })
+      : requisitar(`/api/responsaveis/alunos/${alunoId}/frequencia`),
   notasDoAluno: (alunoId) => requisitar(`/api/responsaveis/alunos/${alunoId}/notas`),
   observacoesDoAluno: (alunoId) => requisitar(`/api/responsaveis/alunos/${alunoId}/observacoes`),
   presencaSalaDoAluno: (alunoId) => requisitar(`/api/responsaveis/alunos/${alunoId}/presenca-sala`),
   avisosDoAluno: (alunoId) => requisitar(`/api/responsaveis/alunos/${alunoId}/avisos`),
-  registrarLeituraAviso: (avisoId) => requisitar(`/api/responsaveis/avisos/${avisoId}/lido`, { method: 'POST' }),
+  registrarLeituraAviso: (avisoId) =>
+    requisitar(`/api/responsaveis/avisos/${avisoId}/lido`, { method: 'POST', rotulo: 'Confirmar leitura de aviso' }),
   vincularFilho: (dados) =>
     requisitar('/api/responsaveis/alunos/vincular', {
       method: 'POST',

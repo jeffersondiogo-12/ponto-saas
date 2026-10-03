@@ -1,6 +1,43 @@
+import { useEffect, useRef } from 'react';
 import { obterToken } from './api';
 import { DeviceEventEmitter } from 'react-native';
 import { criarUrlWebSocket } from './config/rede';
+
+const ESPERA_AO_VIVO_MS = 1500;
+
+/**
+ * Recarrega a tela quando chega um dos `tipos` de evento. Cada evento reinicia
+ * a espera de 1,5 s, entao uma rajada (varias batidas seguidas) vira UMA
+ * recarga - como o useRecarregarAoVivo do PWA.
+ *
+ * `aceitar(mensagem)` filtra por aluno: o servidor manda os eventos da empresa
+ * inteira, e sem o filtro a batida de cada crianca da escola adiaria a recarga
+ * na hora da entrada.
+ */
+export function useRecarregarAoVivo(tipos, recarregar, aceitar) {
+  const recarregarRef = useRef(recarregar);
+  const aceitarRef = useRef(aceitar);
+  useEffect(() => {
+    recarregarRef.current = recarregar;
+    aceitarRef.current = aceitar;
+  }, [recarregar, aceitar]);
+
+  const chave = tipos.join(',');
+  useEffect(() => {
+    const lista = chave.split(',');
+    let timer = null;
+    const assinatura = DeviceEventEmitter.addListener('ponto-saas:atualizado', (mensagem) => {
+      if (!lista.includes(mensagem?.tipo)) return;
+      if (aceitarRef.current && !aceitarRef.current(mensagem)) return;
+      clearTimeout(timer);
+      timer = setTimeout(() => recarregarRef.current(), ESPERA_AO_VIVO_MS);
+    });
+    return () => {
+      clearTimeout(timer);
+      assinatura.remove();
+    };
+  }, [chave]);
+}
 
 export async function conectarRealtime(onEvento) {
   const token = await obterToken();

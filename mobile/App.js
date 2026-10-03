@@ -11,6 +11,7 @@ import { AuthProvider, useAuth } from './src/context/AuthContext';
 import LoginScreen from './src/screens/LoginScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import AlunoDetalheScreen from './src/screens/AlunoDetalheScreen';
+import AvisoScreen from './src/screens/AvisoScreen';
 import AdicionarFilhoScreen from './src/screens/AdicionarFilhoScreen';
 import NavegacaoProfessor from './src/navigation/NavegacaoProfessor';
 import SincronizacaoScreen from './src/screens/SincronizacaoScreen';
@@ -99,6 +100,7 @@ function Navegacao() {
           <>
             <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
             <Stack.Screen name="AlunoDetalhe" component={AlunoDetalheScreen} options={{ title: '' }} />
+            <Stack.Screen name="Aviso" component={AvisoScreen} options={{ title: 'Aviso' }} />
             <Stack.Screen
               name="AdicionarFilho"
               component={AdicionarFilhoScreen}
