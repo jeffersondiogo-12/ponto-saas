@@ -194,6 +194,29 @@ Registro compacto das mudanças de conhecimento, decisões, tasks e validações
 - **Status:** iniciada em 2026-09-13.
 - **Atualização:** criada [[MOB-026_RESILIENCIA_DADOS_MOBILE]] para resolver as tarefas não visuais de carregamento parcial, batida oficial, data dinâmica e validação de vínculo.
 
+## 2026-10-19
+
+### Incidente no cadastro de alunos — coluna de horário
+
+- **Tipo:** análise / correção backend / validação
+- **Atualização:** confirmado que o horário vem de `horarios_turmas` por `turma_id`; removidas as referências runtime a `horario_aluno_id` do cadastro, edição e resolução automática de alunos pelo dispositivo.
+- **Validação:** a consulta read-only do `.env` local encontrou `public.alunos` sem a coluna, sem `public.horarios_alunos` e sem a FK, embora a migration histórica conste no ledger. `node --check`, diagnósticos e busca do campo em `backend/src` passaram.
+- **Follow-up:** console do navegador ainda mostra `POST /api/alunos` HTTP 500; o `Failed to fetch` de `sw.js` é consequência. O fluxo completo com responsável/parentesco inseriu com sucesso usando matrícula/e-mail sintéticos no banco configurado localmente; esses registros foram removidos e a verificação posterior confirmou zero linhas. O 500 do Render não foi reproduzido sem o payload e stack reais. O schema local também tem unicidade global de matrícula, hipótese condicional se houver colisão entre empresas.
+- **Limite:** não foi comprovado que o banco local é o mesmo usado pelo Render; o estado de produção e os dados legados não foram alterados.
+- **Próximo passo:** confirmar o commit ativo no Render e obter o stack `[erro]` da requisição, incluindo a constraint PostgreSQL mencionada; não alterar unicidade ou limpar legado sem essa evidência.
+
+## 2026-10-20
+
+### Matrícula de aluno isolada por empresa
+
+- **Tipo:** diagnóstico / migration preparada
+- **Achado:** o serviço já verifica matrícula por empresa e existe a unique composta correspondente, mas o banco consultado também tem `alunos_matricula_unique` global, que bloqueia matrículas repetidas em escolas diferentes.
+- **Atualização:** migration `20261020000001_scope_aluno_matricula_uniqueness.js` aplicada ao banco configurado no `.env` (batch 24); removeu somente a unicidade global e preservou a composta por empresa.
+- **Validação:** teste com IDs sintéticos em transações revertidas aceitou a mesma matrícula entre empresas e rejeitou duplicidade na mesma empresa (`23505`); consulta posterior confirmou zero linhas de teste.
+- **Segurança do rollback:** falha com mensagem explícita se já houver duplicatas entre empresas.
+- **Limite:** confirmar que o banco do Render é o mesmo banco/projeto; se não for, a migration ainda precisa ser aplicada nesse serviço.
+- **Notas:** [[RELATORIO_BANCO_DE_DADOS_PONTO_SAAS]]
+
 ## Como registrar novas atualizações
 
 - Use uma entrada curta com data, tipo, resumo, área e links.

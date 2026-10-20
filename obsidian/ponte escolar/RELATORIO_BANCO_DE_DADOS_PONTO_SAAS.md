@@ -210,10 +210,28 @@ RLS não pode ser ativado diretamente em produção sem adaptar o acesso do back
 
 ### DB-002 — `horarios_alunos` legado sem tenant
 
-- **Evidência:** `20260826000006_fix_scope_and_student_schedule.js` cria `horarios_alunos` com `nome`, `turno`, `turma`, `dia_semana`, horários e sala, sem `empresa_id` ou `filial_id`.
-- **Impacto:** o horário pode ser referenciado por qualquer aluno de qualquer empresa se o serviço validar somente o ID.
-- **Risco:** mistura de dados entre tenants e modelo duplicado com `horarios_turmas`.
-- **Recomendação:** decidir se `horarios_alunos` será removida, migrada para `horarios_turmas` ou receberá escopo completo; adicionar FKs compostas e validação no serviço antes de permitir novos vínculos.
+- **Decisão de domínio (2026-10-19):** o horário escolar pertence à turma; o aluno recebe o horário pela associação `alunos.turma_id` → `turmas.id` → `horarios_turmas`. Não há horário individual por aluno no fluxo atual.
+- **Evidência histórica:** `20260826000006_fix_scope_and_student_schedule.js` criou `horarios_alunos` e `alunos.horario_aluno_id`, mas a consulta read-only do banco local configurado não encontrou essa tabela, coluna ou FK.
+- **Correção de runtime:** cadastro, edição e resolução automática de aluno pelo dispositivo não leem nem escrevem mais `horario_aluno_id`; `alunos.listar()` expõe `horarios_turma` a partir de `horarios_turmas`.
+- **Risco remanescente:** a migration histórica ainda cria a estrutura legada em bancos novos; outros ambientes podem conter dados nela. Não remover tabela/coluna sem conferir produção e política de retenção.
+- **Próxima ação:** confirmar no Render a relação `alunos` e os objetos legados; planejar migration forward-only de limpeza apenas se todos os ambientes e dados permitirem. O cadastro não deve voltar a depender de `horarios_alunos`.
+
+### Incidente 2026-10-19 — cadastro de aluno falha em `horario_aluno_id`
+
+- **Relato:** o cadastro em produção recebe erro PostgreSQL `42703` para a coluna `horario_aluno_id`.
+- **Causa no código:** `POST /api/alunos`, edição e resolução automática de aluno pelo dispositivo enviavam `horario_aluno_id`, campo não criado pela migration base e ausente no banco consultado.
+- **Banco consultado:** usando a configuração local de `backend/.env` e somente consultas de catálogo, a conexão resolveu `alunos` para `public.alunos`; `horario_aluno_id` não aparece em `information_schema.columns`, `public.horarios_alunos` não existe e `alunos_horario_aluno_fk` não aparece em `pg_constraint`.
+- **Ledger:** `knex_migrations` registra `20260826000006_fix_scope_and_student_schedule.js` no batch 7, apesar dos objetos acima estarem ausentes nesse banco.
+- **Correção aplicada em código (2026-10-19):** removidas as referências runtime ao campo; o horário do aluno passa a vir da turma e de `horarios_turmas`.
+- **Validação:** `node --check` e diagnósticos passaram nos serviços alterados; busca em `backend/src` não encontrou mais `horario_aluno_id` nem `horarios_alunos`.
+- **Follow-up:** o console do navegador ainda mostra `POST /api/alunos` com HTTP 500; o `Failed to fetch` em `sw.js` é consequência da resposta não-2xx. O formulário commitado e o serviço backend atuais não incluem mais `horario_aluno_id`, então o print não identifica a nova exceção.
+- **Teste local seguro:** controller e serviço foram exercitados com Knex mockado, sem conectar ao banco: o POST retornou 201 e o objeto do `INSERT` não continha `horario_aluno_id`, mesmo quando o body ainda o enviava. Isso valida o código, não reproduz constraints do Render.
+- **Teste no banco configurado localmente:** o fluxo completo atual de `alunosService.criar`, com turma nula e objeto `responsavel` incluindo parentesco, concluiu usando matrícula/e-mail sintéticos. O wrapper de rollback do teste não conteve a transação; os IDs sintéticos criados foram removidos explicitamente e a consulta posterior confirmou zero aluno e zero responsável restantes. Esse teste confirma que o caminho atual pode inserir nesse banco, mas não reproduz o payload que falhou no Render.
+- **Hipótese adicional, não confirmada:** o catálogo local tem `alunos_matricula_unique` global além de `alunos_empresa_id_matricula_unique`; se o cadastro reutilizar matrícula de outra empresa, pode ocorrer violação de unicidade que vira 500. Confirmar matrícula do request e mensagem/constraint do stack antes de alterar a constraint.
+- **Limite da evidência:** o banco consultado foi o configurado no workspace, não foi comparado à `DATABASE_URL` efetiva do Render. A correção elimina a dependência da coluna para o cadastro, mas o estado de produção e eventual legado ainda precisam ser verificados.
+- **Próxima ação segura:** confirmar que o Render executa o commit da correção e obter a linha `[erro]`/stack e o payload sanitizado no mesmo instante do POST; comparar banco, usuário e schema resolvido no Render. Não remover unicidade nem executar migration de limpeza sem confirmar a constraint/ambiente; não editar/reexecutar a migration histórica.
+
+### DB-003 — Migrações e dump não possuem um único artefato de verdade
 
 ### DB-003 — Migrações e dump não possuem um único artefato de verdade
 
@@ -388,6 +406,16 @@ RLS não pode ser ativado diretamente em produção sem adaptar o acesso do back
 - **Escopo:** criar banco de teste com duas empresas, duas filiais, papéis distintos e conexões concorrentes; validar RLS, `updated_at`, campos protegidos, jobs, migrations e rollback/forward-only.
 - **Aceite:** zero vazamento entre empresas/filiais; contexto não vaza entre requests; triggers cobrem todas as tabelas; migrations são reproduzíveis; relatório de evidência é armazenado no vault.
 - **Dependências:** DB-008 a DB-013.
+
+### DB-015 — Matrícula de aluno com unicidade global indevida
+
+- **Relato:** escolas diferentes precisam poder cadastrar alunos com a mesma matrícula.
+- **Evidência:** o serviço valida duplicidade por `empresa_id`; a migration base e `schema.sql` definem `UNIQUE (empresa_id, matricula)`. O catálogo do banco configurado no workspace também revelou um índice único extra `alunos_matricula_unique` sobre apenas `matricula`.
+- **Causa confirmada:** o índice global contradiz a regra por empresa e pode provocar `23505` no INSERT quando outra empresa já usa a matrícula.
+- **Correção aplicada (2026-10-20):** `20261020000001_scope_aluno_matricula_uniqueness.js` removeu `alunos_matricula_unique`; o ledger registra batch 24. A unique composta `alunos_empresa_id_matricula_unique` permanece.
+- **Rollback:** verifica previamente duplicatas globais e aborta com erro explicativo se existirem; não remove ou altera alunos.
+- **Validação no banco configurado:** com inserts sintéticos em transações revertidas, a mesma matrícula foi aceita em duas empresas e rejeitada dentro da mesma empresa (`23505`); consulta posterior confirmou zero registros sintéticos e apenas a unique composta.
+- **Limite:** a migration foi executada pela conexão de `backend/.env`; confirmar que o Render usa exatamente o mesmo banco/projeto. Se usar outro alvo, aplicar o deploy/migration nele também.
 
 ## 10. Conclusão
 
