@@ -77,7 +77,6 @@ async function resolverPessoaPeloIdDispositivo(empresaId, dispositivo, registro)
       cpf: registro.cpf,
       data_nascimento: registro.dataNascimento || registro.data_nascimento || null,
       turma_id: null,
-      horario_aluno_id: null,
       ativo: true,
     },
   );

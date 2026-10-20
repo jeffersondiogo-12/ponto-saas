@@ -65,7 +65,6 @@ async function resolverPorMatriculaDispositivo(empresaId, filialId, matriculaDis
       empresa_id: empresaId,
       filial_id: filialId,
       turma_id: dados.turma_id || null,
-      horario_aluno_id: dados.horario_aluno_id || null,
       matricula,
       nome,
       cpf,
@@ -87,7 +86,6 @@ async function criar(empresaId, dados, filialId = null) {
   if (filialId && dados.filial_id !== filialId) throw new AppError('Aluno deve pertencer a filial do usuario.', 403);
   const cpf = await normalizarCpfOpcional(dados.cpf);
   const matricula = String(dados.matricula || '').trim() || null;
-  const horarioAlunoId = dados.horario_aluno_id || null;
 
   return db.transaction(async (trx) => {
     const filial = await trx('filiais').where({ id: dados.filial_id, empresa_id: empresaId }).first();
@@ -101,11 +99,6 @@ async function criar(empresaId, dados, filialId = null) {
         .where({ id: dados.turma_id, empresa_id: empresaId, filial_id: dados.filial_id, ativo: true })
         .first();
       if (!turma) throw new AppError('Turma nao encontrada nesta filial.', 404);
-    }
-
-    if (horarioAlunoId) {
-      const horario = await trx('horarios_alunos').where({ id: horarioAlunoId }).first();
-      if (!horario) throw new AppError('Horario escolar nao encontrado.', 404);
     }
 
     if (matricula) {
@@ -127,7 +120,6 @@ async function criar(empresaId, dados, filialId = null) {
         empresa_id: empresaId,
         filial_id: dados.filial_id,
         turma_id: dados.turma_id || null,
-        horario_aluno_id: horarioAlunoId,
         matricula,
         nome: dados.nome,
         cpf,
@@ -160,12 +152,6 @@ async function atualizar(empresaId, alunoId, dados, filialId = null) {
     if (!turma) throw new AppError('Turma nao encontrada nesta filial.', 404);
   }
 
-  const horarioAlunoId = dados.horario_aluno_id || null;
-  if (horarioAlunoId) {
-    const horario = await db('horarios_alunos').where({ id: horarioAlunoId }).first();
-    if (!horario) throw new AppError('Horario escolar nao encontrado.', 404);
-  }
-
   if (matricula) {
     const matriculaExistente = await db('alunos')
       .where({ empresa_id: empresaId, matricula })
@@ -179,7 +165,6 @@ async function atualizar(empresaId, alunoId, dados, filialId = null) {
     .update({
       matricula,
       turma_id: dados.turma_id || null,
-      horario_aluno_id: horarioAlunoId,
       nome: dados.nome,
       cpf,
       data_nascimento: dados.data_nascimento || null,
