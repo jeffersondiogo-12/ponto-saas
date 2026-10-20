@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import Layout from '../components/Layout';
 import Selecao from '../components/Selecao';
 import { api } from '../api';
+import { mascaraCpf, soDigitos } from '../utils/dominio';
 
 const DIAS = [
   { valor: 1, rotulo: 'Seg' },
@@ -15,7 +16,12 @@ const DIAS = [
 
 const linhaVazia = () => ({ nome: '', cpf: '', data_nascimento: '', matricula: '', estado: null });
 
-const soDigitos = (v) => String(v || '').replace(/\D/g, '');
+/**
+ * Linha com qualquer campo preenchido e enviada - e passa a exigir nome, CPF e
+ * nascimento, como o AlunoForm. A linha toda vazia e ignorada, para a linha
+ * extra no fim da tabela nao travar o envio.
+ */
+const linhaIniciada = (l) => Boolean(l.nome.trim() || l.cpf.trim() || l.data_nascimento || l.matricula.trim());
 
 /**
  * atualizarAluno faz UPDATE de todos os campos do aluno (ver
@@ -34,7 +40,6 @@ function payloadAluno(aluno, mudancas) {
     cpf: aluno.cpf,
     matricula: aluno.matricula,
     data_nascimento: aluno.data_nascimento ? String(aluno.data_nascimento).slice(0, 10) : null,
-    horario_aluno_id: aluno.horario_aluno_id,
     nome_responsavel: aluno.nome_responsavel,
     contato_responsavel: aluno.contato_responsavel,
     turma_id: aluno.turma_id,
@@ -178,7 +183,7 @@ export default function TurmaDetalhe() {
     setAviso(null);
     setSalvandoLote(true);
 
-    const preenchidas = linhas.filter((l) => l.nome.trim() || l.cpf.trim() || l.matricula.trim());
+    const preenchidas = linhas.filter(linhaIniciada);
     const resultados = [];
 
     // Sequencial de proposito: o backend valida matricula duplicada consultando
@@ -428,6 +433,7 @@ export default function TurmaDetalhe() {
                         value={l.nome}
                         onChange={(e) => alterarLinha(i, 'nome', e.target.value)}
                         placeholder="Nome do aluno"
+                        required={linhaIniciada(l)}
                       />
                       {l.estado && <span className="aviso-linha">{l.estado}</span>}
                     </td>
@@ -435,8 +441,12 @@ export default function TurmaDetalhe() {
                       <input
                         className="entrada mono"
                         value={l.cpf}
-                        onChange={(e) => alterarLinha(i, 'cpf', e.target.value)}
+                        onChange={(e) => alterarLinha(i, 'cpf', mascaraCpf(e.target.value))}
                         placeholder="000.000.000-00"
+                        inputMode="numeric"
+                        required={linhaIniciada(l)}
+                        pattern="\d{3}\.\d{3}\.\d{3}-\d{2}"
+                        title="Informe um CPF com 11 dígitos."
                       />
                     </td>
                     <td>
@@ -445,6 +455,7 @@ export default function TurmaDetalhe() {
                         type="date"
                         value={l.data_nascimento}
                         onChange={(e) => alterarLinha(i, 'data_nascimento', e.target.value)}
+                        required={linhaIniciada(l)}
                       />
                     </td>
                     <td>

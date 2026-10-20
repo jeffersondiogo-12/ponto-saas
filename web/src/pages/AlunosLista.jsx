@@ -18,6 +18,14 @@ export default function AlunosLista() {
   // esconder o botao dos demais evita oferecer uma acao que daria 403.
   const podeExcluir = ['super_admin', 'admin', 'rh'].includes(usuario?.papel);
 
+  // Sem unidade escolhida, admin e super_admin escolhem a escola no proprio
+  // AlunoForm - e o caso de um ambiente novo, em que a unidade foi criada
+  // depois de entrar e nada a selecionou. Com unidade escolhida, ela precisa
+  // ser escola: o backend recusa (403) aluno fora da unidade do X-Filial-Id.
+  const podeCadastrar = filialSelecionada
+    ? filialSelecionada.tipo === 'escola'
+    : ['super_admin', 'admin'].includes(usuario?.papel);
+
   const carregar = useCallback(async () => {
     try {
       const r = await api.listarAlunos();
@@ -45,7 +53,7 @@ export default function AlunosLista() {
       {erro && <div className="erro">{erro}</div>}
       {aviso && <div className="sucesso">{aviso}</div>}
 
-      {filialSelecionada && filialSelecionada.tipo === 'escola' && (
+      {podeCadastrar && (
         <div style={{ marginBottom: 12 }}>
           <button className="btn btn-primario" onClick={() => navigate('/alunos/novo')}>Cadastrar aluno</button>
         </div>

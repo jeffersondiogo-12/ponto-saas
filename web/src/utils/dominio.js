@@ -58,3 +58,14 @@ export const STATUS_AVISO = {
 
 export const rotuloStatusAviso = (v) => STATUS_AVISO[v]?.rotulo || v || '—';
 export const tomStatusAviso = (v) => STATUS_AVISO[v]?.tom || 'neutro';
+
+export const soDigitos = (v) => String(v || '').replace(/\D/g, '');
+
+/** Formata 000.000.000-00 enquanto a pessoa digita. */
+export function mascaraCpf(v) {
+  const d = soDigitos(v).slice(0, 11);
+  return d
+    .replace(/^(\d{3})(\d)/, '$1.$2')
+    .replace(/^(\d{3})\.(\d{3})(\d)/, '$1.$2.$3')
+    .replace(/^(\d{3})\.(\d{3})\.(\d{3})(\d)/, '$1.$2.$3-$4');
+}

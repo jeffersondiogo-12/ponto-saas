@@ -4,23 +4,16 @@ import Layout from '../components/Layout';
 import Selecao from '../components/Selecao';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
-
-const soDigitos = (v) => String(v || '').replace(/\D/g, '');
-
-/** Formata 000.000.000-00 enquanto a pessoa digita. */
-function mascaraCpf(v) {
-  const d = soDigitos(v).slice(0, 11);
-  return d
-    .replace(/^(\d{3})(\d)/, '$1.$2')
-    .replace(/^(\d{3})\.(\d{3})(\d)/, '$1.$2.$3')
-    .replace(/^(\d{3})\.(\d{3})\.(\d{3})(\d)/, '$1.$2.$3-$4');
-}
+import { mascaraCpf, soDigitos } from '../utils/dominio';
 
 /**
- * `ativo` e `horario_aluno_id` nao aparecem no formulario, mas moram aqui de
- * proposito: o `atualizar` do backend grava TODOS os campos, e o que nao for
- * reenviado e apagado em silencio. `ativo` ausente e pior ainda - o backend
- * assume `true`, entao editar um aluno inativo o reativaria sozinho.
+ * `ativo` nao aparece no formulario, mas mora aqui de proposito: o `atualizar`
+ * do backend grava TODOS os campos, e o que nao for reenviado e apagado em
+ * silencio. `ativo` ausente e pior ainda - o backend assume `true`, entao
+ * editar um aluno inativo o reativaria sozinho.
+ *
+ * O horario do aluno e o da turma (`horarios_turma`); nao existe horario
+ * individual - `horario_aluno_id` saiu do backend em 2026-10-19 (`3a4fea2`).
  */
 const VAZIO = {
   nome: '', cpf: '', data_nascimento: '', matricula: '',
@@ -28,7 +21,7 @@ const VAZIO = {
   criar_acesso_responsavel: true,
   responsavel_email: '', responsavel_parentesco: '',
   responsavel_senha: '', responsavel_confirmacao_senha: '',
-  ativo: true, horario_aluno_id: null,
+  ativo: true,
 };
 
 export default function AlunoForm() {
@@ -85,7 +78,6 @@ export default function AlunoForm() {
           responsavel_senha: '',
           responsavel_confirmacao_senha: '',
           ativo: aluno.ativo !== undefined ? aluno.ativo : true,
-          horario_aluno_id: aluno.horario_aluno_id || null,
         });
       }
     })();
@@ -147,7 +139,6 @@ export default function AlunoForm() {
         turma_id: dados.turma_id || null,
         nome_responsavel: dados.nome_responsavel.trim() || null,
         contato_responsavel: dados.contato_responsavel.trim() || null,
-        horario_aluno_id: dados.horario_aluno_id,
         ativo: dados.ativo,
       };
       if (!editando && dados.criar_acesso_responsavel) {
