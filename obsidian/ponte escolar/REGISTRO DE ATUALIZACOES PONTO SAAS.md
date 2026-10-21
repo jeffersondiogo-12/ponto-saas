@@ -213,9 +213,30 @@ Registro compacto das mudanças de conhecimento, decisões, tasks e validações
 - **Achado:** o serviço já verifica matrícula por empresa e existe a unique composta correspondente, mas o banco consultado também tem `alunos_matricula_unique` global, que bloqueia matrículas repetidas em escolas diferentes.
 - **Atualização:** migration `20261020000001_scope_aluno_matricula_uniqueness.js` aplicada ao banco configurado no `.env` (batch 24); removeu somente a unicidade global e preservou a composta por empresa.
 - **Validação:** teste com IDs sintéticos em transações revertidas aceitou a mesma matrícula entre empresas e rejeitou duplicidade na mesma empresa (`23505`); consulta posterior confirmou zero linhas de teste.
+- **Produção:** Render mostrou `23505` na constraint `alunos_matricula_unique` para matrícula `1` às 15:46; migration batch 24 consta às 15:54 e duas edições retornaram HTTP 200 às 15:55.
 - **Segurança do rollback:** falha com mensagem explícita se já houver duplicatas entre empresas.
-- **Limite:** confirmar que o banco do Render é o mesmo banco/projeto; se não for, a migration ainda precisa ser aplicada nesse serviço.
+- **Estado de publicação:** correção aplicada no banco e confirmada funcionando; o commit `deb86d7` está incluído em `main`/`origin/main` no histórico verificado em 2026-10-21.
 - **Notas:** [[RELATORIO_BANCO_DE_DADOS_PONTO_SAAS]]
+
+## 2026-10-21
+
+### Inventário completo do backend
+
+- **Tipo:** documentação / arquitetura
+- **Atualização:** criado [[RELATORIO_INVENTARIO_BACKEND_PONTO_SAAS]] com inventário por arquivo de `backend/src`, dos 63 arquivos de migration, dos arquivos de configuração/scripts/seed e das skills espelhadas em `.agents`, `.claude` e `.windsurf`.
+- **Escopo verificado:** 356 arquivos versionados no backend; 67 arquivos JavaScript em `src`; 213 documentos espelhados de skills (71 por diretório, conteúdo idêntico); nenhum caminho de testes está versionado dentro de `backend/`.
+- **Arquitetura registrada:** API Express/Knex/PostgreSQL, autenticação e escopo tenant, workers separados, endpoint Evo Facial e WebSockets na porta HTTP compartilhada.
+- **Limite:** documentação baseada no código versionado em `c010d5b`; não inclui valores de `.env` nem afirmações sobre estado não consultado de produção.
+
+### Diagnóstico de conectividade HTTP versus comandos WebSocket do dispositivo
+
+- **Tipo:** correção backend / interface / documentação
+- **Causa:** o `checklive` HTTP e as batidas recebidas confirmam comunicação do equipamento, mas não criam uma sessão de WebSocket. Comandos como `getuserlist`, coleta sob demanda e envio de face precisam desse canal bidirecional.
+- **Atualização:** o backend agora informa claramente quando o aparelho está online via HTTP sem canal de comando; o status da tela diferencia essa condição e a fila de faces só tenta transmitir com WebSocket ativo.
+- **Arquivos:** `backend/src/modules/dispositivos/evoFacialServidor.js`, `backend/src/modules/dispositivos/adapters/EvoFacialAdapter.js`, `backend/src/modules/dispositivos/dispositivos.service.js`, `backend/src/modules/dispositivos/faceSync.service.js`, `web/src/utils/conexao.js`, `web/src/pages/DispositivoForm.jsx`.
+- **Resultado:** batidas enviadas pelo aparelho via HTTP continuam sendo aceitas; operações remotas orientam a configurar o equipamento para WebSocket/WSS. Build web, lint focado e `node --check` passaram; o envio do comando depende de validar a configuração física e o deploy.
+- **Evidência recebida:** o trecho Render de 13:40–13:42 contém apenas `POST /pub/api` com `cmd:"checklive"` a cada aproximadamente cinco segundos; não contém `sendlog` nem registro de conexão WebSocket. Esse trecho confirma heartbeat HTTP, mas não comprova que a batida foi entregue ao backend.
+- **Relação:** [[RELATORIO_INVENTARIO_BACKEND_PONTO_SAAS]]
 
 ## Como registrar novas atualizações
 

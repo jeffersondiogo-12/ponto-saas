@@ -411,11 +411,11 @@ RLS não pode ser ativado diretamente em produção sem adaptar o acesso do back
 
 - **Relato:** escolas diferentes precisam poder cadastrar alunos com a mesma matrícula.
 - **Evidência:** o serviço valida duplicidade por `empresa_id`; a migration base e `schema.sql` definem `UNIQUE (empresa_id, matricula)`. O catálogo do banco configurado no workspace também revelou um índice único extra `alunos_matricula_unique` sobre apenas `matricula`.
-- **Causa confirmada:** o índice global contradiz a regra por empresa e pode provocar `23505` no INSERT quando outra empresa já usa a matrícula.
+- **Causa confirmada em produção:** o log do Render mostrou `23505`, constraint `alunos_matricula_unique`, chave `matricula=1` no `PUT /api/alunos`; o índice global contradizia a regra por empresa.
 - **Correção aplicada (2026-10-20):** `20261020000001_scope_aluno_matricula_uniqueness.js` removeu `alunos_matricula_unique`; o ledger registra batch 24. A unique composta `alunos_empresa_id_matricula_unique` permanece.
 - **Rollback:** verifica previamente duplicatas globais e aborta com erro explicativo se existirem; não remove ou altera alunos.
-- **Validação no banco configurado:** com inserts sintéticos em transações revertidas, a mesma matrícula foi aceita em duas empresas e rejeitada dentro da mesma empresa (`23505`); consulta posterior confirmou zero registros sintéticos e apenas a unique composta.
-- **Limite:** a migration foi executada pela conexão de `backend/.env`; confirmar que o Render usa exatamente o mesmo banco/projeto. Se usar outro alvo, aplicar o deploy/migration nele também.
+- **Validação:** teste no banco configurado aceitou a mesma matrícula em duas empresas e rejeitou duplicidade dentro da mesma empresa (`23505`), com todas as linhas sintéticas removidas. No Render, o erro ocorreu às 15:46; a migration aparece no batch 24 às 15:54; dois `PUT /api/alunos` retornaram 200 às 15:55.
+- **Estado:** causa, migration e recuperação do cadastro estão confirmadas no ambiente usado pelo Render. O commit `deb86d7` está incluído em `main`/`origin/main` no histórico verificado em 2026-10-21.
 
 ## 10. Conclusão
 

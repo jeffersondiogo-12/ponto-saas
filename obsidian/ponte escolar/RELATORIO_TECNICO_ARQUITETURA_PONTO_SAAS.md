@@ -46,7 +46,7 @@ status: "Em Desenvolvimento"
 ## 🎨 2. Front-end (Web)
 - **Tecnologias & Frameworks:**
   - O `README.md` documenta um cliente React com Vite para o painel web.
-  - O diretório `web/` e o arquivo `web/package.json` não estão presentes no filesystem atual; portanto, versões de React, Vite e dependências não podem ser confirmadas no estado analisado.
+  - O diretório `web/` está presente no workspace atual e possui build com Vite; conferir `web/package.json` para as versões vigentes.
   - O Git indica remoções pré-existentes de arquivos do `web`, mas essas alterações não foram revertidas nem modificadas nesta análise.
 - **Estilização e Componentização:**
   - Não é possível confirmar a implementação atual porque o código web não está disponível no workspace.
@@ -57,7 +57,7 @@ status: "Em Desenvolvimento"
   - O backend registra rotas para empresas, funcionários, dispositivos, ponto, relatórios, AFD, filiais, turmas, alunos, avisos, auditoria e permissões.
   - Não foi possível confirmar o cliente HTTP, as páginas ativas, o tratamento de erros ou o estado real das rotas web sem os arquivos do módulo.
 - **Desafios Atuais & Próximos Passos:**
-  - Restaurar ou disponibilizar o diretório `web` antes de avaliar componentes, rotas, build e segurança do painel.
+  - Manter validação do painel web alinhada aos contratos de empresa, filial, permissões e tipos `staff`.
   - Confirmar se o build web deve ser empacotado dentro do deploy do backend ou publicado separadamente.
   - Revalidar compatibilidade do cliente web com escopo multiempresa, filial, permissões e tipos `staff`.
   - Criar uma nota específica `[[Arquitetura do Front-end Web]]` somente após o código web estar presente.
@@ -99,7 +99,7 @@ status: "Em Desenvolvimento"
   - Retirar ou proteger qualquer credencial de assinatura, service account Firebase e segredo presente no diretório do mobile; revisar histórico Git e rotação.
   - Formalizar observabilidade: logs estruturados, métricas de coleta, falhas de WebSocket, fila, notificações e auditoria sem registrar tokens ou payloads sensíveis.
   - Revisar rate limiting geral, tamanho de payload, timeouts, idempotência de escritas e tratamento de jobs duplicados.
-  - Confirmar deploy da API e do frontend: `app.js` serve `web/dist` somente se o build estiver disponível; atualmente o `web` não está presente no filesystem analisado.
+  - Confirmar deploy da API e do frontend: `app.js` serve `web/dist` somente se o build estiver disponível no ambiente de implantação.
   - Manter separados os requisitos trabalhistas do REP-P e os requisitos de privacidade de menores em [[Conformidade Portaria 671]] e [[LGPD Dados de Crianças]].
 
 ## 🔗 4. Conexões e Dependências Mútuas
