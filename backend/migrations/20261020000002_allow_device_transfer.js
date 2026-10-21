@@ -4,7 +4,9 @@ exports.up = async function (knex) {
     'ALTER TABLE dispositivos DROP CONSTRAINT IF EXISTS dispositivos_empresa_id_numero_serie_unique'
   );
   await knex.schema.raw(
-    "CREATE UNIQUE INDEX dispositivos_numero_serie_ativo_unique ON dispositivos (UPPER(BTRIM(numero_serie))) WHERE situacao = 'ativo'"
+    // Preserve the existing exact-string uniqueness for active equipment,
+    // while allowing the same serial to remain in inactive history.
+    "CREATE UNIQUE INDEX dispositivos_numero_serie_ativo_unique ON dispositivos (numero_serie) WHERE situacao = 'ativo'"
   );
 };
 
