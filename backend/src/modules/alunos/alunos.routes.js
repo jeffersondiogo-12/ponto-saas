@@ -15,5 +15,6 @@ router.post('/', exigirPermissao('alunos', 'adicionar'), alunosController.criar)
 router.put('/:id', exigirPermissao('alunos', 'atualizar'), alunosController.atualizar);
 router.delete('/:id', exigirPermissao('alunos', 'deletar'), alunosController.excluir);
 router.post('/:id/dispositivos', exigirPermissao('alunos', 'atualizar'), alunosController.vincularDispositivo);
+router.post('/:id/face', exigirPermissao('alunos', 'atualizar'), alunosController.cadastrarFace);
 
 module.exports = router;

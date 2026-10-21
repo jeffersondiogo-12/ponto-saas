@@ -212,8 +212,142 @@ async function forcarColeta(empresaId, dispositivoId, filialId = null) {
 
 /** Lista o que o EQUIPAMENTO acha que tem cadastrado (reconciliacao com o nosso banco). */
 async function listarUsuariosNoEquipamento(empresaId, dispositivoId, filialId = null) {
+  const dispositivo = await buscarPorId(empresaId, dispositivoId, filialId);
   const adapter = await obterAdapter(empresaId, dispositivoId, filialId);
-  return adapter.listarUsuarios();
+  const usuarios = await adapter.listarUsuarios();
+  const ids = [...new Set(usuarios.map((usuario) => usuario.idNoDispositivo).filter(Boolean))];
+  if (!ids.length) return usuarios;
+
+  const [funcionarios, alunos, vinculosFuncionarios, vinculosAlunos] = await Promise.all([
+    db("funcionarios")
+      .where({ empresa_id: empresaId, filial_id: dispositivo.filial_id, ativo: true })
+      .whereIn("matricula", ids)
+      .select("id", "matricula", "nome"),
+    db("alunos")
+      .where({ empresa_id: empresaId, filial_id: dispositivo.filial_id, ativo: true })
+      .whereIn("matricula", ids)
+      .select("id", "matricula", "nome"),
+    db("funcionario_dispositivos").where({ dispositivo_id: dispositivoId }).select("*"),
+    db("aluno_dispositivos").where({ dispositivo_id: dispositivoId }).select("*"),
+  ]);
+
+  const funcionarioPorMatricula = new Map(funcionarios.map((pessoa) => [pessoa.matricula, pessoa]));
+  const alunoPorMatricula = new Map(alunos.map((pessoa) => [pessoa.matricula, pessoa]));
+  const funcionarioPorId = new Map(funcionarios.map((pessoa) => [pessoa.id, pessoa]));
+  const alunoPorId = new Map(alunos.map((pessoa) => [pessoa.id, pessoa]));
+  const funcionarioPorIdDispositivo = new Map(
+    vinculosFuncionarios.map((vinculo) => [vinculo.id_no_dispositivo, vinculo])
+  );
+  const alunoPorIdDispositivo = new Map(
+    vinculosAlunos.map((vinculo) => [vinculo.id_no_dispositivo, vinculo])
+  );
+  const vinculoFuncionarioPorPessoa = new Map(
+    vinculosFuncionarios.map((vinculo) => [vinculo.funcionario_id, vinculo])
+  );
+  const vinculoAlunoPorPessoa = new Map(vinculosAlunos.map((vinculo) => [vinculo.aluno_id, vinculo]));
+
+  const reconciliados = [];
+  const novosVinculosFuncionarios = [];
+  const novosVinculosAlunos = [];
+  for (const usuario of usuarios) {
+    const id = String(usuario.idNoDispositivo);
+    const funcionario = funcionarioPorMatricula.get(id);
+    const aluno = funcionario ? null : alunoPorMatricula.get(id);
+    const vinculoFuncionario = funcionarioPorIdDispositivo.get(id);
+    const vinculoAluno = alunoPorIdDispositivo.get(id);
+
+    if (vinculoFuncionario || vinculoAluno) {
+      const conflitoEntreTipos = Boolean(vinculoFuncionario && vinculoAluno);
+      const tipoEsperado = funcionario ? "funcionario" : aluno ? "aluno" : null;
+      const pessoaEsperada = funcionario || aluno;
+      const corresponde = !conflitoEntreTipos && Boolean(tipoEsperado) && (
+        (tipoEsperado === "funcionario" && vinculoFuncionario?.funcionario_id === pessoaEsperada.id) ||
+        (tipoEsperado === "aluno" && vinculoAluno?.aluno_id === pessoaEsperada.id)
+      );
+      const pessoaVinculada = vinculoFuncionario
+        ? funcionarioPorId.get(vinculoFuncionario.funcionario_id)
+        : alunoPorId.get(vinculoAluno.aluno_id);
+      reconciliados.push({
+        ...usuario,
+        sincronizacao: corresponde
+          ? {
+              estado: "vinculado",
+              tipo: vinculoFuncionario ? "funcionario" : "aluno",
+              pessoa_id: pessoaVinculada?.id || null,
+              nome: pessoaVinculada?.nome || null,
+            }
+          : { estado: "conflito", motivo: "ID do equipamento ja vinculado a outra pessoa" },
+      });
+      continue;
+    }
+
+    const tipo = funcionario ? "funcionario" : aluno ? "aluno" : null;
+    const pessoa = funcionario || aluno;
+    const vinculoDaPessoa = funcionario
+      ? vinculoFuncionarioPorPessoa.get(funcionario.id)
+      : aluno
+        ? vinculoAlunoPorPessoa.get(aluno.id)
+        : null;
+
+    if (!pessoa) {
+      reconciliados.push({
+        ...usuario,
+        sincronizacao: {
+          estado: "sem_correspondencia",
+          motivo: "ID do equipamento nao corresponde a matricula cadastrada no site",
+        },
+      });
+      continue;
+    }
+    if (vinculoDaPessoa) {
+      reconciliados.push({
+        ...usuario,
+        sincronizacao: {
+          estado: "conflito",
+          motivo: "Pessoa ja vinculada a outro ID neste equipamento",
+        },
+      });
+      continue;
+    }
+
+    if (funcionario) {
+      novosVinculosFuncionarios.push({
+        funcionario_id: pessoa.id,
+        dispositivo_id: dispositivoId,
+        id_no_dispositivo: id,
+      });
+    } else {
+      novosVinculosAlunos.push({
+        aluno_id: pessoa.id,
+        dispositivo_id: dispositivoId,
+        id_no_dispositivo: id,
+      });
+    }
+    reconciliados.push({
+      ...usuario,
+      sincronizacao: {
+        estado: "vinculado",
+        tipo,
+        pessoa_id: pessoa.id,
+        nome: pessoa.nome,
+      },
+    });
+  }
+
+  if (novosVinculosFuncionarios.length) {
+    await db("funcionario_dispositivos")
+      .insert(novosVinculosFuncionarios)
+      .onConflict(["funcionario_id", "dispositivo_id"])
+      .ignore();
+  }
+  if (novosVinculosAlunos.length) {
+    await db("aluno_dispositivos")
+      .insert(novosVinculosAlunos)
+      .onConflict(["aluno_id", "dispositivo_id"])
+      .ignore();
+  }
+
+  return reconciliados;
 }
 
 /**

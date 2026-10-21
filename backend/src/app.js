@@ -48,7 +48,7 @@ app.use(
 app.use(cors({ origin: origensPermitidas }));
 app.use(compression());
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
-app.use(express.json());
+app.use(express.json({ limit: '6mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 app.post('/pub/api', async (req, res) => {

@@ -3,6 +3,7 @@ const db = require('../../config/db');
 const { horaLocalParaUTC, partesNoFuso } = require('../../utils/tempo');
 const { salvarFotoBatida } = require('./fotoStorage');
 const pontoService = require('../ponto/ponto.service');
+const faceSyncService = require('./faceSync.service');
 
 /**
  * ================================================================
@@ -303,6 +304,17 @@ async function tratarReg(ws, msg, { viaHttp = false } = {}) {
   });
 
   console.log(`[evo-facial] "${dispositivo.descricao}" (${chave}) registrado - firmware ${msg.devinfo?.firmware || '?'}`);
+
+  if (!viaHttp) {
+    setImmediate(() => {
+      faceSyncService.processarFacesPendentes(dispositivo.id).catch((err) => {
+        console.error(
+          `[evo-facial] falha ao sincronizar faces pendentes do dispositivo ${dispositivo.id}:`,
+          err.message
+        );
+      });
+    });
+  }
 }
 
 /** 1.2 Enviar Logs (PDF secao 1.2) - as marcacoes de ponto propriamente ditas. */

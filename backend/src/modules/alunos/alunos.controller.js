@@ -1,4 +1,5 @@
 const alunosService = require('./alunos.service');
+const faceSyncService = require('../dispositivos/faceSync.service');
 
 async function listar(req, res, next) {
   try {
@@ -51,6 +52,23 @@ async function vincularDispositivo(req, res, next) {
   }
 }
 
+async function cadastrarFace(req, res, next) {
+  try {
+    const resultado = await faceSyncService.cadastrarFaceAluno(
+      req.empresaId,
+      req.params.id,
+      {
+        dispositivoId: req.body.dispositivo_id,
+        fotoBase64: req.body.foto_base64,
+      },
+      req.filialId
+    );
+    res.status(resultado.pendente ? 202 : 201).json(resultado);
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function frequencia(req, res, next) {
   try {
     const { de, ate } = req.query;
@@ -70,4 +88,4 @@ async function excluir(req, res, next) {
   }
 }
 
-module.exports = { listar, buscar, criar, atualizar, excluir, vincularDispositivo, frequencia };
+module.exports = { listar, buscar, criar, atualizar, excluir, vincularDispositivo, cadastrarFace, frequencia };
