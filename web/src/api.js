@@ -384,6 +384,7 @@ export const api = {
   usuariosNoEquipamento: (id) => requisitar(`/api/dispositivos/${id}/usuarios-no-equipamento`),
   cadastrarFaceDispositivo: (id, dados) => requisitar(`/api/dispositivos/${id}/cadastrar-face`, { method: 'POST', body: dados }),
   removerFaceDispositivo: (id, dados) => requisitar(`/api/dispositivos/${id}/remover-face`, { method: 'POST', body: dados }),
+  cadastrarFaceAluno: (id, dados) => requisitar(`/api/alunos/${id}/face`, { method: 'POST', body: dados }),
 
   listarUnidades: () => requisitar('/api/filiais'),
   buscarUnidade: (id) => requisitar(`/api/filiais/${id}`),

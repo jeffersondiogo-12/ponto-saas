@@ -35,6 +35,11 @@ export default function DispositivoForm() {
   const [ultimoNsr, setUltimoNsr] = useState(null);
   const [conexaoBruta, setConexaoBruta] = useState(null);
   const [statusAcao, setStatusAcao] = useState("");
+  const [acaoEmAndamento, setAcaoEmAndamento] = useState(false);
+  const [usuariosEquipamento, setUsuariosEquipamento] = useState(null);
+  const [pessoasDisponiveis, setPessoasDisponiveis] = useState([]);
+  const [pessoaSelecionada, setPessoaSelecionada] = useState("");
+  const [fotoFacial, setFotoFacial] = useState(null);
 
   useEffect(() => {
     api
@@ -97,16 +102,20 @@ export default function DispositivoForm() {
   }
 
   async function testarConexao() {
+    setAcaoEmAndamento(true);
     setStatusAcao("Testando conexão...");
     try {
       const r = await api.testarConexaoDispositivo(id);
       setStatusAcao(r.ok ? "Conectado com sucesso." : `Falha: ${r.erro}`);
     } catch (err) {
       setStatusAcao(`Falha: ${err.message}`);
+    } finally {
+      setAcaoEmAndamento(false);
     }
   }
 
   async function forcarColeta() {
+    setAcaoEmAndamento(true);
     setStatusAcao("Coletando...");
     try {
       const r = await api.forcarColeta(id);
@@ -117,24 +126,141 @@ export default function DispositivoForm() {
       );
     } catch (err) {
       setStatusAcao(`Falha: ${err.message}`);
+    } finally {
+      setAcaoEmAndamento(false);
     }
   }
 
   async function verUsuariosNoEquipamento() {
+    setAcaoEmAndamento(true);
     setStatusAcao("Consultando equipamento...");
     try {
       const r = await api.usuariosNoEquipamento(id);
       if (r.ok === false) {
         setStatusAcao(`Falha: ${r.erro}`);
       } else {
+        setUsuariosEquipamento(r.usuarios || []);
+        const vinculados = (r.usuarios || []).filter((u) => u.sincronizacao?.estado === "vinculado").length;
+        const conflitos = (r.usuarios || []).filter((u) => u.sincronizacao?.estado === "conflito").length;
+        const semCorrespondencia = (r.usuarios || []).filter(
+          (u) => u.sincronizacao?.estado === "sem_correspondencia",
+        ).length;
         setStatusAcao(
-          r.usuarios.length
-            ? `${r.usuarios.length} usuário(s) no equipamento: ${r.usuarios.map((u) => u.idNoDispositivo).join(", ")}`
+          r.usuarios?.length
+            ? `${r.usuarios.length} usuário(s) recebido(s): ${vinculados} vinculado(s), ${conflitos} conflito(s), ${semCorrespondencia} sem correspondência.`
             : "Nenhum usuário cadastrado no equipamento.",
         );
       }
     } catch (err) {
       setStatusAcao(`Falha: ${err.message}`);
+    } finally {
+      setAcaoEmAndamento(false);
+    }
+  }
+
+  async function carregarPessoas() {
+    if (!dados.filial_id) {
+      setStatusAcao("Selecione e salve a filial do equipamento antes de carregar pessoas.");
+      return;
+    }
+    setAcaoEmAndamento(true);
+    setStatusAcao("Carregando pessoas da unidade...");
+    try {
+      const [funcionariosResposta, alunosResposta] = await Promise.all([
+        api.listarFuncionarios(),
+        api.listarAlunos({ ativo: true }),
+      ]);
+      const funcionarios = (funcionariosResposta.funcionarios || [])
+        .filter((pessoa) => pessoa.ativo && pessoa.filial_id === dados.filial_id)
+        .map((pessoa) => ({ ...pessoa, tipo: "funcionario" }));
+      const alunos = (alunosResposta.alunos || [])
+        .filter((pessoa) => pessoa.ativo && pessoa.filial_id === dados.filial_id)
+        .map((pessoa) => ({ ...pessoa, tipo: "aluno" }));
+      const pessoas = [...alunos, ...funcionarios].sort((a, b) => a.nome.localeCompare(b.nome));
+      setPessoasDisponiveis(pessoas);
+      setPessoaSelecionada("");
+      setStatusAcao(
+        pessoas.length
+          ? `${pessoas.length} pessoa(s) ativa(s) carregada(s) para envio.`
+          : "Nenhum aluno ou funcionário ativo encontrado nesta unidade.",
+      );
+    } catch (err) {
+      setStatusAcao(`Falha ao carregar pessoas: ${err.message}`);
+    } finally {
+      setAcaoEmAndamento(false);
+    }
+  }
+
+  function selecionarFoto(e) {
+    const arquivo = e.target.files?.[0] || null;
+    setFotoFacial(null);
+    if (!arquivo) return;
+    if (!arquivo.type.startsWith("image/")) {
+      setStatusAcao("Selecione um arquivo de imagem.");
+      e.target.value = "";
+      return;
+    }
+    if (arquivo.size > 4 * 1024 * 1024) {
+      setStatusAcao("A foto deve ter no máximo 4 MB.");
+      e.target.value = "";
+      return;
+    }
+    setFotoFacial(arquivo);
+    setStatusAcao("");
+  }
+
+  async function enviarFace() {
+    const [tipo, pessoaId] = pessoaSelecionada.split(":");
+    const pessoa = pessoasDisponiveis.find(
+      (item) => item.tipo === tipo && item.id === pessoaId,
+    );
+    const matricula = String(pessoa?.matricula || "").trim();
+    if (!pessoa || !fotoFacial) {
+      setStatusAcao("Selecione uma pessoa e uma foto facial.");
+      return;
+    }
+    if (!/^[1-9]\d*$/.test(matricula) || !Number.isSafeInteger(Number(matricula))) {
+      setStatusAcao("A matrícula precisa ser um número positivo, sem zeros à esquerda, para corresponder ao ID do equipamento.");
+      return;
+    }
+
+    setAcaoEmAndamento(true);
+    setStatusAcao("Enviando face ao equipamento...");
+    try {
+      const fotoBase64 = await new Promise((resolve, reject) => {
+        const leitor = new FileReader();
+        leitor.onload = () => resolve(leitor.result);
+        leitor.onerror = () => reject(new Error("Não foi possível ler a foto selecionada."));
+        leitor.readAsDataURL(fotoFacial);
+      });
+      if (tipo === "aluno") {
+        const resultado = await api.cadastrarFaceAluno(pessoa.id, {
+          dispositivo_id: id,
+          foto_base64: fotoBase64,
+        });
+        setStatusAcao(
+          resultado.pendente
+            ? `Face guardada com segurança e pendente de envio. ${resultado.erro || "Será enviada quando o equipamento se conectar."}`
+            : `Face de ${pessoa.nome} enviada e confirmada pelo equipamento.`,
+        );
+      } else {
+        const resultado = await api.cadastrarFaceDispositivo(id, {
+          tipo,
+          pessoa_id: pessoa.id,
+          id_no_dispositivo: matricula,
+          nome: pessoa.nome,
+          foto_base64: fotoBase64,
+        });
+        if (resultado.ok === false) throw new Error(resultado.erro || "O equipamento recusou o cadastro.");
+        setStatusAcao(`Face de ${pessoa.nome} enviada e confirmada pelo equipamento.`);
+      }
+      setFotoFacial(null);
+      const inputFoto = document.getElementById("foto-facial-dispositivo");
+      if (inputFoto) inputFoto.value = "";
+    } catch (err) {
+      setStatusAcao(`Falha ao enviar face: ${err.message}`);
+    } finally {
+      setAcaoEmAndamento(false);
     }
   }
 
@@ -391,6 +517,7 @@ export default function DispositivoForm() {
                   type="button"
                   className="btn btn-secundario"
                   onClick={testarConexao}
+                  disabled={acaoEmAndamento}
                 >
                   Testar conexão
                 </button>
@@ -398,16 +525,18 @@ export default function DispositivoForm() {
                   type="button"
                   className="btn btn-secundario"
                   onClick={forcarColeta}
+                  disabled={acaoEmAndamento}
                 >
-                  Forçar coleta
+                  Receber marcações
                 </button>
                 {dados.protocolo === "evo_ws" && (
                   <button
                     type="button"
                     className="btn btn-secundario"
                     onClick={verUsuariosNoEquipamento}
+                    disabled={acaoEmAndamento}
                   >
-                    Usuários no equipamento
+                    Receber usuários
                   </button>
                 )}
                 <span className="texto-apoio">{statusAcao}</span>
@@ -415,6 +544,111 @@ export default function DispositivoForm() {
             )}
           </div>
         </div>
+
+        {id && dados.protocolo === "evo_ws" && (
+          <div className="card">
+            <div className="eyebrow">Enviar dados para o equipamento</div>
+            <div className="card-corpo">
+              <p className="texto-apoio">
+                Envie a foto facial de um aluno ou funcionário ativo desta unidade.
+                A matrícula será usada como ID no relógio. Alunos ficam na fila cifrada
+                se o equipamento estiver offline; funcionários precisam estar conectados.
+              </p>
+              <div className="grid-form">
+                <div className="campo">
+                  <label>Pessoa</label>
+                  <select
+                    value={pessoaSelecionada}
+                    onChange={(e) => setPessoaSelecionada(e.target.value)}
+                    disabled={!pessoasDisponiveis.length || acaoEmAndamento}
+                  >
+                    <option value="">Selecione uma pessoa</option>
+                    {pessoasDisponiveis.map((pessoa) => (
+                      <option
+                        key={`${pessoa.tipo}:${pessoa.id}`}
+                        value={`${pessoa.tipo}:${pessoa.id}`}
+                      >
+                        {pessoa.nome} — {pessoa.tipo === "aluno" ? "Aluno" : "Funcionário"} · matrícula {pessoa.matricula || "ausente"}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="texto-apoio">
+                    {pessoasDisponiveis.length
+                      ? `${pessoasDisponiveis.length} pessoa(s) carregada(s).`
+                      : "Carregue as pessoas ativas da unidade antes de enviar."}
+                  </span>
+                </div>
+                <div className="campo">
+                  <label htmlFor="foto-facial-dispositivo">Foto facial (máximo 4 MB)</label>
+                  <input
+                    id="foto-facial-dispositivo"
+                    type="file"
+                    accept="image/*"
+                    onChange={selecionarFoto}
+                    disabled={acaoEmAndamento}
+                  />
+                  {fotoFacial && <span className="texto-apoio">{fotoFacial.name}</span>}
+                </div>
+              </div>
+              <div className="acoes-form" style={{ justifyContent: "flex-start" }}>
+                <button
+                  type="button"
+                  className="btn btn-secundario"
+                  onClick={carregarPessoas}
+                  disabled={acaoEmAndamento}
+                >
+                  Carregar pessoas da unidade
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primario"
+                  onClick={enviarFace}
+                  disabled={acaoEmAndamento || !pessoaSelecionada || !fotoFacial}
+                >
+                  Enviar face
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {usuariosEquipamento && (
+          <div className="card">
+            <div className="eyebrow">Dados recebidos do equipamento</div>
+            <div className="card-corpo">
+              {usuariosEquipamento.length ? (
+                <table className="tabela">
+                  <thead>
+                    <tr>
+                      <th>ID / matrícula</th>
+                      <th>Nome correspondente</th>
+                      <th>Resultado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {usuariosEquipamento.map((usuario) => (
+                      <tr key={usuario.idNoDispositivo}>
+                        <td className="mono">{usuario.idNoDispositivo}</td>
+                        <td>{usuario.sincronizacao?.nome || usuario.nome || "—"}</td>
+                        <td>
+                          {usuario.sincronizacao?.estado === "vinculado"
+                            ? "Vinculado ao cadastro do site"
+                            : usuario.sincronizacao?.estado === "conflito"
+                              ? `Conflito: ${usuario.sincronizacao.motivo}`
+                              : usuario.sincronizacao?.estado === "sem_correspondencia"
+                                ? "Sem aluno/funcionário com esta matrícula"
+                                : "Recebido"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <p className="texto-apoio">O equipamento não retornou usuários cadastrados.</p>
+              )}
+            </div>
+          </div>
+        )}
 
         <div className="card">
           <div className="eyebrow">Autenticação</div>
