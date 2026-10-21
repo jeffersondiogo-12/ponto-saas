@@ -53,6 +53,28 @@ const pontoService = require('../ponto/ponto.service');
 // numero_serie -> { ws, dispositivo, ultimoDevinfo, pendente }
 const conexoes = new Map();
 
+function buscarDispositivoAtivoPorSerie(numeroSerie) {
+  return db('dispositivos')
+    .whereRaw('UPPER(BTRIM(numero_serie)) = ?', [numeroSerie.trim().toUpperCase()])
+    .where({ situacao: 'ativo' })
+    .first();
+}
+
+function desconectarDispositivo(dispositivoId, numeroSerie) {
+  const conexao = conexoes.get(numeroSerie);
+  if (!conexao || conexao.dispositivo.id !== dispositivoId) return;
+
+  conexoes.delete(numeroSerie);
+  if (conexao.pendente) {
+    clearTimeout(conexao.pendente.timer);
+    conexao.pendente.reject(new Error('O dispositivo foi desativado ou teve seu protocolo alterado.'));
+    conexao.pendente = null;
+  }
+  if (conexao.ws && conexao.ws.readyState === conexao.ws.OPEN) {
+    conexao.ws.terminate();
+  }
+}
+
 /**
  * EVO_FACIAL_DEBUG=true no .env liga o log da mensagem JSON crua, em ambas
  * as direcoes - pensado para o primeiro contato com o equipamento fisico
@@ -142,7 +164,7 @@ function parseDataHoraDispositivo(textoNaive, timeZone) {
  */
 async function enviarComando(numeroSerie, payload, { timeoutMs = 10000 } = {}) {
   const conexao = conexoes.get(numeroSerie);
-  if (!conexao || conexao.ws.readyState !== conexao.ws.OPEN) {
+  if (!conexao || !conexao.ws || conexao.ws.readyState !== conexao.ws.OPEN) {
     throw new Error(
       `O dispositivo "${numeroSerie}" nao esta conectado no momento. Como e o equipamento quem inicia a conexao ` +
         '(a cada 20s, quando ligado e apontando para este servidor), so e possivel enviar comandos enquanto ele estiver online.'
@@ -199,11 +221,18 @@ async function tratarReg(ws, msg, { viaHttp = false } = {}) {
   // strings "parecem iguais" ao olho). Comparar por igualdade case-sensitive
   // aqui faria o equipamento nunca conseguir se registrar por um motivo
   // quase invisivel de diagnosticar.
-  const dispositivo = await db('dispositivos')
-    .whereRaw('UPPER(numero_serie) = UPPER(?)', [numeroSerie.trim()])
-    .first();
+  const dispositivo = await buscarDispositivoAtivoPorSerie(numeroSerie);
 
   if (!dispositivo) {
+    const dispositivoInativo = await db('dispositivos')
+      .whereRaw('UPPER(BTRIM(numero_serie)) = ?', [numeroSerie.trim().toUpperCase()])
+      .where({ situacao: 'inativo' })
+      .first();
+    if (dispositivoInativo) {
+      ws.send(JSON.stringify({ ret: 'reg', result: false, reason: 'dispositivo inativo' }));
+      return;
+    }
+
     // Deliberado: nao cadastramos o equipamento automaticamente so por ele
     // ter aparecido na rede - dado de ponto e sensivel demais (ver README
     // secao 5) para criar um dispositivo "as cegas". O equipamento continua
@@ -211,10 +240,6 @@ async function tratarReg(ws, msg, { viaHttp = false } = {}) {
     // tempo de sobra para um admin cadastra-lo pela tela nesse meio tempo.
     ws.send(JSON.stringify({ ret: 'reg', result: false, reason: 'dispositivo nao cadastrado' }));
     console.warn(`[evo-facial] reg recusado: numero de serie "${numeroSerie}" nao esta cadastrado em nenhuma empresa`);
-    return;
-  }
-  if (dispositivo.situacao !== 'ativo') {
-    ws.send(JSON.stringify({ ret: 'reg', result: false, reason: 'dispositivo inativo' }));
     return;
   }
   if (!['evo_ws', 'http_rest'].includes(dispositivo.protocolo)) {
@@ -286,7 +311,7 @@ async function tratarSendlog(ws, msg) {
   logDebug('<- recebido', numeroSerie, msg);
   const conexao = numeroSerie && conexoes.get(numeroSerie);
   const dispositivoHttp = !conexao && numeroSerie
-    ? await db('dispositivos').whereRaw('UPPER(numero_serie) = UPPER(?)', [numeroSerie.trim()]).first()
+    ? await buscarDispositivoAtivoPorSerie(numeroSerie)
     : null;
 
   if (!conexao && !dispositivoHttp) {
@@ -295,6 +320,10 @@ async function tratarSendlog(ws, msg) {
   }
 
   const dispositivoAtual = await db('dispositivos').where({ id: conexao?.dispositivo.id || dispositivoHttp.id }).first();
+  if (!dispositivoAtual || dispositivoAtual.situacao !== 'ativo') {
+    ws.send(JSON.stringify({ ret: 'sendlog', result: false, reason: 'dispositivo inativo' }));
+    return;
+  }
   const timeZone = dispositivoAtual.fuso_horario || 'America/Sao_Paulo';
   const registrosBrutos = Array.isArray(msg.record) ? msg.record : [];
 
@@ -433,9 +462,7 @@ async function processarPostPublico(msg) {
 
   if (msg.cmd === 'checklive') {
     const numeroSerie = msg.sn.trim();
-    const dispositivo = await db('dispositivos')
-      .whereRaw('UPPER(numero_serie) = UPPER(?)', [numeroSerie])
-      .first();
+    const dispositivo = await buscarDispositivoAtivoPorSerie(numeroSerie);
 
     if (!dispositivo) {
       return { ret: 'checklive', result: false, reason: 'dispositivo nao cadastrado' };
@@ -550,6 +577,7 @@ module.exports = {
   iniciarServidorEvoFacial,
   enviarComando,
   estaConectado,
+  desconectarDispositivo,
   listarNumerosSerieConectados,
   processarPostPublico,
 };

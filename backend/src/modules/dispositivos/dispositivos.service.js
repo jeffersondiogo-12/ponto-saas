@@ -33,10 +33,19 @@ function sanitizar(dispositivo) {
     // conecta) - fica null pros demais, em vez de sempre false, para nao
     // sugerir "desconectado" num protocolo onde essa nocao nem existe.
     conectado_agora: ["evo_ws", "http_rest"].includes(dispositivo.protocolo)
-      ? evoFacialServidor.estaConectado(dispositivo.numero_serie) ||
-        comunicouRecentemente
+      ? dispositivo.situacao === "ativo" &&
+        (evoFacialServidor.estaConectado(dispositivo.numero_serie) ||
+          comunicouRecentemente)
       : null,
   };
+}
+
+async function buscarDispositivoAtivoPorSerie(numeroSerie, dispositivoIdExcluir = null) {
+  const query = db("dispositivos")
+    .whereRaw("UPPER(BTRIM(numero_serie)) = ?", [numeroSerie.trim().toUpperCase()])
+    .where({ situacao: "ativo" });
+  if (dispositivoIdExcluir) query.whereNot({ id: dispositivoIdExcluir });
+  return query.first();
 }
 
 async function listar(empresaId, filialId = null) {
@@ -65,12 +74,12 @@ async function criar(empresaId, dados, filialId = null) {
     .first();
   if (!filial) throw new AppError("Filial do dispositivo nao encontrada.", 404);
 
-  const serieExistente = await db("dispositivos")
-    .where({ empresa_id: empresaId, numero_serie: dados.numero_serie })
-    .first();
-  if (serieExistente) {
+  if (
+    (dados.situacao || "ativo") === "ativo" &&
+    await buscarDispositivoAtivoPorSerie(dados.numero_serie)
+  ) {
     throw new AppError(
-      "Ja existe um dispositivo cadastrado com este numero de serie.",
+      "Ja existe um dispositivo ativo cadastrado com este numero de serie.",
       409,
     );
   }
@@ -102,7 +111,7 @@ async function criar(empresaId, dados, filialId = null) {
 }
 
 async function atualizar(empresaId, dispositivoId, dados, filialId = null) {
-  await buscarPorId(empresaId, dispositivoId, filialId);
+  const dispositivoAtual = await buscarPorId(empresaId, dispositivoId, filialId);
   if (filialId && dados.filial_id !== filialId) throw new AppError('Dispositivo deve pertencer a filial do usuario.', 403);
   if (!dados.filial_id)
     throw new AppError("Selecione a filial do dispositivo.", 400);
@@ -110,6 +119,19 @@ async function atualizar(empresaId, dispositivoId, dados, filialId = null) {
     .where({ id: dados.filial_id, empresa_id: empresaId })
     .first();
   if (!filial) throw new AppError("Filial do dispositivo nao encontrada.", 404);
+
+  if (dados.situacao === "ativo" && dispositivoAtual.situacao !== "ativo") {
+    const serieExistente = await buscarDispositivoAtivoPorSerie(
+      dispositivoAtual.numero_serie,
+      dispositivoId,
+    );
+    if (serieExistente) {
+      throw new AppError(
+        "Ja existe um dispositivo ativo cadastrado com este numero de serie.",
+        409,
+      );
+    }
+  }
 
   const patch = {
     filial_id: dados.filial_id || null,
@@ -138,6 +160,13 @@ async function atualizar(empresaId, dispositivoId, dados, filialId = null) {
     .where({ id: dispositivoId, empresa_id: empresaId, ...(filialId ? { filial_id: filialId } : {}) })
     .update(patch)
     .returning("*");
+
+  if (
+    dispositivo.situacao !== "ativo" ||
+    !["evo_ws", "http_rest"].includes(dispositivo.protocolo)
+  ) {
+    evoFacialServidor.desconectarDispositivo(dispositivo.id, dispositivo.numero_serie);
+  }
 
   return sanitizar(dispositivo);
 }
