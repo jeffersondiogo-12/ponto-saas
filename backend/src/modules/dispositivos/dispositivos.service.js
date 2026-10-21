@@ -37,6 +37,10 @@ function sanitizar(dispositivo) {
         (evoFacialServidor.estaConectado(dispositivo.numero_serie) ||
           comunicouRecentemente)
       : null,
+    canal_comando_disponivel: dispositivo.protocolo === "evo_ws"
+      ? dispositivo.situacao === "ativo" &&
+        evoFacialServidor.canalComandoDisponivel(dispositivo.numero_serie)
+      : null,
   };
 }
 

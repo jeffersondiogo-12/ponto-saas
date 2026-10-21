@@ -29,11 +29,16 @@ class EvoFacialAdapter extends DeviceAdapter {
   }
 
   async conectar() {
-    if (!evoFacialServidor.estaConectado(this.numeroSerie)) {
+    if (!evoFacialServidor.canalComandoDisponivel(this.numeroSerie)) {
+      if (evoFacialServidor.estaConectado(this.numeroSerie)) {
+        throw new Error(
+          `O dispositivo "${this.dispositivo.descricao}" esta online via HTTP e pode enviar marcacoes, mas nao possui uma sessao WebSocket ativa ` +
+            'para receber comandos. Configure a conexao WebSocket/WSS do equipamento para esta operacao.'
+        );
+      }
       throw new Error(
-        `O dispositivo "${this.dispositivo.descricao}" nao esta conectado ao servidor agora. ` +
-          'Ele se registra automaticamente a cada 20s quando ligado e apontando para este servidor - verifique se esta ligado, ' +
-          'na rede certa, e configurado com o IP/porta deste backend.'
+        `O dispositivo "${this.dispositivo.descricao}" nao possui uma sessao WebSocket ativa para receber comandos. ` +
+          'Confirme se esta ligado e configurado para conectar por WebSocket/WSS ao backend.'
       );
     }
   }
@@ -43,15 +48,24 @@ class EvoFacialAdapter extends DeviceAdapter {
   }
 
   async testarConexao() {
+    const canalComandoDisponivel = evoFacialServidor.canalComandoDisponivel(this.numeroSerie);
     const conectado = evoFacialServidor.estaConectado(this.numeroSerie);
     if (!conectado) {
       return {
         ok: false,
-        erro: 'Dispositivo nao esta conectado no momento (aguardando proximo registro automatico, a cada 20s).',
+        canalComandoDisponivel: false,
+        erro: 'Sem comunicacao recente e sem sessao WebSocket ativa. Confirme se o equipamento esta ligado e configurado para este backend.',
       };
     }
     const info = await this.obterInfo();
-    return { ok: true, info };
+    return {
+      ok: true,
+      canalComandoDisponivel,
+      aviso: canalComandoDisponivel
+        ? null
+        : 'Equipamento online via HTTP; recebimento automatico de marcacoes funciona, mas comandos remotos exigem uma sessao WebSocket/WSS ativa.',
+      info,
+    };
   }
 
   /**
@@ -74,6 +88,7 @@ class EvoFacialAdapter extends DeviceAdapter {
       facesCadastradas: devinfo?.usedface ?? null,
       horaDispositivo: devinfo?.time || null,
       conectadoAgora: evoFacialServidor.estaConectado(this.numeroSerie),
+      canalComandoDisponivel: evoFacialServidor.canalComandoDisponivel(this.numeroSerie),
       ultimaConexaoEm: linha?.ultima_conexao_ws_em || null,
     };
   }

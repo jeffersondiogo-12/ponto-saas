@@ -106,7 +106,11 @@ export default function DispositivoForm() {
     setStatusAcao("Testando conexão...");
     try {
       const r = await api.testarConexaoDispositivo(id);
-      setStatusAcao(r.ok ? "Conectado com sucesso." : `Falha: ${r.erro}`);
+      setStatusAcao(
+        r.ok
+          ? r.aviso || "Conectado com sucesso."
+          : `Falha: ${r.erro}`,
+      );
     } catch (err) {
       setStatusAcao(`Falha: ${err.message}`);
     } finally {
@@ -500,9 +504,9 @@ export default function DispositivoForm() {
                   </span>
                   <span className="ajuda">
                     Última comunicação: {dataHoraCompleta(ultimaComunicacao)}.{" "}
-                    Em HTTP o equipamento não mantém conexão aberta — o que
-                    indica que ele está vivo é esse horário, não o selo de
-                    conectado.
+                    {dados.protocolo === "evo_ws"
+                      ? "Comunicação HTTP confirma que o equipamento está vivo e pode enviar batidas; receber usuários, coletar sob demanda e enviar faces exigem uma sessão WebSocket/WSS ativa."
+                      : "Em HTTP o equipamento não mantém conexão aberta; o horário mostra a última comunicação recebida."}
                   </span>
                 </div>
               )}
@@ -551,8 +555,9 @@ export default function DispositivoForm() {
             <div className="card-corpo">
               <p className="texto-apoio">
                 Envie a foto facial de um aluno ou funcionário ativo desta unidade.
-                A matrícula será usada como ID no relógio. Alunos ficam na fila cifrada
-                se o equipamento estiver offline; funcionários precisam estar conectados.
+                A matrícula será usada como ID no relógio. O envio remoto exige
+                WebSocket/WSS ativo; faces de alunos ficam na fila cifrada até o
+                equipamento abrir esse canal.
               </p>
               <div className="grid-form">
                 <div className="campo">

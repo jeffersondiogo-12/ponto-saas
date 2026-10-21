@@ -130,7 +130,7 @@ async function processarFacesPendentes(dispositivoId) {
     if (!dispositivo) return 0;
 
     const evoFacialServidor = require('./evoFacialServidor');
-    if (!evoFacialServidor.estaConectado(dispositivo.numero_serie)) return 0;
+    if (!evoFacialServidor.canalComandoDisponivel(dispositivo.numero_serie)) return 0;
 
     const adapter = require('./adapters').criarAdapter(dispositivo);
     const pendentesInativos = await db('faces_alunos_pendentes as p')
@@ -160,7 +160,7 @@ async function processarFacesPendentes(dispositivoId) {
 
     let totalEnviados = 0;
     for (const pendente of pendentes) {
-      if (!evoFacialServidor.estaConectado(dispositivo.numero_serie)) break;
+      if (!evoFacialServidor.canalComandoDisponivel(dispositivo.numero_serie)) break;
 
       try {
         const idNoDispositivo = matriculaComoIdDispositivo(pendente.matricula_atual);
@@ -213,7 +213,7 @@ async function processarFacesPendentes(dispositivoId) {
           `[evo-facial] face pendente do aluno ${pendente.aluno_id} nao enviada ao dispositivo ${dispositivo.id}:`,
           err.message
         );
-        if (!evoFacialServidor.estaConectado(dispositivo.numero_serie)) break;
+        if (!evoFacialServidor.canalComandoDisponivel(dispositivo.numero_serie)) break;
       }
     }
     return totalEnviados;

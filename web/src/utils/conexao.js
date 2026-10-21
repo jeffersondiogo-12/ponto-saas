@@ -5,6 +5,7 @@
  *   conectado_agora      - WebSocket vivo OU comunicou nos ultimos 10min
  *   ultima_conexao_ws_em - carimbo do ultimo `reg`, por WS ou por HTTP
  *   ultima_coleta_status - 'conectado_via_http' | 'conectado_via_websocket'
+ *   canal_comando_disponivel - sessao WebSocket ativa para comandos do Evo
  *
  * Mostrar so `conectado_agora` engana: equipamento em HTTP nao mantem conexao
  * aberta, entao fica "Offline" entre um envio e outro mesmo funcionando. Por
@@ -62,6 +63,24 @@ export function estadoConexao(d) {
       detalhe: relativo ? `última coleta ${relativo}` : "nunca coletado",
       titulo:
         "Neste protocolo o servidor conecta no equipamento quando precisa.",
+    };
+  }
+
+  if (
+    d.conectado_agora &&
+    d.protocolo === "evo_ws" &&
+    d.canal_comando_disponivel === false
+  ) {
+    const viaHttp = d.ultima_coleta_status === "conectado_via_http";
+    return {
+      rotulo: viaHttp ? "Online via HTTP" : "Comunicação recente",
+      classe: viaHttp ? "atencao" : "info",
+      detalhe: viaHttp
+        ? `batidas podem chegar; comandos exigem WebSocket${relativo ? ` · ${relativo}` : ""}`
+        : `sem canal de comando WebSocket${relativo ? ` · ${relativo}` : ""}`,
+      titulo: viaHttp
+        ? "O equipamento envia comunicação/batidas por HTTP, mas consultas e comandos remotos precisam de WebSocket ativo."
+        : "A última comunicação foi recente, mas não há uma sessão WebSocket ativa para comandos.",
     };
   }
 

@@ -113,11 +113,15 @@ function enviarMensagem(ws, numeroSerie, payload) {
   ws.send(JSON.stringify(payload));
 }
 
+function canalComandoDisponivel(numeroSerie) {
+  const conexao = conexoes.get(numeroSerie);
+  return Boolean(conexao?.ws && conexao.ws.readyState === conexao.ws.OPEN);
+}
+
 function estaConectado(numeroSerie) {
   const conexao = conexoes.get(numeroSerie);
   if (!conexao) return false;
-
-  if (conexao.ws && conexao.ws.readyState === conexao.ws.OPEN) return true;
+  if (canalComandoDisponivel(numeroSerie)) return true;
 
   const ultimaComunicacao = Number(conexao.ultimoHeartbeatEm || 0);
   if (!ultimaComunicacao) return false;
@@ -165,10 +169,16 @@ function parseDataHoraDispositivo(textoNaive, timeZone) {
  */
 async function enviarComando(numeroSerie, payload, { timeoutMs = 10000 } = {}) {
   const conexao = conexoes.get(numeroSerie);
-  if (!conexao || !conexao.ws || conexao.ws.readyState !== conexao.ws.OPEN) {
+  if (!canalComandoDisponivel(numeroSerie)) {
+    if (estaConectado(numeroSerie)) {
+      throw new Error(
+        `O dispositivo "${numeroSerie}" esta online via HTTP e pode enviar marcacoes, mas nao possui uma sessao WebSocket ativa ` +
+          'para receber comandos. Configure a conexao WebSocket/WSS do equipamento para consultar usuarios, coletar marcacoes sob demanda ou enviar faces.'
+      );
+    }
     throw new Error(
-      `O dispositivo "${numeroSerie}" nao esta conectado no momento. Como e o equipamento quem inicia a conexao ` +
-        '(a cada 20s, quando ligado e apontando para este servidor), so e possivel enviar comandos enquanto ele estiver online.'
+      `O dispositivo "${numeroSerie}" nao possui uma sessao WebSocket ativa para receber comandos. ` +
+        'Confirme se esta ligado e configurado para conectar por WebSocket/WSS ao backend.'
     );
   }
   if (conexao.pendente) {
@@ -589,6 +599,7 @@ module.exports = {
   iniciarServidorEvoFacial,
   enviarComando,
   estaConectado,
+  canalComandoDisponivel,
   desconectarDispositivo,
   listarNumerosSerieConectados,
   processarPostPublico,
