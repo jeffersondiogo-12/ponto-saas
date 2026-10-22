@@ -16,5 +16,8 @@ router.put('/:id', exigirPermissao('alunos', 'atualizar'), alunosController.atua
 router.delete('/:id', exigirPermissao('alunos', 'deletar'), alunosController.excluir);
 router.post('/:id/dispositivos', exigirPermissao('alunos', 'atualizar'), alunosController.vincularDispositivo);
 router.post('/:id/face', exigirPermissao('alunos', 'atualizar'), alunosController.cadastrarFace);
+router.get('/:id/foto', exigirPermissao('alunos', 'ver'), alunosController.obterFoto);
+router.put('/:id/foto', exigirPermissao('alunos', 'atualizar'), alunosController.salvarFoto);
+router.delete('/:id/foto', exigirPermissao('alunos', 'atualizar'), alunosController.removerFoto);
 
 module.exports = router;

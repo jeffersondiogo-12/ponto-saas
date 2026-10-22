@@ -1,5 +1,6 @@
 const alunosService = require('./alunos.service');
 const faceSyncService = require('../dispositivos/faceSync.service');
+const fotoAlunoService = require('./fotoAluno.service');
 
 async function listar(req, res, next) {
   try {
@@ -69,6 +70,40 @@ async function cadastrarFace(req, res, next) {
   }
 }
 
+async function obterFoto(req, res, next) {
+  try {
+    const foto = await fotoAlunoService.ler(req.empresaId, req.params.id, req.filialId);
+    // Foto de crianca: nada de cache compartilhado nem guardado no disco.
+    res.set({ 'Content-Type': 'image/jpeg', 'Cache-Control': 'private, no-store' }).send(foto);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function salvarFoto(req, res, next) {
+  try {
+    await fotoAlunoService.salvar(req.empresaId, req.params.id, req.body.foto_base64, {
+      usuarioId: req.usuarioId,
+      filialId: req.filialId,
+    });
+    res.status(204).end();
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function removerFoto(req, res, next) {
+  try {
+    await fotoAlunoService.remover(req.empresaId, req.params.id, {
+      usuarioId: req.usuarioId,
+      filialId: req.filialId,
+    });
+    res.status(204).end();
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function frequencia(req, res, next) {
   try {
     const { de, ate } = req.query;
@@ -88,4 +123,7 @@ async function excluir(req, res, next) {
   }
 }
 
-module.exports = { listar, buscar, criar, atualizar, excluir, vincularDispositivo, cadastrarFace, frequencia };
+module.exports = {
+  listar, buscar, criar, atualizar, excluir, vincularDispositivo, cadastrarFace, frequencia,
+  obterFoto, salvarFoto, removerFoto,
+};

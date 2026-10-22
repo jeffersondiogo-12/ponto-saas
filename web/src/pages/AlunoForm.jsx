@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import Layout from '../components/Layout';
 import Selecao from '../components/Selecao';
+import FotoAluno from '../components/FotoAluno';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { mascaraCpf, soDigitos } from '../utils/dominio';
@@ -31,6 +32,9 @@ export default function AlunoForm() {
   const editando = Boolean(id);
 
   const [dados, setDados] = useState(VAZIO);
+  // O registro como veio do servidor: a foto usa o id, a escola, a matricula
+  // SALVA e o `ativo` dele - e o que a rota do equipamento confere.
+  const [alunoAtual, setAlunoAtual] = useState(null);
   const [escolas, setEscolas] = useState([]);
   const [turmas, setTurmas] = useState([]);
   const [carregando, setCarregando] = useState(false);
@@ -63,6 +67,7 @@ export default function AlunoForm() {
       if (turm.status === 'fulfilled') setTurmas(turm.value.turmas || []);
       if (alunoResposta.status === 'fulfilled' && alunoResposta.value?.aluno) {
         const aluno = alunoResposta.value.aluno;
+        setAlunoAtual(aluno);
         setDados({
           nome: aluno.nome || '',
           cpf: mascaraCpf(aluno.cpf || ''),
@@ -185,6 +190,9 @@ export default function AlunoForm() {
           nesse tipo de unidade — cadastre uma em <Link to="/unidades">Unidades</Link>.
         </div>
       )}
+
+      {/* Fora do <form>: a foto tem rota e botao proprios. */}
+      {editando && alunoAtual && <FotoAluno aluno={alunoAtual} />}
 
       <form onSubmit={aoEnviar}>
         <div className="card">

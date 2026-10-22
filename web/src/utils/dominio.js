@@ -69,3 +69,11 @@ export function mascaraCpf(v) {
     .replace(/^(\d{3})\.(\d{3})(\d)/, '$1.$2.$3')
     .replace(/^(\d{3})\.(\d{3})\.(\d{3})(\d)/, '$1.$2.$3-$4');
 }
+
+/** "Ana Beatriz Souza" -> "AS": primeira letra do primeiro e do ultimo nome. */
+export function iniciais(nome) {
+  const partes = String(nome || '').trim().split(/\s+/).filter(Boolean);
+  if (!partes.length) return '?';
+  const ultima = partes.length > 1 ? partes[partes.length - 1][0] : '';
+  return (partes[0][0] + ultima).toUpperCase();
+}

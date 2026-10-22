@@ -38,9 +38,14 @@ export default function DispositivosLista() {
         <h1 className="titulo-pagina" style={{ marginBottom: 0 }}>
           Dispositivos
         </h1>
-        <Link to="/dispositivos/novo" className="btn btn-azul">
-          + Novo dispositivo
-        </Link>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <Link to="/dispositivos/sincronizar" className="btn btn-secundario">
+            Enviar e receber dados
+          </Link>
+          <Link to="/dispositivos/novo" className="btn btn-azul">
+            + Novo dispositivo
+          </Link>
+        </div>
       </div>
 
       <div className="card">

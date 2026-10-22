@@ -1,12 +1,14 @@
+import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { itensVisiveis, operaEmEscola, useCaraApp, useCelular } from '../utils/navegacao';
+import { rotuloPapel } from '../utils/dominio';
 import LayoutGestao from '../app/LayoutGestao';
 
 /**
  * Icones em SVG inline. Sao 9 icones de traco simples — nao vale puxar uma
  * biblioteca de icones (~50kB+) para isso, e assim eles herdam currentColor
- * e acompanham o estado do item da dock sem CSS extra.
+ * e acompanham o estado do item da barra sem CSS extra.
  */
 const svg = (d, extra = null) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"
@@ -33,20 +35,9 @@ const ICONES = {
   avisos: () => svg(['M3 11v2a1 1 0 0 0 1 1h3l6 4V6L7 10H4a1 1 0 0 0-1 1zM17 9.5a4 4 0 0 1 0 5M7 14v4']),
   permissoes: () => svg(['M5 11h14a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1zM8 11V7a4 4 0 0 1 8 0v4M12 15v2']),
   sair: () => svg(['M9 21H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h4M16 17l5-5-5-5M21 12H9']),
+  // Gira 90 graus no CSS quando o grupo esta aberto.
+  seta: () => svg(['M9 6l6 6-6 6']),
 };
-
-function ItemDock({ para, icone, rotulo, ativo }) {
-  const Icone = ICONES[icone];
-  return (
-    <Link to={para} className={`dock-item ${ativo ? 'ativo' : ''}`} data-rotulo={rotulo} aria-label={rotulo}>
-      <Icone />
-      {/* Visivel so no celular. No computador o rotulo aparece ao passar o
-          mouse, pelo `::after`; em tela de toque nao existe hover, e ali o
-          menu tem no maximo quatro itens — o texto cabe. */}
-      <span className="dock-rotulo">{rotulo}</span>
-    </Link>
-  );
-}
 
 /**
  * `empresaNome` era uma prop que NENHUMA pagina passava, entao a barra do topo
@@ -56,7 +47,7 @@ function ItemDock({ para, icone, rotulo, ativo }) {
  * fonte de verdade.
  */
 export default function Layout({ children, empresaNome }) {
-  const { usuario, logout, filialSelecionada, empresaSelecionada, pode } = useAuth();
+  const { usuario, logout, filialSelecionada, empresaSelecionada, pode, modo, trocarEntrada } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -76,7 +67,8 @@ export default function Layout({ children, empresaNome }) {
    * turma e aluno so existem em unidade do tipo escola. Permissao responde
    * "voce pode?"; o tipo da unidade responde "faz sentido aqui?".
    */
-  const ehEscola = operaEmEscola(usuario, filialSelecionada);
+  const ehEscola = operaEmEscola(usuario, filialSelecionada, modo);
+  const ehSuperAdmin = usuario?.papel === 'super_admin';
 
   /**
    * As condicoes de cada item vivem em `utils/navegacao.js`, junto com a lista
@@ -87,42 +79,109 @@ export default function Layout({ children, empresaNome }) {
   const celular = useCelular();
   const itens = itensVisiveis({ usuario, pode, filialSelecionada, ehEscola }, celular);
 
+  // Item sem `grupo` fica solto no topo; os outros, no grupo, na ordem da lista.
+  const soltos = itens.filter((item) => !item.grupo);
+  const grupos = [];
+  for (const item of itens.filter((i) => i.grupo)) {
+    const grupo = grupos.find((g) => g.titulo === item.grupo);
+    if (grupo) grupo.itens.push(item);
+    else grupos.push({ titulo: item.grupo, itens: [item] });
+  }
+
+  /**
+   * Abre o grupo da tela atual; os outros descem ao passar o mouse e ficam
+   * abertos pelo clique no titulo - o caminho do teclado e do toque, que nao
+   * tem hover. Cada pagina monta a propria `Layout`, entao isto volta ao
+   * padrao a cada troca de tela - e o grupo da tela nova ja nasce aberto.
+   */
+  const grupoAtual = itens.find((item) => item.grupo && ehAtivo(item.para))?.grupo;
+  const [abertos, setAbertos] = useState(() => new Set(grupoAtual ? [grupoAtual] : []));
+  const alternarGrupo = (titulo) => setAbertos((atual) => {
+    const proximo = new Set(atual);
+    if (proximo.has(titulo)) proximo.delete(titulo);
+    else proximo.add(titulo);
+    return proximo;
+  });
+
   // Cara do app (PWA): as mesmas paginas, com o cabecalho e a barra do app.
   const caraApp = useCaraApp();
   if (caraApp) return <LayoutGestao empresaNome={empresaNome}>{children}</LayoutGestao>;
 
+  const linkItem = (item) => {
+    const Icone = ICONES[item.icone];
+    const ativo = ehAtivo(item.para);
+    return (
+      <Link
+        key={item.para}
+        to={item.para}
+        className={`lateral-item ${ativo ? 'ativo' : ''}`}
+        aria-current={ativo ? 'page' : undefined}
+      >
+        <Icone />
+        {item.rotulo}
+      </Link>
+    );
+  };
+
   return (
     <div className="shell">
-      <aside className="dock" aria-label="Navegação principal">
-        <Link to="/dashboard" className="dock-marca" aria-label="Ponte Escolar — ir para a visão geral">
+      <aside className="lateral" aria-label="Navegação principal">
+        <Link to="/dashboard" className="lateral-marca" aria-label="Ponte Escolar — ir para a visão geral">
           <img src="/ponte-escolar.png" alt="" />
+          <span>{rotuloPapel(usuario?.papel)}</span>
         </Link>
 
         {/* Relatorios nao esta na lista: a porta de entrada e a secao
             "Relatorios" do Dashboard. A rota /relatorios continua valendo. */}
-        <nav className="dock-grupo">
-          {itens.map((item) => (
-            <ItemDock
-              key={item.para}
-              para={item.para}
-              icone={item.icone}
-              rotulo={item.rotulo}
-              ativo={ehAtivo(item.para)}
-            />
-          ))}
+        <nav className="lateral-nav">
+          {soltos.map(linkItem)}
+          {grupos.map(({ titulo, itens: itensDoGrupo }) => {
+            const aberto = abertos.has(titulo);
+            return (
+              <div key={titulo} className="lateral-grupo">
+                <button
+                  type="button"
+                  className="lateral-grupo-titulo"
+                  aria-expanded={aberto}
+                  onClick={() => alternarGrupo(titulo)}
+                >
+                  <ICONES.seta />
+                  {titulo}
+                </button>
+                {/* Sempre montados: o CSS mostra no hover ou com o grupo aberto
+                    no clique, e anima a descida. */}
+                <div className="lateral-grupo-itens">
+                  <div>{itensDoGrupo.map(linkItem)}</div>
+                </div>
+              </div>
+            );
+          })}
         </nav>
 
-        <button type="button" className="dock-item dock-sair" onClick={sair} data-rotulo="Sair" aria-label="Sair">
+        <button type="button" className="lateral-item lateral-sair" onClick={sair}>
           <ICONES.sair />
+          Sair
         </button>
       </aside>
 
       <div className="main">
         <div className="barra-topo">
-          <span className="unidade-atual">
-            {filialSelecionada?.nome || empresaNome || empresaSelecionada?.nome || 'Nenhuma unidade selecionada'}
-            {filialSelecionada?.nome && empresaSelecionada?.nome && (
-              <span className="unidade-empresa"> · {empresaSelecionada.nome}</span>
+          <span className="barra-topo-onde">
+            {ehSuperAdmin && empresaSelecionada && (
+              <span className="modo-entrada">
+                {modo === 'supervisionar' ? 'Supervisionando' : filialSelecionada ? 'Administrando' : 'Escolha como entrar'}
+              </span>
+            )}
+            <span className="unidade-atual">
+              {filialSelecionada?.nome || empresaNome || empresaSelecionada?.nome || 'Nenhuma unidade selecionada'}
+              {filialSelecionada?.nome && empresaSelecionada?.nome && (
+                <span className="unidade-empresa"> · {empresaSelecionada.nome}</span>
+              )}
+            </span>
+            {/* Reabre a janela de entrada: era o unico caminho, e fechando-a sem
+                escolher nao havia volta ate o proximo F5. */}
+            {ehSuperAdmin && empresaSelecionada && (
+              <button type="button" className="btn btn-secundario" onClick={trocarEntrada}>Trocar</button>
             )}
           </span>
           <span className="quem">{usuario?.nome}{usuario?.papel ? ` · ${usuario.papel}` : ''}</span>
