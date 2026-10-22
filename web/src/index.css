@@ -194,6 +194,29 @@ a:hover { color: var(--azul); }
    unidade em destaque, mas o super_admin troca de empresa e precisa ver qual. */
 .barra-topo .unidade-empresa { font-weight: 400; opacity: .72; }
 .barra-topo .quem { color: var(--tinta-fraca); }
+/* Super_admin: o modo de entrada e o "Trocar" ao lado da unidade. */
+.barra-topo-onde { display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.barra-topo .modo-entrada { font-weight: 700; color: var(--tinta); font-size: 12.5px; }
+/* Janela de entrada do super_admin (SelecionarFilialModal): dois botoes
+   grandes; em "Administrar", a busca e a lista de unidades. */
+.entrada-opcoes { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 14px; }
+.entrada-opcao {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 6px; min-height: 124px;
+  padding: 18px; text-align: left; cursor: pointer; font: inherit; color: var(--tinta);
+  background: var(--branco); border: 1px solid var(--borda-forte); border-radius: var(--raio);
+  transition: border-color 0.13s, background 0.13s;
+}
+.entrada-opcao:hover { border-color: var(--azul); background: var(--azul-fraco); }
+.entrada-opcao svg { width: 30px; height: 30px; color: var(--azul); margin-bottom: 4px; }
+.entrada-opcao strong { font-size: 15px; }
+.entrada-opcao span { font-size: 13px; color: var(--tinta-fraca); }
+@media (max-width: 480px) { .entrada-opcoes { grid-template-columns: 1fr; } }
+.item-filial-botao { width: 100%; min-height: 44px; cursor: pointer; font: inherit; color: var(--tinta); text-align: left; }
+.botao-voltar {
+  display: inline-flex; align-items: center; min-height: 44px; padding: 0; margin-bottom: 4px;
+  background: none; border: none; cursor: pointer; font: inherit; font-size: 13px; color: var(--tinta-fraca);
+}
+.botao-voltar:hover { color: var(--azul); }
 
 /* Sem teto de largura: o conteudo ocupa a tela toda ate a borda direita. */
 .conteudo { padding: 14px 30px 44px; max-width: none; }

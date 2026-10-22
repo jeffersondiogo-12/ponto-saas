@@ -171,8 +171,10 @@ const SEMPRE_ALCANCAVEIS = ['/login', '/selecionar-empresa'];
  * por `usuario.filial_id` de qualquer forma, entao o conserto certo e o login
  * devolver essa filial — registrado na secao 7 do CLAUDE.md.
  */
-export function operaEmEscola(usuario, filialSelecionada) {
+export function operaEmEscola(usuario, filialSelecionada, modo = null) {
   if (filialSelecionada) return filialSelecionada.tipo === 'escola';
+  // Supervisionando, o super_admin ve o ambiente inteiro - escolas inclusive.
+  if (usuario?.papel === 'super_admin' && modo === 'supervisionar') return true;
   return Boolean(usuario?.filial_id);
 }
 

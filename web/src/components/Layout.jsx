@@ -47,7 +47,7 @@ const ICONES = {
  * fonte de verdade.
  */
 export default function Layout({ children, empresaNome }) {
-  const { usuario, logout, filialSelecionada, empresaSelecionada, pode } = useAuth();
+  const { usuario, logout, filialSelecionada, empresaSelecionada, pode, modo, trocarEntrada } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -67,7 +67,8 @@ export default function Layout({ children, empresaNome }) {
    * turma e aluno so existem em unidade do tipo escola. Permissao responde
    * "voce pode?"; o tipo da unidade responde "faz sentido aqui?".
    */
-  const ehEscola = operaEmEscola(usuario, filialSelecionada);
+  const ehEscola = operaEmEscola(usuario, filialSelecionada, modo);
+  const ehSuperAdmin = usuario?.papel === 'super_admin';
 
   /**
    * As condicoes de cada item vivem em `utils/navegacao.js`, junto com a lista
@@ -165,10 +166,22 @@ export default function Layout({ children, empresaNome }) {
 
       <div className="main">
         <div className="barra-topo">
-          <span className="unidade-atual">
-            {filialSelecionada?.nome || empresaNome || empresaSelecionada?.nome || 'Nenhuma unidade selecionada'}
-            {filialSelecionada?.nome && empresaSelecionada?.nome && (
-              <span className="unidade-empresa"> · {empresaSelecionada.nome}</span>
+          <span className="barra-topo-onde">
+            {ehSuperAdmin && empresaSelecionada && (
+              <span className="modo-entrada">
+                {modo === 'supervisionar' ? 'Supervisionando' : filialSelecionada ? 'Administrando' : 'Escolha como entrar'}
+              </span>
+            )}
+            <span className="unidade-atual">
+              {filialSelecionada?.nome || empresaNome || empresaSelecionada?.nome || 'Nenhuma unidade selecionada'}
+              {filialSelecionada?.nome && empresaSelecionada?.nome && (
+                <span className="unidade-empresa"> · {empresaSelecionada.nome}</span>
+              )}
+            </span>
+            {/* Reabre a janela de entrada: era o unico caminho, e fechando-a sem
+                escolher nao havia volta ate o proximo F5. */}
+            {ehSuperAdmin && empresaSelecionada && (
+              <button type="button" className="btn btn-secundario" onClick={trocarEntrada}>Trocar</button>
             )}
           </span>
           <span className="quem">{usuario?.nome}{usuario?.papel ? ` · ${usuario.papel}` : ''}</span>

@@ -22,6 +22,28 @@ const AuthContext = createContext(null);
 const CHAVE_PERMISSOES = 'ponto_saas_permissoes';
 
 /**
+ * Como o super_admin entrou no ambiente (2026-10-21): 'supervisionar' (o
+ * ambiente inteiro, sem unidade, vendo e alterando) ou 'administrar' (uma
+ * unidade escolhida). So vale para ele; os outros papeis seguem como antes.
+ */
+const CHAVE_MODO = 'ponto_saas_modo_entrada';
+function lerModo() {
+  try {
+    return localStorage.getItem(CHAVE_MODO);
+  } catch {
+    return null;
+  }
+}
+function gravarModo(modo) {
+  try {
+    if (modo) localStorage.setItem(CHAVE_MODO, modo);
+    else localStorage.removeItem(CHAVE_MODO);
+  } catch {
+    // Sem armazenamento: o modo vale ate o F5.
+  }
+}
+
+/**
  * A matriz fica no localStorage para o menu nao piscar entre o F5 e a resposta
  * da API. E cache de conveniencia, nao fonte de verdade: o servidor confere
  * cada rota de novo, entao uma copia velha aqui mostra um botao a mais, nunca
@@ -40,6 +62,11 @@ export function AuthProvider({ children }) {
   const [usuario, setUsuario] = useState(lerUsuarioSalvo);
   const [empresaSelecionada, setEmpresaSelecionada] = useState(obterEmpresaSelecionada);
   const [filialSelecionada, setFilialSelecionada] = useState(obterFilialSelecionada);
+  const [modo, setModo] = useState(lerModo);
+  const definirModo = useCallback((novo) => {
+    gravarModo(novo);
+    setModo(novo);
+  }, []);
   const [permissoes, setPermissoes] = useState(lerPermissoesSalvas);
   /**
    * Recado da queda de sessao, mostrado pela tela de login.
@@ -106,26 +133,52 @@ export function AuthProvider({ children }) {
       limparFilialSelecionada();
       setFilialSelecionada(null);
     }
+    // Cada login escolhe de novo como entrar.
+    definirModo(null);
 
     return resposta;
-  }, []);
+  }, [definirModo]);
 
+  /**
+   * Ambiente novo, escolha nova: a unidade e o modo do ambiente anterior nao
+   * valem aqui. Antes a unidade antiga ficava, e o `X-Filial-Id` dela ia junto
+   * com o `X-Empresa-Id` do ambiente novo - o servidor recusava tudo com 403.
+   */
   const selecionarEmpresa = useCallback(({ id, nome }) => {
     salvarEmpresaSelecionada({ id, nome });
     setEmpresaSelecionada({ id, nome });
-  }, []);
+    limparFilialSelecionada();
+    setFilialSelecionada(null);
+    definirModo(null);
+  }, [definirModo]);
 
   const selecionarFilial = useCallback(({ id, nome, tipo }) => {
     salvarFilialSelecionada({ id, nome, tipo });
     setFilialSelecionada({ id, nome, tipo });
-  }, []);
+    definirModo('administrar');
+  }, [definirModo]);
+
+  /** Super_admin: o ambiente inteiro, sem unidade. */
+  const supervisionar = useCallback(() => {
+    limparFilialSelecionada();
+    setFilialSelecionada(null);
+    definirModo('supervisionar');
+  }, [definirModo]);
+
+  /** "Trocar" da barra do topo: some a escolha, e a janela de entrada volta. */
+  const trocarEntrada = useCallback(() => {
+    limparFilialSelecionada();
+    setFilialSelecionada(null);
+    definirModo(null);
+  }, [definirModo]);
 
   const limparEmpresa = useCallback(() => {
     limparEmpresaSelecionada();
     limparFilialSelecionada();
     setEmpresaSelecionada(null);
     setFilialSelecionada(null);
-  }, []);
+    definirModo(null);
+  }, [definirModo]);
 
   /**
    * Login do responsavel — so pela cara do app. Ele nao escolhe ambiente nem
@@ -244,9 +297,10 @@ export function AuthProvider({ children }) {
   return (
     <AuthContext.Provider
       value={{
-        usuario, empresaSelecionada, filialSelecionada,
+        usuario, empresaSelecionada, filialSelecionada, modo,
         permissoes, pode, carregarPermissoes, sessaoEncerrada,
-        login, loginResponsavel, selecionarEmpresa, selecionarFilial, limparEmpresa, logout,
+        login, loginResponsavel, selecionarEmpresa, selecionarFilial, supervisionar, trocarEntrada,
+        limparEmpresa, logout,
       }}
     >
       {children}

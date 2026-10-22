@@ -19,11 +19,11 @@ function iniciais(nome = '') {
 }
 
 export default function LayoutGestao({ children, empresaNome }) {
-  const { usuario, logout, filialSelecionada, empresaSelecionada, pode } = useAuth();
+  const { usuario, logout, filialSelecionada, empresaSelecionada, pode, modo } = useAuth();
   const { pathname } = useLocation();
   const navigate = useNavigate();
 
-  const ehEscola = operaEmEscola(usuario, filialSelecionada);
+  const ehEscola = operaEmEscola(usuario, filialSelecionada, modo);
   const itens = itensVisiveis({ usuario, pode, filialSelecionada, ehEscola }, true).map((item) => ({
     chave: item.para,
     rotulo: item.rotulo,

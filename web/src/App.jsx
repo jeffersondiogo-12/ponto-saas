@@ -55,7 +55,7 @@ function ForaDoCelular({ nome }) {
 }
 
 function RotaProtegida({ children }) {
-  const { usuario, pode, filialSelecionada } = useAuth();
+  const { usuario, pode, filialSelecionada, modo } = useAuth();
   // Cara do app (celular ou instalado num aparelho de toque): a lista de telas
   // do celular vale tambem no iPad instalado, e nao so em tela estreita.
   const caraApp = useCaraApp();
@@ -72,7 +72,7 @@ function RotaProtegida({ children }) {
    */
   if (permitidoNoCelular(usuario.papel, pathname)) return children;
 
-  const ehEscola = operaEmEscola(usuario, filialSelecionada);
+  const ehEscola = operaEmEscola(usuario, filialSelecionada, modo);
   const destino = telaInicialNoCelular({ usuario, pode, filialSelecionada, ehEscola });
   if (!destino) return <ForaDoCelular nome={usuario.nome?.split(' ')[0]} />;
   return <Navigate to={destino} replace />;
