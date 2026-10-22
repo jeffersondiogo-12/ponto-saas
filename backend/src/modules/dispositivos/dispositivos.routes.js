@@ -25,5 +25,6 @@ router.post(
   dispositivosController.cadastrarFace
 );
 router.post('/:id/remover-face', exigirPermissao('dispositivos', 'atualizar'), dispositivosController.removerFace);
+router.post('/:id/enviar-alunos', exigirPermissao('dispositivos', 'atualizar'), dispositivosController.enviarAlunos);
 
 module.exports = router;

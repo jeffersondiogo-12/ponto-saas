@@ -10,6 +10,8 @@ async function listar(empresaId, { turmaId, filialId, ativo } = {}) {
       't.nome as turma_nome',
       'f.nome as filial_nome',
       db.raw(`COALESCE((SELECT json_agg(ht ORDER BY ht.dia_semana) FROM horarios_turmas ht WHERE ht.turma_id = t.id AND ht.ativo = true), '[]'::json) AS horarios_turma`),
+      // So o "tem ou nao": a foto em si vem por GET /:id/foto, quando a tela precisa.
+      db.raw('EXISTS (SELECT 1 FROM fotos_alunos fa WHERE fa.aluno_id = a.id) AS tem_foto'),
     )
     .leftJoin('turmas as t', 't.id', 'a.turma_id')
     .join('filiais as f', 'f.id', 'a.filial_id')

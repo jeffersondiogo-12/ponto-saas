@@ -39,32 +39,40 @@ function matriculaComoIdDispositivo(matricula) {
   return valor;
 }
 
-async function cadastrarFaceAluno(empresaId, alunoId, { dispositivoId, fotoBase64 }, filialId = null) {
-  const uuidValido =
-    typeof dispositivoId === 'string' &&
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(dispositivoId);
-  if (!uuidValido) {
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const ehUuid = (valor) => typeof valor === 'string' && UUID.test(valor);
+
+/** O equipamento que aceita cadastro remoto de face: ativo e Evo por WebSocket. */
+async function buscarDispositivoFacial(empresaId, dispositivoId) {
+  if (!ehUuid(dispositivoId)) {
     throw new AppError('Informe um dispositivo valido.', 400);
   }
-  const foto = normalizarFoto(fotoBase64);
-  const aluno = await db('alunos').where({ id: alunoId, empresa_id: empresaId }).first();
-  if (!aluno || (filialId && aluno.filial_id !== filialId)) {
-    throw new AppError('Aluno nao encontrado.', 404);
-  }
-  if (!aluno.ativo) throw new AppError('Nao e possivel cadastrar face de aluno inativo.', 400);
-
   const dispositivo = await db('dispositivos')
     .where({ id: dispositivoId, empresa_id: empresaId, situacao: 'ativo' })
     .first();
   if (!dispositivo) throw new AppError('Dispositivo ativo nao encontrado.', 404);
-  if (!dispositivo.filial_id || dispositivo.filial_id !== aluno.filial_id) {
-    throw new AppError('O aluno e o dispositivo devem pertencer a mesma unidade.', 400);
-  }
   if (dispositivo.protocolo !== 'evo_ws') {
     throw new AppError(
       'O cadastro facial remoto esta disponivel somente para equipamentos Evo conectados por WebSocket.',
       400
     );
+  }
+  return dispositivo;
+}
+
+/**
+ * Confere o aluno contra o equipamento e poe a foto (ja normalizada) na fila
+ * cifrada. Nao envia: quem chama processa a fila. Devolve o ID usado no relogio.
+ */
+async function enfileirarFaceAluno(empresaId, alunoId, dispositivo, foto, filialId = null) {
+  if (!ehUuid(alunoId)) throw new AppError('Aluno nao encontrado.', 404);
+  const aluno = await db('alunos').where({ id: alunoId, empresa_id: empresaId }).first();
+  if (!aluno || (filialId && aluno.filial_id !== filialId)) {
+    throw new AppError('Aluno nao encontrado.', 404);
+  }
+  if (!aluno.ativo) throw new AppError('Nao e possivel cadastrar face de aluno inativo.', 400);
+  if (!dispositivo.filial_id || dispositivo.filial_id !== aluno.filial_id) {
+    throw new AppError('O aluno e o dispositivo devem pertencer a mesma unidade.', 400);
   }
 
   const idNoDispositivo = matriculaComoIdDispositivo(aluno.matricula);
@@ -105,9 +113,17 @@ async function cadastrarFaceAluno(empresaId, alunoId, { dispositivoId, fotoBase6
       });
   });
 
+  return idNoDispositivo;
+}
+
+async function cadastrarFaceAluno(empresaId, alunoId, { dispositivoId, fotoBase64 }, filialId = null) {
+  const dispositivo = await buscarDispositivoFacial(empresaId, dispositivoId);
+  const foto = normalizarFoto(fotoBase64);
+  const idNoDispositivo = await enfileirarFaceAluno(empresaId, alunoId, dispositivo, foto, filialId);
+
   await processarFacesPendentes(dispositivo.id);
   const pendente = await db('faces_alunos_pendentes')
-    .where({ dispositivo_id: dispositivo.id, aluno_id: aluno.id })
+    .where({ dispositivo_id: dispositivo.id, aluno_id: alunoId })
     .first();
 
   return {
@@ -117,6 +133,65 @@ async function cadastrarFaceAluno(empresaId, alunoId, { dispositivoId, fotoBase6
     tentativas: pendente?.tentativas || 0,
     erro: pendente?.ultimo_erro || null,
   };
+}
+
+/**
+ * Envia ao equipamento a foto GUARDADA (`fotos_alunos`) de cada aluno da lista
+ * - o envio em lote da tela de Dispositivos. Cada aluno passa pelas mesmas
+ * travas do envio avulso, e quem falha nao impede os outros: o motivo volta no
+ * resultado dele. A fila e processada uma vez, no fim.
+ *
+ * Estados por aluno: `enviado` (o equipamento confirmou), `pendente` (na fila
+ * cifrada, sobe quando o equipamento se conectar) ou `erro` (com `mensagem`).
+ */
+async function enviarAlunosSalvos(empresaId, dispositivoId, alunoIds, { usuarioId = null, filialId = null } = {}) {
+  if (!Array.isArray(alunoIds) || alunoIds.length === 0) {
+    throw new AppError('Selecione ao menos um aluno.', 400);
+  }
+  if (alunoIds.length > 500) throw new AppError('Envie no maximo 500 alunos por vez.', 400);
+
+  const dispositivo = await buscarDispositivoFacial(empresaId, dispositivoId);
+  // Aqui, e nao no topo: fotoAluno.service importa normalizarFoto deste arquivo.
+  const fotoAlunoService = require('../alunos/fotoAluno.service');
+
+  const resultados = [];
+  for (const alunoId of [...new Set(alunoIds)]) {
+    try {
+      const foto = await fotoAlunoService.lerBase64(empresaId, alunoId);
+      await enfileirarFaceAluno(empresaId, alunoId, dispositivo, foto, filialId);
+      resultados.push({ aluno_id: alunoId, estado: 'na_fila', mensagem: null });
+    } catch (err) {
+      // Recusa de regra vira resultado do aluno; falha de banco derruba o pedido.
+      if (!(err instanceof AppError)) throw err;
+      resultados.push({ aluno_id: alunoId, estado: 'erro', mensagem: err.message });
+    }
+  }
+
+  const naFila = resultados.filter((r) => r.estado === 'na_fila').map((r) => r.aluno_id);
+  if (naFila.length) {
+    await processarFacesPendentes(dispositivo.id);
+    const pendentes = await db('faces_alunos_pendentes')
+      .where({ dispositivo_id: dispositivo.id })
+      .whereIn('aluno_id', naFila)
+      .select('aluno_id', 'ultimo_erro');
+    const ainda = new Map(pendentes.map((p) => [p.aluno_id, p.ultimo_erro]));
+    for (const r of resultados) {
+      if (r.estado !== 'na_fila') continue;
+      r.estado = ainda.has(r.aluno_id) ? 'pendente' : 'enviado';
+      r.mensagem = ainda.get(r.aluno_id) || null;
+    }
+
+    await db('auditoria_logs').insert({
+      empresa_id: empresaId,
+      usuario_id: usuarioId,
+      acao: 'enviar_fotos_alunos_equipamento',
+      entidade: 'dispositivos',
+      entidade_id: dispositivo.id,
+      dados_depois: { alunos: naFila },
+    });
+  }
+
+  return { resultados };
 }
 
 async function processarFacesPendentes(dispositivoId) {
@@ -222,4 +297,4 @@ async function processarFacesPendentes(dispositivoId) {
   }
 }
 
-module.exports = { cadastrarFaceAluno, processarFacesPendentes };
+module.exports = { cadastrarFaceAluno, enviarAlunosSalvos, processarFacesPendentes, normalizarFoto };

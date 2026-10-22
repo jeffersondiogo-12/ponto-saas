@@ -1,5 +1,6 @@
 const dispositivosService = require('./dispositivos.service');
 const pontoService = require('../ponto/ponto.service');
+const faceSyncService = require('./faceSync.service');
 
 async function listar(req, res, next) {
   try {
@@ -96,7 +97,24 @@ async function removerFace(req, res, next) {
   }
 }
 
+/**
+ * Envio em lote da tela de Dispositivos: a foto guardada de cada aluno vai ao
+ * equipamento. Recusa por aluno volta no resultado dele, nao como erro.
+ */
+async function enviarAlunos(req, res, next) {
+  try {
+    const resultado = await faceSyncService.enviarAlunosSalvos(req.empresaId, req.params.id, req.body.aluno_ids, {
+      usuarioId: req.usuarioId,
+      filialId: req.filialId,
+    });
+    res.json(resultado);
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
+  enviarAlunos,
   listar,
   buscar,
   criar,

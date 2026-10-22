@@ -56,4 +56,6 @@ function caminhoAbsoluto(fotoUrlRelativa) {
   return path.join(DIRETORIO_BASE, '..', fotoUrlRelativa);
 }
 
-module.exports = { salvarFotoBatida, caminhoAbsoluto };
+// extrairBase64Puro faltava aqui: o faceSync.service a importa, recebia
+// undefined e toda chamada a POST /api/alunos/:id/face caia em 500.
+module.exports = { salvarFotoBatida, caminhoAbsoluto, extrairBase64Puro };
