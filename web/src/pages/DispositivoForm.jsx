@@ -2,9 +2,11 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import Layout from "../components/Layout";
 import Selecao from "../components/Selecao";
+import UsuariosDoEquipamento from "../components/UsuariosDoEquipamento";
 import { api } from "../api";
 import { dataHoraCompleta, estadoConexao } from "../utils/conexao";
 import { useAuth } from "../context/AuthContext";
+import { ACEITA, paraBase64, prepararFoto } from "../utils/fotoAluno";
 
 const PADRAO = {
   descricao: "",
@@ -160,29 +162,25 @@ export default function DispositivoForm() {
 
   async function carregarPessoas() {
     if (!dados.filial_id) {
-      setStatusAcao("Selecione e salve a filial do equipamento antes de carregar pessoas.");
+      setStatusAcao("Selecione e salve a filial do equipamento antes de carregar os funcionários.");
       return;
     }
     setAcaoEmAndamento(true);
-    setStatusAcao("Carregando pessoas da unidade...");
+    setStatusAcao("Carregando funcionários da unidade...");
     try {
-      const [funcionariosResposta, alunosResposta] = await Promise.all([
-        api.listarFuncionarios(),
-        api.listarAlunos({ ativo: true }),
-      ]);
-      const funcionarios = (funcionariosResposta.funcionarios || [])
+      // So funcionarios: aluno vai por "Enviar e receber dados", com a foto
+      // guardada no cadastro dele (2026-10-21).
+      const funcionariosResposta = await api.listarFuncionarios();
+      const pessoas = (funcionariosResposta.funcionarios || [])
         .filter((pessoa) => pessoa.ativo && pessoa.filial_id === dados.filial_id)
-        .map((pessoa) => ({ ...pessoa, tipo: "funcionario" }));
-      const alunos = (alunosResposta.alunos || [])
-        .filter((pessoa) => pessoa.ativo && pessoa.filial_id === dados.filial_id)
-        .map((pessoa) => ({ ...pessoa, tipo: "aluno" }));
-      const pessoas = [...alunos, ...funcionarios].sort((a, b) => a.nome.localeCompare(b.nome));
+        .map((pessoa) => ({ ...pessoa, tipo: "funcionario" }))
+        .sort((a, b) => a.nome.localeCompare(b.nome));
       setPessoasDisponiveis(pessoas);
       setPessoaSelecionada("");
       setStatusAcao(
         pessoas.length
-          ? `${pessoas.length} pessoa(s) ativa(s) carregada(s) para envio.`
-          : "Nenhum aluno ou funcionário ativo encontrado nesta unidade.",
+          ? `${pessoas.length} funcionário(s) ativo(s) carregado(s) para envio.`
+          : "Nenhum funcionário ativo encontrado nesta unidade.",
       );
     } catch (err) {
       setStatusAcao(`Falha ao carregar pessoas: ${err.message}`);
@@ -191,22 +189,18 @@ export default function DispositivoForm() {
     }
   }
 
-  function selecionarFoto(e) {
+  async function selecionarFoto(e) {
     const arquivo = e.target.files?.[0] || null;
     setFotoFacial(null);
     if (!arquivo) return;
-    if (!arquivo.type.startsWith("image/")) {
-      setStatusAcao("Selecione um arquivo de imagem.");
+    try {
+      // Mesma preparacao da foto do aluno: trava HEIC, reduz a 800x1280 e tira o GPS.
+      setFotoFacial(await prepararFoto(arquivo));
+      setStatusAcao("");
+    } catch (err) {
+      setStatusAcao(err.message);
       e.target.value = "";
-      return;
     }
-    if (arquivo.size > 4 * 1024 * 1024) {
-      setStatusAcao("A foto deve ter no máximo 4 MB.");
-      e.target.value = "";
-      return;
-    }
-    setFotoFacial(arquivo);
-    setStatusAcao("");
   }
 
   async function enviarFace() {
@@ -216,7 +210,7 @@ export default function DispositivoForm() {
     );
     const matricula = String(pessoa?.matricula || "").trim();
     if (!pessoa || !fotoFacial) {
-      setStatusAcao("Selecione uma pessoa e uma foto facial.");
+      setStatusAcao("Selecione um funcionário e uma foto facial.");
       return;
     }
     if (!/^[1-9]\d*$/.test(matricula) || !Number.isSafeInteger(Number(matricula))) {
@@ -227,33 +221,15 @@ export default function DispositivoForm() {
     setAcaoEmAndamento(true);
     setStatusAcao("Enviando face ao equipamento...");
     try {
-      const fotoBase64 = await new Promise((resolve, reject) => {
-        const leitor = new FileReader();
-        leitor.onload = () => resolve(leitor.result);
-        leitor.onerror = () => reject(new Error("Não foi possível ler a foto selecionada."));
-        leitor.readAsDataURL(fotoFacial);
+      const resultado = await api.cadastrarFaceDispositivo(id, {
+        tipo,
+        pessoa_id: pessoa.id,
+        id_no_dispositivo: matricula,
+        nome: pessoa.nome,
+        foto_base64: await paraBase64(fotoFacial),
       });
-      if (tipo === "aluno") {
-        const resultado = await api.cadastrarFaceAluno(pessoa.id, {
-          dispositivo_id: id,
-          foto_base64: fotoBase64,
-        });
-        setStatusAcao(
-          resultado.pendente
-            ? `Face guardada com segurança e pendente de envio. ${resultado.erro || "Será enviada quando o equipamento se conectar."}`
-            : `Face de ${pessoa.nome} enviada e confirmada pelo equipamento.`,
-        );
-      } else {
-        const resultado = await api.cadastrarFaceDispositivo(id, {
-          tipo,
-          pessoa_id: pessoa.id,
-          id_no_dispositivo: matricula,
-          nome: pessoa.nome,
-          foto_base64: fotoBase64,
-        });
-        if (resultado.ok === false) throw new Error(resultado.erro || "O equipamento recusou o cadastro.");
-        setStatusAcao(`Face de ${pessoa.nome} enviada e confirmada pelo equipamento.`);
-      }
+      if (resultado.ok === false) throw new Error(resultado.erro || "O equipamento recusou o cadastro.");
+      setStatusAcao(`Face de ${pessoa.nome} enviada e confirmada pelo equipamento.`);
       setFotoFacial(null);
       const inputFoto = document.getElementById("foto-facial-dispositivo");
       if (inputFoto) inputFoto.value = "";
@@ -550,44 +526,45 @@ export default function DispositivoForm() {
             <div className="eyebrow">Enviar dados para o equipamento</div>
             <div className="card-corpo">
               <p className="texto-apoio">
-                Envie a foto facial de um aluno ou funcionário ativo desta unidade.
-                A matrícula será usada como ID no relógio. Alunos ficam na fila cifrada
-                se o equipamento estiver offline; funcionários precisam estar conectados.
+                Envie a foto facial de um funcionário ativo desta unidade. A matrícula será
+                usada como ID no relógio, e o equipamento precisa estar conectado. Alunos vão
+                por "Enviar e receber dados", na lista de dispositivos, com a foto guardada no
+                cadastro de cada um.
               </p>
               <div className="grid-form">
                 <div className="campo">
-                  <label>Pessoa</label>
+                  <label>Funcionário</label>
                   <select
                     value={pessoaSelecionada}
                     onChange={(e) => setPessoaSelecionada(e.target.value)}
                     disabled={!pessoasDisponiveis.length || acaoEmAndamento}
                   >
-                    <option value="">Selecione uma pessoa</option>
+                    <option value="">Selecione um funcionário</option>
                     {pessoasDisponiveis.map((pessoa) => (
                       <option
                         key={`${pessoa.tipo}:${pessoa.id}`}
                         value={`${pessoa.tipo}:${pessoa.id}`}
                       >
-                        {pessoa.nome} — {pessoa.tipo === "aluno" ? "Aluno" : "Funcionário"} · matrícula {pessoa.matricula || "ausente"}
+                        {pessoa.nome} · matrícula {pessoa.matricula || "ausente"}
                       </option>
                     ))}
                   </select>
                   <span className="texto-apoio">
                     {pessoasDisponiveis.length
-                      ? `${pessoasDisponiveis.length} pessoa(s) carregada(s).`
-                      : "Carregue as pessoas ativas da unidade antes de enviar."}
+                      ? `${pessoasDisponiveis.length} funcionário(s) carregado(s).`
+                      : "Carregue os funcionários ativos da unidade antes de enviar."}
                   </span>
                 </div>
                 <div className="campo">
-                  <label htmlFor="foto-facial-dispositivo">Foto facial (máximo 4 MB)</label>
+                  <label htmlFor="foto-facial-dispositivo">Foto facial (PNG ou JPG, até 20 MB — HEIC não)</label>
                   <input
                     id="foto-facial-dispositivo"
                     type="file"
-                    accept="image/*"
+                    accept={ACEITA}
                     onChange={selecionarFoto}
                     disabled={acaoEmAndamento}
                   />
-                  {fotoFacial && <span className="texto-apoio">{fotoFacial.name}</span>}
+                  {fotoFacial && <span className="texto-apoio">Foto pronta para envio.</span>}
                 </div>
               </div>
               <div className="acoes-form" style={{ justifyContent: "flex-start" }}>
@@ -597,7 +574,7 @@ export default function DispositivoForm() {
                   onClick={carregarPessoas}
                   disabled={acaoEmAndamento}
                 >
-                  Carregar pessoas da unidade
+                  Carregar funcionários da unidade
                 </button>
                 <button
                   type="button"
@@ -616,36 +593,7 @@ export default function DispositivoForm() {
           <div className="card">
             <div className="eyebrow">Dados recebidos do equipamento</div>
             <div className="card-corpo">
-              {usuariosEquipamento.length ? (
-                <table className="tabela">
-                  <thead>
-                    <tr>
-                      <th>ID / matrícula</th>
-                      <th>Nome correspondente</th>
-                      <th>Resultado</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {usuariosEquipamento.map((usuario) => (
-                      <tr key={usuario.idNoDispositivo}>
-                        <td className="mono">{usuario.idNoDispositivo}</td>
-                        <td>{usuario.sincronizacao?.nome || usuario.nome || "—"}</td>
-                        <td>
-                          {usuario.sincronizacao?.estado === "vinculado"
-                            ? "Vinculado ao cadastro do site"
-                            : usuario.sincronizacao?.estado === "conflito"
-                              ? `Conflito: ${usuario.sincronizacao.motivo}`
-                              : usuario.sincronizacao?.estado === "sem_correspondencia"
-                                ? "Sem aluno/funcionário com esta matrícula"
-                                : "Recebido"}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ) : (
-                <p className="texto-apoio">O equipamento não retornou usuários cadastrados.</p>
-              )}
+              <UsuariosDoEquipamento usuarios={usuariosEquipamento} />
             </div>
           </div>
         )}

@@ -7,6 +7,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import DispositivosLista from './pages/DispositivosLista';
 import DispositivoForm from './pages/DispositivoForm';
+import SincronizarDispositivos from './pages/SincronizarDispositivos';
 import UnidadesLista from './pages/UnidadesLista';
 import UnidadeForm from './pages/UnidadeForm';
 import SelecionarEmpresa from './pages/SelecionarEmpresa';
@@ -90,6 +91,7 @@ function RotasWeb() {
       <Route path="/selecionar-empresa" element={<RotaProtegida><SelecionarEmpresa /></RotaProtegida>} />
       <Route path="/dispositivos" element={<RotaProtegida><DispositivosLista /></RotaProtegida>} />
       <Route path="/dispositivos/novo" element={<RotaProtegida><DispositivoForm /></RotaProtegida>} />
+      <Route path="/dispositivos/sincronizar" element={<RotaProtegida><SincronizarDispositivos /></RotaProtegida>} />
       <Route path="/dispositivos/:id/editar" element={<RotaProtegida><DispositivoForm /></RotaProtegida>} />
       <Route path="/unidades" element={<RotaProtegida><UnidadesLista /></RotaProtegida>} />
       <Route path="/unidades/nova" element={<RotaProtegida><UnidadeForm /></RotaProtegida>} />

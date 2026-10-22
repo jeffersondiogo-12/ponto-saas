@@ -13,9 +13,9 @@ import { instalado } from '../app/instalacao';
 /**
  * Abaixo disso o sistema vira "celular" e passa a valer o menu reduzido.
  *
- * 640px, e nao os 860px do layout: entre 640 e 860 a dock ja deita e vira
- * barra horizontal (tablet, janela estreita no notebook), mas ali ainda cabe o
- * sistema inteiro. Cortar funcionalidade a 860px tiraria telas de quem esta num
+ * 640px, e nao os 860px do layout: entre 640 e 860 a barra lateral sobe para
+ * o topo (tablet, janela estreita no notebook), mas ali ainda cabe o sistema
+ * inteiro. Cortar funcionalidade a 860px tiraria telas de quem esta num
  * notebook com a janela pela metade.
  */
 export const LARGURA_CELULAR = 640;
@@ -24,7 +24,9 @@ export const LARGURA_CELULAR = 640;
  * Cada item declara SUA condicao. `quando` recebe o contexto e devolve se o
  * item existe para aquela pessoa; sem `quando`, o item vale sempre.
  *
- * A ordem daqui e a ordem do menu no computador.
+ * A ordem daqui e a ordem do menu no computador. `grupo` e o titulo do grupo
+ * na barra lateral; sem grupo, o item fica solto no topo. Itens do mesmo grupo
+ * ficam juntos aqui - a barra agrupa na ordem em que aparecem.
  */
 export const ITENS_DOCK = [
   { para: '/dashboard', icone: 'visao', rotulo: 'Visão geral' },
@@ -32,6 +34,7 @@ export const ITENS_DOCK = [
     para: '/professor',
     icone: 'professor',
     rotulo: 'Minhas turmas',
+    grupo: 'Escola',
     // Por papel, e nao pela matriz: as rotas de /api/professores/minhas-turmas
     // exigem `exigirPapel('professor')` no servidor. Um gestor com
     // `professores:ver` chegaria aqui e tomaria 403.
@@ -41,38 +44,44 @@ export const ITENS_DOCK = [
     para: '/gestao',
     icone: 'gestao',
     rotulo: 'Gestão',
+    grupo: 'Escola',
     quando: ({ pode, ehEscola }) => pode('turmas', 'ver') && ehEscola,
-  },
-  {
-    para: '/unidades',
-    icone: 'unidades',
-    rotulo: 'Unidades',
-    quando: ({ pode }) => pode('filiais', 'ver'),
-  },
-  {
-    para: '/avisos',
-    icone: 'avisos',
-    rotulo: 'Avisos',
-    // Nao exige unidade do tipo escola: um admin no nivel da empresa manda
-    // comunicado para todas as unidades de uma vez.
-    quando: ({ pode }) => pode('avisos', 'ver'),
   },
   {
     para: '/turmas',
     icone: 'turmas',
     rotulo: 'Turmas',
+    grupo: 'Escola',
     quando: ({ pode, ehEscola }) => pode('turmas', 'ver') && ehEscola,
   },
   {
     para: '/alunos',
     icone: 'alunos',
     rotulo: 'Alunos',
+    grupo: 'Escola',
     quando: ({ pode, ehEscola }) => pode('alunos', 'ver') && ehEscola,
+  },
+  {
+    para: '/avisos',
+    icone: 'avisos',
+    rotulo: 'Avisos',
+    grupo: 'Escola',
+    // Nao exige unidade do tipo escola: um admin no nivel da empresa manda
+    // comunicado para todas as unidades de uma vez.
+    quando: ({ pode }) => pode('avisos', 'ver'),
+  },
+  {
+    para: '/unidades',
+    icone: 'unidades',
+    rotulo: 'Unidades',
+    grupo: 'Cadastros',
+    quando: ({ pode }) => pode('filiais', 'ver'),
   },
   {
     para: '/funcionarios',
     icone: 'funcionarios',
     rotulo: 'Funcionários',
+    grupo: 'Cadastros',
     quando: ({ pode, filialSelecionada }) => pode('funcionarios', 'ver')
       && (!filialSelecionada || filialSelecionada.tipo === 'empresa'),
   },
@@ -80,24 +89,28 @@ export const ITENS_DOCK = [
     para: '/dispositivos',
     icone: 'dispositivos',
     rotulo: 'Dispositivos',
+    grupo: 'Cadastros',
     quando: ({ pode }) => pode('dispositivos', 'ver'),
   },
   {
     para: '/usuarios',
     icone: 'usuarios',
     rotulo: 'Usuários',
+    grupo: 'Cadastros',
     quando: ({ pode, ehEscola }) => pode('usuarios', 'ver') && ehEscola,
   },
   {
     para: '/auditoria',
     icone: 'auditoria',
     rotulo: 'Auditoria',
+    grupo: 'Administração',
     quando: ({ pode }) => pode('auditoria', 'ver'),
   },
   {
     para: '/permissoes',
     icone: 'permissoes',
     rotulo: 'Permissões',
+    grupo: 'Administração',
     // Administrar a matriz nao e um recurso dela — nao existe `permissoes` em
     // `permissoes_papeis`. As cinco rotas de /api/permissoes/* sao restritas a
     // super_admin no proprio servidor, entao aqui a checagem e por papel.

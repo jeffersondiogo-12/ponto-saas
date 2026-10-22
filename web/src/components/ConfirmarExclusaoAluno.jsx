@@ -12,7 +12,7 @@ import { api } from '../api';
  * O mapa real (migrations 20260719000022/23/25, 20260822000001/02 e
  * 20260826000012):
  *
- *   CASCADE  -> aluno_dispositivos, responsavel_alunos
+ *   CASCADE  -> aluno_dispositivos, responsavel_alunos, fotos_alunos
  *               somem junto, em silencio
  *   SET NULL -> registros_ponto.aluno_id
  *               as batidas FICAM, sem dono, e caem em "batidas sem vinculo"
@@ -108,6 +108,7 @@ export default function ConfirmarExclusaoAluno({ aluno, aoFechar, aoExcluir }) {
           <ul>
             <li>O <strong>vínculo com o equipamento facial</strong> — o aluno deixa de ser reconhecido na catraca.</li>
             <li>O <strong>vínculo com o responsável</strong> — ele perde o acesso a este aluno no aplicativo.</li>
+            <li>A <strong>foto do aluno</strong> guardada no sistema.</li>
           </ul>
         </div>
 

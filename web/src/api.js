@@ -89,8 +89,9 @@ export function limparFilialSelecionada() {
   localStorage.removeItem(CHAVE_FILIAL_TIPO);
 }
 
-async function chamarServidor(caminho, { method = 'GET', body } = {}) {
-  const headers = { 'Content-Type': 'application/json' };
+/** Token, ambiente e unidade: o que toda rota autenticada espera receber. */
+function cabecalhos(extras = {}) {
+  const headers = { ...extras };
   const token = obterToken();
   if (token) headers.Authorization = `Bearer ${token}`;
 
@@ -103,6 +104,12 @@ async function chamarServidor(caminho, { method = 'GET', body } = {}) {
   if (filialSelecionada) {
     headers['X-Filial-Id'] = filialSelecionada.id;
   }
+  return headers;
+}
+
+async function chamarServidor(caminho, { method = 'GET', body } = {}) {
+  const headers = cabecalhos({ 'Content-Type': 'application/json' });
+  const token = headers.Authorization;
 
   const resposta = await fetch(`${BASE_URL}${caminho}`, {
     method,
@@ -269,6 +276,21 @@ function exigirAtribuicao(dados) {
  * cabecalho, entao a foto vem por aqui e vira um endereco local (blob).
  * Quem chama libera com `URL.revokeObjectURL`. Sem foto ou sem rede: null.
  */
+/**
+ * Foto guardada do aluno, pelo mesmo caminho da foto da batida: rota
+ * autenticada, que o <img> nao alcanca sozinho. Vai com ambiente e unidade -
+ * a rota passa pelo resolverTenant, e o super_admin sem `X-Empresa-Id` leva
+ * 400. Quem chama libera com `URL.revokeObjectURL`. Sem foto ou sem rede: null.
+ */
+export async function urlDaFotoDoAluno(alunoId) {
+  try {
+    const resposta = await fetch(`${BASE_URL}/api/alunos/${alunoId}/foto`, { headers: cabecalhos() });
+    return resposta.ok ? URL.createObjectURL(await resposta.blob()) : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function urlDaFotoDoRegistro(registroId) {
   try {
     const resposta = await fetch(`${BASE_URL}/api/ponto/registros/${registroId}/foto`, {
@@ -385,6 +407,8 @@ export const api = {
   cadastrarFaceDispositivo: (id, dados) => requisitar(`/api/dispositivos/${id}/cadastrar-face`, { method: 'POST', body: dados }),
   removerFaceDispositivo: (id, dados) => requisitar(`/api/dispositivos/${id}/remover-face`, { method: 'POST', body: dados }),
   cadastrarFaceAluno: (id, dados) => requisitar(`/api/alunos/${id}/face`, { method: 'POST', body: dados }),
+  // Envio em lote: a foto guardada de cada aluno vai ao equipamento (ate 500 por vez).
+  enviarAlunosAoEquipamento: (id, alunoIds) => requisitar(`/api/dispositivos/${id}/enviar-alunos`, { method: 'POST', body: { aluno_ids: alunoIds } }),
 
   listarUnidades: () => requisitar('/api/filiais'),
   buscarUnidade: (id) => requisitar(`/api/filiais/${id}`),
@@ -434,6 +458,9 @@ export const api = {
   criarAluno: (dados) => requisitar('/api/alunos', { method: 'POST', body: dados }),
   atualizarAluno: (id, dados) => requisitar(`/api/alunos/${id}`, { method: 'PUT', body: dados }),
   excluirAluno: (id) => requisitar(`/api/alunos/${id}`, { method: 'DELETE' }),
+  // Foto guardada do aluno: JPEG ja preparado (utils/fotoAluno.js), em Base64.
+  salvarFotoAluno: (id, fotoBase64) => requisitar(`/api/alunos/${id}/foto`, { method: 'PUT', body: { foto_base64: fotoBase64 } }),
+  removerFotoAluno: (id) => requisitar(`/api/alunos/${id}/foto`, { method: 'DELETE' }),
   listarUsuarios: () => requisitar('/api/auth/usuarios'),
   criarUsuario: (dados) => requisitar('/api/auth/usuarios', { method: 'POST', body: dados }),
   listarRegistrosNaoResolvidos: () => requisitar('/api/ponto/registros/nao-resolvidos'),
