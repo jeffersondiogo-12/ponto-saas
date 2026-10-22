@@ -63,6 +63,9 @@ export function AuthProvider({ children }) {
   const [empresaSelecionada, setEmpresaSelecionada] = useState(obterEmpresaSelecionada);
   const [filialSelecionada, setFilialSelecionada] = useState(obterFilialSelecionada);
   const [modo, setModo] = useState(lerModo);
+  // Cada "Trocar" muda este numero, e a janela de entrada carrega de novo -
+  // mesmo quando nao ha unidade nem modo para limpar (nada mais mudaria).
+  const [pedidoEntrada, setPedidoEntrada] = useState(0);
   const definirModo = useCallback((novo) => {
     gravarModo(novo);
     setModo(novo);
@@ -126,7 +129,12 @@ export function AuthProvider({ children }) {
       setEmpresaSelecionada(null);
     }
 
-    if (filialSelecionada) {
+    /**
+     * O super_admin sempre escolhe na janela de entrada. Se o termo digitado em
+     * "Ambiente" casar com uma UNIDADE, o servidor a devolve ja escolhida (e no
+     * `filial_id` do token); aceitar aqui pulava a janela.
+     */
+    if (filialSelecionada && dadosUsuario.papel !== 'super_admin') {
       salvarFilialSelecionada(filialSelecionada);
       setFilialSelecionada(filialSelecionada);
     } else {
@@ -170,6 +178,7 @@ export function AuthProvider({ children }) {
     limparFilialSelecionada();
     setFilialSelecionada(null);
     definirModo(null);
+    setPedidoEntrada((n) => n + 1);
   }, [definirModo]);
 
   const limparEmpresa = useCallback(() => {
@@ -297,7 +306,7 @@ export function AuthProvider({ children }) {
   return (
     <AuthContext.Provider
       value={{
-        usuario, empresaSelecionada, filialSelecionada, modo,
+        usuario, empresaSelecionada, filialSelecionada, modo, pedidoEntrada,
         permissoes, pode, carregarPermissoes, sessaoEncerrada,
         login, loginResponsavel, selecionarEmpresa, selecionarFilial, supervisionar, trocarEntrada,
         limparEmpresa, logout,

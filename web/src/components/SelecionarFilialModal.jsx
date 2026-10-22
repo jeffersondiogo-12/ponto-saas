@@ -24,7 +24,7 @@ const semAcento = (texto) => String(texto || '').normalize('NFD').replace(/\p{Di
 // - 'rh'     -> permanece no ambiente (empresa) e nao precisa escolher filial
 
 export default function SelecionarFilialModal() {
-  const { empresaSelecionada, filialSelecionada, selecionarFilial, supervisionar, modo, usuario } = useAuth();
+  const { empresaSelecionada, filialSelecionada, selecionarFilial, supervisionar, modo, pedidoEntrada, usuario } = useAuth();
   const [filiais, setFiliais] = useState([]);
   const [aberto, setAberto] = useState(false);
   const [carregando, setCarregando] = useState(false);
@@ -33,6 +33,8 @@ export default function SelecionarFilialModal() {
   // se administrar, a busca da unidade - um ambiente pode ter dezenas.
   const [etapa, setEtapa] = useState('escolha');
   const [busca, setBusca] = useState('');
+  // "Tentar de novo" quando a lista de unidades falha: muda e a carga roda outra vez.
+  const [tentativa, setTentativa] = useState(0);
   const modalRef = useRef(null);
   // efeito principal: carregar filiais e aplicar regras por papel
   useEffect(() => {
@@ -63,7 +65,14 @@ export default function SelecionarFilialModal() {
        * (O ramo antigo comparava `papel === 'staff'`. `'staff'` é o TIPO do
        * token, nunca um papel, então ele nunca rodou.)
        */
-      if (usuario?.filial_id) return;
+      /**
+       * O super_admin nao entra aqui: o servidor ignora o filial_id dele (o
+       * resolverTenant so le o X-Filial-Id), entao ele sempre escolhe. Esse
+       * filial_id nem vem do cadastro: e a unidade que casou com o termo
+       * digitado em "Ambiente" no login. Antes, com ele, a janela nunca abria
+       * e o "Trocar" da barra nao a trazia de volta.
+       */
+      if (usuario?.filial_id && papel !== 'super_admin') return;
       setCarregando(true);
       try {
         const res = await api.listarUnidades();
@@ -87,15 +96,21 @@ export default function SelecionarFilialModal() {
           // Mais de uma: a pessoa escolhe, e a janela so sai com a escolha feita.
           setAberto(true);
         }
-      } catch (e) {
-        // falha silenciosa — não bloqueia login
+      } catch (err) {
+        if (!mounted) return;
+        // A janela abre mesmo sem a lista e diz o que houve. Antes a falha era
+        // calada: sem janela, sem unidade e sem saber por que.
+        setFiliais([]);
+        setMensagem(`Não foi possível carregar as unidades: ${err.message || 'erro desconhecido'}.`);
+        setEtapa('escolha');
+        setAberto(true);
       } finally {
         setCarregando(false);
       }
     }
     carregar();
     return () => { mounted = false; };
-  }, [empresaSelecionada, filialSelecionada, usuario, selecionarFilial, modo]);
+  }, [empresaSelecionada, filialSelecionada, usuario, selecionarFilial, modo, tentativa, pedidoEntrada]);
   const ehSuper = usuario?.papel === 'super_admin';
 
   function entrarSupervisionando() {
@@ -149,6 +164,14 @@ export default function SelecionarFilialModal() {
 
   if (!aberto || carregando) return null;
 
+  const avisoErro = mensagem && (
+    <div className="aviso">
+      {mensagem}{' '}
+      {ehSuper ? 'Tente de novo ou entre supervisionando.' : 'Tente de novo em instantes.'}{' '}
+      <button type="button" className="btn btn-secundario" onClick={() => setTentativa((t) => t + 1)}>Tentar de novo</button>
+    </div>
+  );
+
   return (
     <div className="modal-overlay" role="presentation">
       <div className="modal" role="dialog" aria-modal="true" aria-labelledby="titulo-selecionar-filial" ref={modalRef}>
@@ -156,6 +179,7 @@ export default function SelecionarFilialModal() {
           <>
             <h2 id="titulo-selecionar-filial">Como você quer entrar?</h2>
             <p className="texto-apoio">Ambiente: <strong>{empresaSelecionada?.nome}</strong></p>
+            {avisoErro}
             <div className="entrada-opcoes">
               <button type="button" className="entrada-opcao" onClick={entrarSupervisionando} data-foco-inicial>
                 <IconeSupervisionar />
@@ -176,7 +200,7 @@ export default function SelecionarFilialModal() {
             )}
             <h2 id="titulo-selecionar-filial">{ehSuper ? 'Qual unidade administrar?' : 'Escolha a filial'}</h2>
             <p className="texto-apoio">Ambiente: <strong>{empresaSelecionada?.nome}</strong></p>
-            {mensagem && <div className="texto-apoio" style={{ marginBottom: 8 }}>{mensagem}</div>}
+            {avisoErro}
             {filiais.length > 0 && (
               <div className="campo">
                 <label htmlFor="busca-unidade">Buscar unidade</label>

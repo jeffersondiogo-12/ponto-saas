@@ -173,8 +173,9 @@ const SEMPRE_ALCANCAVEIS = ['/login', '/selecionar-empresa'];
  */
 export function operaEmEscola(usuario, filialSelecionada, modo = null) {
   if (filialSelecionada) return filialSelecionada.tipo === 'escola';
-  // Supervisionando, o super_admin ve o ambiente inteiro - escolas inclusive.
-  if (usuario?.papel === 'super_admin' && modo === 'supervisionar') return true;
+  // Super_admin: supervisionando, ve o ambiente inteiro - escolas inclusive.
+  // A unidade gravada na conta dele nao conta: o servidor a ignora.
+  if (usuario?.papel === 'super_admin') return modo === 'supervisionar';
   return Boolean(usuario?.filial_id);
 }
 
