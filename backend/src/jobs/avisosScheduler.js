@@ -3,16 +3,30 @@ const db = require('../config/db');
 const avisosService = require('../modules/avisos/avisos.service');
 
 const INTERVALO_MS = (Number(process.env.AVISOS_INTERVALO_MINUTOS) || 1) * 60 * 1000;
+let processando = false;
 
 async function processar() {
-  const quantidade = await avisosService.processarPendentes();
-  if (quantidade) console.log(`[avisos] ${quantidade} aviso(s) processado(s)`);
+  if (processando) return;
+  processando = true;
+  try {
+    const quantidade = await avisosService.processarPendentes();
+    if (quantidade) console.log(`[avisos] ${quantidade} aviso(s) processado(s)`);
+  } finally {
+    processando = false;
+  }
+}
+
+function processarComLogDeErro() {
+  processar().catch((err) => {
+    console.error('[avisos] falha ao processar agendamentos:', err);
+  });
 }
 
 async function iniciar() {
   console.log(`[avisos] worker iniciado, intervalo de ${INTERVALO_MS / 60000} min`);
-  await processar();
-  setInterval(processar, INTERVALO_MS);
+  const intervalo = setInterval(processarComLogDeErro, INTERVALO_MS);
+  processarComLogDeErro();
+  return intervalo;
 }
 
 if (require.main === module) iniciar().catch((err) => {

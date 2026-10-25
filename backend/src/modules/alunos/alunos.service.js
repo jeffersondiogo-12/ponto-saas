@@ -10,6 +10,14 @@ async function listar(empresaId, { turmaId, filialId, ativo } = {}) {
       't.nome as turma_nome',
       'f.nome as filial_nome',
       db.raw(`COALESCE((SELECT json_agg(ht ORDER BY ht.dia_semana) FROM horarios_turmas ht WHERE ht.turma_id = t.id AND ht.ativo = true), '[]'::json) AS horarios_turma`),
+      db.raw(`(
+        SELECT COUNT(*)::int
+        FROM responsavel_alunos ra
+        JOIN responsaveis r ON r.id = ra.responsavel_id
+        WHERE ra.aluno_id = a.id
+          AND r.empresa_id = a.empresa_id
+          AND r.ativo = true
+      ) AS responsaveis_vinculados`),
       // So o "tem ou nao": a foto em si vem por GET /:id/foto, quando a tela precisa.
       db.raw('EXISTS (SELECT 1 FROM fotos_alunos fa WHERE fa.aluno_id = a.id) AS tem_foto'),
     )
@@ -37,8 +45,24 @@ async function normalizarCpfOpcional(valor) {
   if (valor === null || valor === undefined || String(valor).trim() === '') return null;
 
   const cpf = String(valor).replace(/\D/g, '');
-  if (cpf && cpf.length !== 11) throw new AppError('CPF do aluno deve ter 11 digitos.', 400);
-  return cpf || null;
+  if (cpf.length !== 11 || /^(\d)\1{10}$/.test(cpf)) {
+    throw new AppError('CPF do aluno invalido.', 400);
+  }
+
+  const calcularDigito = (digitos, pesoInicial) => {
+    const soma = digitos.reduce((total, digito, indice) => total + Number(digito) * (pesoInicial - indice), 0);
+    const resto = soma % 11;
+    return resto < 2 ? 0 : 11 - resto;
+  };
+
+  if (
+    calcularDigito(cpf.slice(0, 9), 10) !== Number(cpf[9])
+    || calcularDigito(cpf.slice(0, 10), 11) !== Number(cpf[10])
+  ) {
+    throw new AppError('CPF do aluno invalido.', 400);
+  }
+
+  return cpf;
 }
 
 async function resolverPorMatriculaDispositivo(empresaId, filialId, matriculaDispositivo, dados = {}) {

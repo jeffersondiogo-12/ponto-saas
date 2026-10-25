@@ -124,14 +124,14 @@ async function localizarEmpresa(unidade) {
   return { tipo: "empresa", registro: empresa };
 }
 
-function montarEmpresaSelecionada(unidadeEncontrada) {
+function montarEmpresaSelecionada(unidadeEncontrada, empresa = null) {
   const registro = unidadeEncontrada.registro;
+  const empresaSelecionada = unidadeEncontrada.tipo === "filial" ? empresa : registro;
+  if (!empresaSelecionada) throw new AppError("Empresa da unidade não encontrada.", 404);
+
   return {
-    id: unidadeEncontrada.tipo === "filial" ? registro.empresa_id : registro.id,
-    nome:
-      unidadeEncontrada.tipo === "filial"
-        ? registro.nome || registro.cnpj
-        : registro.razao_social || registro.nome_fantasia || registro.cnpj,
+    id: empresaSelecionada.id,
+    nome: empresaSelecionada.razao_social || empresaSelecionada.nome_fantasia || empresaSelecionada.cnpj,
     tipo: "empresa",
   };
 }
@@ -168,9 +168,11 @@ async function login(email, senha, unidade) {
   let empresaIdUnidade = unidadeEncontrada.tipo === 'filial'
     ? unidadeEncontrada.registro.empresa_id
     : unidadeEncontrada.registro.id;
-  let selectedFilialId = unidadeEncontrada.tipo === 'filial'
-    ? unidadeEncontrada.registro.id
-    : usuario.filial_id || null;
+  let selectedFilialId = usuario.papel === 'super_admin'
+    ? null
+    : unidadeEncontrada.tipo === 'filial'
+      ? unidadeEncontrada.registro.id
+      : usuario.filial_id || null;
 
   if (usuario.papel !== "super_admin") {
     const empresaIdUsuario = usuario.empresa_id;
@@ -191,6 +193,10 @@ async function login(email, senha, unidade) {
     .where({ id: usuario.id })
     .update({ ultimo_login_em: db.fn.now() });
 
+  const empresa = unidadeEncontrada.tipo === 'filial'
+    ? await db('empresas').where({ id: empresaIdUnidade }).first('id', 'razao_social', 'nome_fantasia', 'cnpj')
+    : null;
+
   const payload = {
     tipo: "staff",
     id: usuario.id,
@@ -209,7 +215,7 @@ async function login(email, senha, unidade) {
   return {
     token,
     usuario: payload,
-    empresaSelecionada: montarEmpresaSelecionada(unidadeEncontrada),
+    empresaSelecionada: montarEmpresaSelecionada(unidadeEncontrada, empresa),
     filialSelecionada: montarFilialSelecionada(unidadeEncontrada),
   };
 }

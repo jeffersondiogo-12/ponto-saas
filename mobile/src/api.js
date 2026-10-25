@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import { salvarCache, lerCache, limparCacheNamespace } from './storage';
-import { enfileirar, obterFila, removerDaFila, marcarFalhaNaFila, limparFilaNamespace } from './filaOffline';
+import { enfileirar, gerarIdFila, obterFila, removerDaFila, marcarFalhaNaFila, limparFilaNamespace } from './filaOffline';
 import { obterOrigemApi } from './config/rede';
 
 const BASE_URL = obterOrigemApi();
@@ -264,7 +264,7 @@ export async function processarFilaOffline() {
         // eslint-disable-next-line no-await-in-loop
         await chamarServidor(item.caminho, {
           method: item.method,
-          body: item.body,
+          body: corpoDaFila(item),
           contextoFixo: { perfil, versao, token },
         });
         // eslint-disable-next-line no-await-in-loop
@@ -282,6 +282,11 @@ export async function processarFilaOffline() {
   }
 }
 
+function corpoDaFila(item) {
+  if (item.method !== 'POST' || !/\/(?:notas|observacoes)$/.test(item.caminho)) return item.body;
+  return { ...(item.body || {}), id_cliente: item.id || item.body?.id_cliente };
+}
+
 
 
 /**
@@ -294,8 +299,12 @@ async function requisitar(caminho, {
   method = 'GET', body, rotulo, permitirFila = true, autenticada = true,
   usarCache = true, sincronizarFila = true,
 } = {}) {
+  const usaIdCliente = method === 'POST' && /\/(?:notas|observacoes)$/.test(caminho);
+  const idCliente = usaIdCliente ? body?.id_cliente || gerarIdFila() : null;
+  const corpo = usaIdCliente ? { ...body, id_cliente: idCliente } : body;
+
   try {
-    const { dados, contexto } = await chamarServidor(caminho, { method, body, autenticada });
+    const { dados, contexto } = await chamarServidor(caminho, { method, body: corpo, autenticada });
     if (autenticada && !sessaoAtualEh(contexto.perfil, contexto.versao)) throw erroSessaoAlterada();
     registrarSincronizacao().catch(() => {});
     if (autenticada) {
@@ -334,7 +343,13 @@ async function requisitar(caminho, {
       semIdentidade.offline = true;
       throw semIdentidade;
     }
-    const item = await enfileirar(namespace, { rotulo: rotulo || 'Ação pendente', caminho, method, body });
+    const item = await enfileirar(namespace, {
+      id: idCliente || undefined,
+      rotulo: rotulo || 'Ação pendente',
+      caminho,
+      method,
+      body: corpo,
+    });
     return { _fila: true, _tempId: item.id };
   }
 }

@@ -54,6 +54,21 @@ describe('fila offline namespaceada', () => {
     expect(itens.map((item) => item.rotulo)).toEqual(['primeira', 'segunda', 'terceira']);
   });
 
+  test('mantém o id_cliente igual ao id do item da fila', async () => {
+    const namespace = 'professor:idempotencia:empresa:filial';
+    const idCliente = '1729780000000-k3j9x2';
+
+    const item = await fila.enfileirar(namespace, {
+      id: idCliente,
+      caminho: '/api/professores/turmas/turma/notas',
+      method: 'POST',
+      body: { id_cliente: idCliente },
+    });
+
+    expect(item.id).toBe(idCliente);
+    expect(item.body.id_cliente).toBe(idCliente);
+  });
+
   test('não atribui fila legada a uma conta', async () => {
     const legado = [{ id: 'legado-1', caminho: '/antiga' }];
     AsyncStorage.__set('@ponto_saas_fila_offline', JSON.stringify(legado));

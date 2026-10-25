@@ -1,6 +1,7 @@
 const app = require('./app');
 const { iniciarServidorEvoFacial } = require('./modules/dispositivos/evoFacialServidor');
 const { iniciarRealtime } = require('./realtime');
+const avisosScheduler = require('./jobs/avisosScheduler');
 
 const PORT = process.env.PORT || 3000;
 
@@ -32,3 +33,4 @@ const servidorHttp = app.listen(PORT, () => {
  */
 iniciarServidorEvoFacial(servidorHttp);
 iniciarRealtime(servidorHttp);
+avisosScheduler.iniciar();

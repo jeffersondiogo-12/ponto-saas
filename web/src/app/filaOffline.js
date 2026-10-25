@@ -12,6 +12,10 @@ function chave(namespace) {
   return `${PREFIXO}${encodeURIComponent(namespace)}`;
 }
 
+export function gerarIdFila() {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
 function ler(namespace) {
   if (!namespace) return [];
   try {
@@ -45,7 +49,7 @@ export function obterFila(namespace) {
 export function enfileirar(namespace, item) {
   if (!namespace) throw new Error('Não é possível guardar a ação sem uma conta conectada.');
   const novo = {
-    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    id: item.id || gerarIdFila(),
     criadoEm: Date.now(),
     ...item,
     namespace,

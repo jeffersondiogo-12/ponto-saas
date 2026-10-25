@@ -13,6 +13,10 @@ function chaveNamespace(namespace) {
   return `${PREFIXO}${encodeURIComponent(namespace)}`;
 }
 
+export function gerarIdFila() {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
 function notificar(namespace, fila) {
   (ouvintes.get(namespace) || []).forEach((fn) => fn(fila));
 }
@@ -80,7 +84,7 @@ export async function enfileirar(namespace, item) {
   return executarEmOrdem(namespace, async () => {
     const fila = await lerFila(namespace);
     const novoItem = {
-      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      id: item.id || gerarIdFila(),
       criadoEm: Date.now(),
       ...item,
       namespace,

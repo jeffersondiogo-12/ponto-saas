@@ -168,7 +168,62 @@ async function registrarPresencas(empresaId, professorId, turmaId, data, presenc
   return salvos;
 }
 
+function normalizarIdCliente(valor) {
+  if (valor === null || valor === undefined || valor === '') return null;
+  if (typeof valor !== 'string') throw new AppError('id_cliente deve ser um texto.', 400);
+  const idCliente = valor.trim();
+  if (!idCliente) return null;
+  if (idCliente.length > 40) throw new AppError('id_cliente deve ter no maximo 40 caracteres.', 400);
+  return idCliente;
+}
+
+async function buscarRegistroIdCliente(tabela, dados, idCliente) {
+  if (!idCliente) return null;
+  return db(tabela)
+    .where({
+      id_cliente: idCliente,
+      empresa_id: dados.empresa_id,
+      aluno_id: dados.aluno_id,
+      criado_por_usuario_id: dados.criado_por_usuario_id,
+    })
+    .first();
+}
+
+async function inserirRegistroIdempotente(tabela, dados, idCliente) {
+  if (!idCliente) {
+    const [registro] = await db(tabela).insert(dados).returning('*');
+    return { registro, criado: true };
+  }
+
+  const [registro] = await db(tabela)
+    .insert({ ...dados, id_cliente: idCliente })
+    .onConflict('id_cliente')
+    .ignore()
+    .returning('*');
+  if (registro) return { registro, criado: true };
+
+  const existente = await db(tabela)
+    .where({
+      id_cliente: idCliente,
+      empresa_id: dados.empresa_id,
+      aluno_id: dados.aluno_id,
+    })
+    .first();
+  if (!existente) throw new AppError('id_cliente ja utilizado em outro registro.', 409);
+  return { registro: existente, criado: false };
+}
+
 async function criarNota(empresaId, professorId, turmaId, dados, filialId = null) {
+  if (!dados || typeof dados !== 'object') throw new AppError('Dados da nota invalidos.', 400);
+  if (!dados.aluno_id) throw new AppError('aluno_id e obrigatorio.', 400);
+  const idCliente = normalizarIdCliente(dados.id_cliente);
+  const notaExistente = await buscarRegistroIdCliente('notas_alunos', {
+    empresa_id: empresaId,
+    aluno_id: dados.aluno_id,
+    criado_por_usuario_id: professorId,
+  }, idCliente);
+  if (notaExistente) return notaExistente;
+
   const atribuicao = await buscarAtribuicao(empresaId, professorId, turmaId, dados.atribuicao_id, false, filialId);
   await validarAluno(empresaId, turmaId, dados.aluno_id);
   const bimestre = Number(dados.bimestre);
@@ -176,7 +231,7 @@ async function criarNota(empresaId, professorId, turmaId, dados, filialId = null
   if (![1, 2, 3, 4].includes(bimestre)) throw new AppError('Bimestre deve ser 1, 2, 3 ou 4.', 400);
   if (!Number.isFinite(valor) || valor < 0 || valor > 10) throw new AppError('Nota deve estar entre 0 e 10.', 400);
   if (!String(dados.tipo_avaliacao || '').trim()) throw new AppError('Tipo da avaliacao e obrigatorio.', 400);
-  const [nota] = await db('notas_alunos').insert({
+  const { registro: nota, criado } = await inserirRegistroIdempotente('notas_alunos', {
     empresa_id: empresaId,
     aluno_id: dados.aluno_id,
     criado_por_usuario_id: professorId,
@@ -187,16 +242,24 @@ async function criarNota(empresaId, professorId, turmaId, dados, filialId = null
     atividade: String(dados.atividade || '').trim() || null,
     nota: valor,
     observacao: dados.observacao || null,
-  }).returning('*');
-  publicarEvento('nota.criada', { empresaId, alunoId: dados.aluno_id });
+  }, idCliente);
+  if (criado) publicarEvento('nota.criada', { empresaId, alunoId: dados.aluno_id });
   return nota;
 }
 
 async function criarObservacao(empresaId, professorId, turmaId, dados, filialId = null) {
   if (!dados || typeof dados !== 'object') throw new AppError('Dados da observacao invalidos.', 400);
-  if (!dados.atribuicao_id) throw new AppError('atribuicao_id e obrigatorio.', 400);
   if (!dados.aluno_id) throw new AppError('aluno_id e obrigatorio.', 400);
 
+  const idCliente = normalizarIdCliente(dados.id_cliente);
+  const observacaoExistente = await buscarRegistroIdCliente('observacoes_alunos', {
+    empresa_id: empresaId,
+    aluno_id: dados.aluno_id,
+    criado_por_usuario_id: professorId,
+  }, idCliente);
+  if (observacaoExistente) return observacaoExistente;
+
+  if (!dados.atribuicao_id) throw new AppError('atribuicao_id e obrigatorio.', 400);
   const atribuicao = await buscarAtribuicao(empresaId, professorId, turmaId, dados.atribuicao_id, false, filialId);
   await validarAluno(empresaId, turmaId, dados.aluno_id);
 
@@ -210,16 +273,16 @@ async function criarObservacao(empresaId, professorId, turmaId, dados, filialId 
   validarAulaNoMomento(atribuicao, timeZone, dataAtualNoFuso(timeZone));
 
   const professor = await db('usuarios').where({ id: professorId, empresa_id: empresaId, ativo: true }).first('nome');
-  const [observacao] = await db('observacoes_alunos').insert({
+  const { registro: observacao, criado } = await inserirRegistroIdempotente('observacoes_alunos', {
     empresa_id: empresaId,
     aluno_id: dados.aluno_id,
     criado_por_usuario_id: professorId,
     titulo,
     texto,
     autor_nome: String(dados.autor_nome || professor?.nome || 'Professor').trim() || 'Professor',
-  }).returning('*');
+  }, idCliente);
 
-  publicarEvento('observacao.criada', { empresaId, alunoId: dados.aluno_id });
+  if (criado) publicarEvento('observacao.criada', { empresaId, alunoId: dados.aluno_id });
   return observacao;
 }
 

@@ -66,6 +66,11 @@ npm run seed      # opcional: empresa "Weld Inox" + os dois dispositivos de exem
 npm run dev       # http://localhost:3000 (o servidor WebSocket do Evo Facial sobe junto, ver seção 6)
 ```
 
+O servidor da API também processa os avisos agendados e publica as mudanças
+no WebSocket do painel. Não inicie `npm run avisos:worker` em paralelo com
+esta API; esse comando fica disponível para uma instalação em que o scheduler
+seja executado separadamente.
+
 Teste rápido: `curl -X POST http://localhost:3000/api/auth/login -H "Content-Type: application/json" -d '{"email":"admin@weldinox.example.com","senha":"admin123"}'`
 deve devolver um token JSON.
 

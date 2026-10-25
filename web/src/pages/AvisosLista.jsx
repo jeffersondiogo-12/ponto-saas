@@ -67,23 +67,10 @@ export default function AvisosLista() {
   // O agendador publica `aviso.lancado` quando a data chega: a lista troca de
   // "Aguardando data" para "Lançado" sozinha, sem F5.
   const recarregarAoVivo = useCallback(() => { carregar(); }, [carregar]);
-  useRecarregarAoVivo(['aviso.lancado', 'aviso.criado', 'aviso.atualizado', 'aviso.removido'], recarregarAoVivo);
+  useRecarregarAoVivo(['aviso.lancado', 'aviso.lido', 'aviso.criado', 'aviso.atualizado', 'aviso.removido'], recarregarAoVivo);
 
-  /**
-   * Recarga por HORARIO, e nao so por evento.
-   *
-   * O `aviso.lancado` que marcaria a virada de "Aguardando data" para
-   * "Lancado" e publicado pelo AGENDADOR, que roda em outro processo
-   * (`npm run avisos:worker`). O `Set` de clientes WebSocket vive na memoria
-   * do processo web, entao o evento do worker nao alcanca navegador nenhum —
-   * a tela ficava eternamente em "Aguardando data" mesmo com o push ja
-   * entregue e o `enviado_em` gravado.
-   *
-   * A dependencia e a CHAVE dos pendentes, nao a lista de avisos: `carregar()`
-   * troca o array a cada consulta, e depender dele recriaria o timer a cada
-   * volta, zerando o contador — a tela consultaria para sempre. Com a chave, o
-   * efeito so reinicia quando o conjunto de pendentes muda de verdade.
-   */
+  // Fallback para uma conexao WebSocket que caiu enquanto o aviso agendado
+  // era lancado. O evento atualiza a lista imediatamente quando a conexao esta ativa.
   const chavePendentes = useMemo(
     () => avisos
       .filter((a) => a.status === 'aguardando_data')
@@ -103,16 +90,14 @@ export default function AvisosLista() {
 
     const agora = Date.now();
     const proximo = Math.min(...vencimentos);
-    // 15s de margem porque o worker roda a cada minuto: a hora chegar nao
-    // significa que ja processou.
+    // O servidor processa os avisos agendados a cada minuto.
     const espera = proximo <= agora ? 20000 : Math.max(1000, proximo - agora + 15000);
 
     let tentativas = 0;
     const id = setInterval(() => {
       tentativas += 1;
       carregar();
-      // Teto para a tela esquecida aberta nao consultar indefinidamente —
-      // acontece quando o worker nao esta rodando e o aviso nunca sai.
+      // Teto para a tela esquecida aberta nao consultar indefinidamente.
       if (tentativas >= 5) clearInterval(id);
     }, espera);
     return () => clearInterval(id);

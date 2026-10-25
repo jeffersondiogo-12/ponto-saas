@@ -1,4 +1,4 @@
-import { enfileirar, limparFila, marcarFalhaNaFila, obterFila, removerDaFila } from './app/filaOffline';
+import { enfileirar, gerarIdFila, limparFila, marcarFalhaNaFila, obterFila, removerDaFila } from './app/filaOffline';
 import { lerCache, limparCache, salvarCache } from './app/cacheOffline';
 
 export const BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3000' : '');
@@ -226,7 +226,7 @@ export async function processarFila() {
       if (namespaceOffline() !== namespace || obterToken() !== token) break;
       if (item.falhaDefinitiva) continue;
       try {
-        await chamarServidor(item.caminho, { method: item.method, body: item.body });
+        await chamarServidor(item.caminho, { method: item.method, body: corpoDaFila(item) });
         removerDaFila(namespace, item.id);
         localStorage.setItem(CHAVE_ULTIMA_SINCRONIZACAO, new Date().toISOString());
       } catch (erro) {
@@ -239,10 +239,18 @@ export async function processarFila() {
   }
 }
 
+function corpoDaFila(item) {
+  if (item.method !== 'POST' || !/\/(?:notas|observacoes)$/.test(item.caminho)) return item.body;
+  return { ...(item.body || {}), id_cliente: item.id || item.body?.id_cliente };
+}
+
 async function requisitar(caminho, { method = 'GET', body, fila, cache } = {}) {
+  const usaIdCliente = method === 'POST' && /\/(?:notas|observacoes)$/.test(caminho);
+  const idCliente = usaIdCliente ? body?.id_cliente || gerarIdFila() : null;
+  const corpo = usaIdCliente ? { ...body, id_cliente: idCliente } : body;
   let dados;
   try {
-    dados = await chamarServidor(caminho, { method, body });
+    dados = await chamarServidor(caminho, { method, body: corpo });
   } catch (erro) {
     if (!ehFalhaDeRede(erro) || (!fila && !cache)) throw erro;
 
@@ -254,7 +262,13 @@ async function requisitar(caminho, { method = 'GET', body, fila, cache } = {}) {
       semDados.offline = true;
       throw semDados;
     }
-    const item = enfileirar(namespace, { rotulo: fila, caminho, method, body });
+    const item = enfileirar(namespace, {
+      id: idCliente || undefined,
+      rotulo: fila,
+      caminho,
+      method,
+      body: corpo,
+    });
     return { _fila: true, _tempId: item.id };
   }
 
