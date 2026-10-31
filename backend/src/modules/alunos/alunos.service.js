@@ -205,22 +205,42 @@ async function atualizar(empresaId, alunoId, dados, filialId = null) {
     if (matriculaExistente) throw new AppError('Já existe um aluno com esta matrícula.', 409);
   }
 
-  const [aluno] = await db('alunos')
-    .where({ id: alunoId, empresa_id: empresaId })
-    .update({
-      matricula,
-      turma_id: dados.turma_id || null,
-      nome: dados.nome,
-      cpf,
-      ...(tipoSanguineo !== undefined ? { tipo_sanguineo: tipoSanguineo } : {}),
-      data_nascimento: dados.data_nascimento || null,
-      nome_responsavel: dados.nome_responsavel || null,
-      contato_responsavel: dados.contato_responsavel || null,
-      ativo: dados.ativo !== undefined ? dados.ativo : true,
-    })
-    .returning('*');
+  return db.transaction(async (trx) => {
+    const [aluno] = await trx('alunos')
+      .where({ id: alunoId, empresa_id: empresaId })
+      .update({
+        matricula,
+        turma_id: dados.turma_id || null,
+        nome: dados.nome,
+        cpf,
+        ...(tipoSanguineo !== undefined ? { tipo_sanguineo: tipoSanguineo } : {}),
+        data_nascimento: dados.data_nascimento || null,
+        nome_responsavel: dados.nome_responsavel || null,
+        contato_responsavel: dados.contato_responsavel || null,
+        ativo: dados.ativo !== undefined ? dados.ativo : true,
+      })
+      .returning('*');
 
-  return aluno;
+    if (dados.responsavel) {
+      await responsaveisService.criarOuVincularAoAluno(
+        trx,
+        empresaId,
+        aluno.id,
+        dados.responsavel
+      );
+    }
+
+    const [{ total }] = await trx('responsavel_alunos as ra')
+      .join('responsaveis as r', 'r.id', 'ra.responsavel_id')
+      .where({
+        'ra.aluno_id': aluno.id,
+        'r.empresa_id': empresaId,
+        'r.ativo': true,
+      })
+      .count('* as total');
+
+    return { ...aluno, responsaveis_vinculados: Number(total) };
+  });
 }
 
 /**
