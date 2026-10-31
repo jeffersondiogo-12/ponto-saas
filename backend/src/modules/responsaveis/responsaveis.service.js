@@ -2,6 +2,7 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const db = require('../../config/db');
 const { AppError } = require('../../middlewares/errorHandler');
+const { publicarEvento } = require('../../realtime');
 const { classificarBatidasDeAluno, janelaDeDiasCompletos } = require('../ponto/classificacaoBatidas');
 
 function normalizarDadosDeAcesso(dados = {}) {
@@ -463,6 +464,7 @@ async function registrarLeituraAviso(empresaId, avisoId, responsavelId, alunoIds
     throw new AppError('Voce nao tem acesso a este aviso.', 403);
   }
   const [leitura] = await db('aviso_leituras').insert({ aviso_id: avisoId, responsavel_id: responsavelId }).onConflict(['aviso_id', 'responsavel_id']).ignore().returning('*');
+  if (leitura) publicarEvento('aviso.lido', { empresaId, avisoId });
   return leitura || db('aviso_leituras').where({ aviso_id: avisoId, responsavel_id: responsavelId }).first();
 }
 

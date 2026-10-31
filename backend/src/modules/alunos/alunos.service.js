@@ -56,8 +56,8 @@ async function normalizarCpfOpcional(valor) {
   };
 
   if (
-    calcularDigito(cpf.slice(0, 9), 10) !== Number(cpf[9])
-    || calcularDigito(cpf.slice(0, 10), 11) !== Number(cpf[10])
+    calcularDigito([...cpf.slice(0, 9)], 10) !== Number(cpf[9])
+    || calcularDigito([...cpf.slice(0, 10)], 11) !== Number(cpf[10])
   ) {
     throw new AppError('CPF do aluno invalido.', 400);
   }
