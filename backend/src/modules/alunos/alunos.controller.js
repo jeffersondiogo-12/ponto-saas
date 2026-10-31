@@ -36,8 +36,8 @@ async function criar(req, res, next) {
 
 async function atualizar(req, res, next) {
   try {
-    const aluno = await alunosService.atualizar(req.empresaId, req.params.id, req.body, req.filialId);
-    res.json({ aluno });
+    const resultado = await alunosService.atualizar(req.empresaId, req.params.id, req.body, req.filialId);
+    res.json(resultado);
   } catch (err) {
     next(err);
   }

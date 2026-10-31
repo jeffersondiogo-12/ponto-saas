@@ -53,6 +53,24 @@ router.post(
   responsaveisController.vincularAluno
 );
 
+router.get(
+  '/alunos/:alunoId/responsaveis',
+  autenticar,
+  exigirTipo('staff'),
+  resolverTenant,
+  exigirPermissao('responsaveis', 'ver'),
+  responsaveisController.listarResponsaveisDoAluno
+);
+
+router.patch(
+  '/alunos/:alunoId/responsaveis/:responsavelId',
+  autenticar,
+  exigirTipo('staff'),
+  resolverTenant,
+  exigirPermissao('responsaveis', 'atualizar'),
+  responsaveisController.atualizarContaResponsavel
+);
+
 router.delete(
   '/:id',
   autenticar,

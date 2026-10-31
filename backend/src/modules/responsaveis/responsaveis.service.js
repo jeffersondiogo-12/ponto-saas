@@ -18,7 +18,6 @@ function normalizarDadosDeAcesso(dados = {}) {
     throw new AppError('Informe um email valido para o responsavel.', 400);
   }
   if (email.length > 150) throw new AppError('O email do responsavel deve ter no maximo 150 caracteres.', 400);
-  if (senha.length < 8) throw new AppError('A senha do responsavel deve ter no minimo 8 caracteres.', 400);
   if (telefone && telefone.length > 20) {
     throw new AppError('O telefone do responsavel deve ter no maximo 20 caracteres.', 400);
   }
@@ -47,6 +46,9 @@ async function criarOuVincularAoAluno(trx, empresaId, alunoId, dados) {
   }
 
   if (!responsavel) {
+    if (responsavelDados.senha.length < 8) {
+      throw new AppError('A senha do responsavel deve ter no minimo 8 caracteres.', 400);
+    }
     const senha_hash = await bcrypt.hash(responsavelDados.senha, 12);
     const [novaConta] = await trx('responsaveis')
       .insert({
@@ -178,6 +180,185 @@ async function vincularAluno(empresaId, responsavelId, matriculaAluno, parentesc
     .returning('*');
 
   return vinculo;
+}
+
+async function listarResponsaveisDoAluno(empresaId, alunoId, filialId = null) {
+  const alunoQuery = db('alunos').where({ id: alunoId, empresa_id: empresaId });
+  if (filialId) alunoQuery.where({ filial_id: filialId });
+  if (!(await alunoQuery.first('id'))) throw new AppError('Aluno nao encontrado.', 404);
+
+  const query = db('responsavel_alunos as ra')
+    .join('alunos as a', 'a.id', 'ra.aluno_id')
+    .join('responsaveis as r', 'r.id', 'ra.responsavel_id')
+    .select(
+      'r.id',
+      'r.nome',
+      'r.email',
+      'r.telefone',
+      'r.ativo',
+      'ra.parentesco',
+      'ra.created_at as vinculado_em'
+    )
+    .where({
+      'ra.aluno_id': alunoId,
+      'a.empresa_id': empresaId,
+      'r.empresa_id': empresaId,
+    })
+    .orderBy('r.nome');
+
+  if (filialId) query.where('a.filial_id', filialId);
+  return query;
+}
+
+function normalizarAtualizacaoContaResponsavel(dados = {}) {
+  if (!dados || typeof dados !== 'object' || Array.isArray(dados)) {
+    throw new AppError('Dados do responsavel invalidos.', 400);
+  }
+
+  const permitidos = ['nome', 'email', 'telefone', 'senha', 'parentesco'];
+  const camposInformados = permitidos.filter((campo) => Object.prototype.hasOwnProperty.call(dados, campo));
+  if (!camposInformados.length) throw new AppError('Informe ao menos um dado para atualizar.', 400);
+
+  const atualizacao = {};
+  if (camposInformados.includes('nome')) {
+    if (typeof dados.nome !== 'string') throw new AppError('Nome do responsavel invalido.', 400);
+    const nome = dados.nome.trim();
+    if (!nome || nome.length > 150) throw new AppError('Nome do responsavel invalido.', 400);
+    atualizacao.nome = nome;
+  }
+  if (camposInformados.includes('email')) {
+    if (typeof dados.email !== 'string') throw new AppError('Email do responsavel invalido.', 400);
+    const email = dados.email.trim().toLowerCase();
+    if (!email || email.length > 150 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      throw new AppError('Email do responsavel invalido.', 400);
+    }
+    atualizacao.email = email;
+  }
+  if (camposInformados.includes('telefone')) {
+    if (dados.telefone !== null && typeof dados.telefone !== 'string') {
+      throw new AppError('Telefone do responsavel invalido.', 400);
+    }
+    const telefone = String(dados.telefone || '').trim();
+    if (telefone.length > 20) throw new AppError('Telefone do responsavel invalido.', 400);
+    atualizacao.telefone = telefone || null;
+  }
+  if (camposInformados.includes('senha') && dados.senha !== null && dados.senha !== '') {
+    if (typeof dados.senha !== 'string' || dados.senha.length < 8) {
+      throw new AppError('A senha do responsavel deve ter no minimo 8 caracteres.', 400);
+    }
+    atualizacao.senha = dados.senha;
+  }
+  if (camposInformados.includes('parentesco')) {
+    if (dados.parentesco !== null && typeof dados.parentesco !== 'string') {
+      throw new AppError('Parentesco invalido.', 400);
+    }
+    const parentesco = String(dados.parentesco || '').trim();
+    if (parentesco.length > 40) throw new AppError('Parentesco invalido.', 400);
+    atualizacao.parentesco = parentesco || null;
+  }
+
+  if (!Object.keys(atualizacao).length) throw new AppError('Informe ao menos um dado para atualizar.', 400);
+  return atualizacao;
+}
+
+async function atualizarContaResponsavel(
+  empresaId,
+  alunoId,
+  responsavelId,
+  dados,
+  { filialId = null, usuarioId, ip } = {}
+) {
+  const atualizacao = normalizarAtualizacaoContaResponsavel(dados);
+
+  try {
+    return await db.transaction(async (trx) => {
+      const vinculo = await trx('responsavel_alunos as ra')
+        .join('alunos as a', 'a.id', 'ra.aluno_id')
+        .join('responsaveis as r', 'r.id', 'ra.responsavel_id')
+        .select(
+          'r.id',
+          'r.empresa_id',
+          'r.nome',
+          'r.email',
+          'r.telefone',
+          'r.ativo',
+          'ra.parentesco'
+        )
+        .where({
+          'ra.aluno_id': alunoId,
+          'ra.responsavel_id': responsavelId,
+          'a.empresa_id': empresaId,
+          'r.empresa_id': empresaId,
+        })
+        .modify((query) => {
+          if (filialId) query.where('a.filial_id', filialId);
+        })
+        .first();
+      if (!vinculo) throw new AppError('Responsavel nao encontrado para este aluno.', 404);
+
+      const dadosAntes = {
+        nome: vinculo.nome,
+        email: vinculo.email,
+        telefone: vinculo.telefone,
+        parentesco: vinculo.parentesco,
+      };
+      const dadosConta = {};
+      for (const campo of ['nome', 'email', 'telefone']) {
+        if (atualizacao[campo] !== undefined) dadosConta[campo] = atualizacao[campo];
+      }
+
+      if (
+        dadosConta.email
+        && dadosConta.email !== vinculo.email
+        && await trx('responsaveis').where({ email: dadosConta.email }).whereNot('id', responsavelId).first('id')
+      ) {
+        throw new AppError('Ja existe uma conta com este email.', 409);
+      }
+
+      const senhaAlterada = Boolean(atualizacao.senha);
+      if (senhaAlterada) dadosConta.senha_hash = await bcrypt.hash(atualizacao.senha, 12);
+
+      if (Object.keys(dadosConta).length) {
+        await trx('responsaveis').where({ id: responsavelId, empresa_id: empresaId }).update(dadosConta);
+      }
+      if (atualizacao.parentesco !== undefined) {
+        await trx('responsavel_alunos')
+          .where({ responsavel_id: responsavelId, aluno_id: alunoId })
+          .update({ parentesco: atualizacao.parentesco });
+      }
+
+      const resultado = {
+        id: responsavelId,
+        nome: dadosConta.nome ?? vinculo.nome,
+        email: dadosConta.email ?? vinculo.email,
+        telefone: dadosConta.telefone !== undefined ? dadosConta.telefone : vinculo.telefone,
+        ativo: vinculo.ativo,
+      };
+      const parentesco = atualizacao.parentesco !== undefined ? atualizacao.parentesco : vinculo.parentesco;
+      const houveAlteracao = Object.entries(dadosConta).some(([campo, valor]) => {
+        if (campo === 'senha_hash') return true;
+        return valor !== vinculo[campo];
+      }) || parentesco !== vinculo.parentesco;
+
+      if (houveAlteracao) {
+        await trx('auditoria_logs').insert({
+          empresa_id: empresaId,
+          usuario_id: usuarioId || null,
+          acao: 'atualizar_conta_responsavel',
+          entidade: 'responsaveis',
+          entidade_id: String(responsavelId),
+          dados_antes: dadosAntes,
+          dados_depois: { ...resultado, parentesco, senha_alterada: senhaAlterada },
+          ip_origem: ip,
+        });
+      }
+
+      return { responsavel: resultado, parentesco };
+    });
+  } catch (err) {
+    if (err.code === '23505') throw new AppError('Ja existe uma conta com este email.', 409);
+    throw err;
+  }
 }
 
 async function excluir(empresaId, responsavelId) {
@@ -518,6 +699,8 @@ module.exports = {
   cadastrar,
   criarOuVincularAoAluno,
   vincularAluno,
+  listarResponsaveisDoAluno,
+  atualizarContaResponsavel,
   vincularNovoFilho,
   listarAlunosVinculados,
   frequenciaDoAluno,
