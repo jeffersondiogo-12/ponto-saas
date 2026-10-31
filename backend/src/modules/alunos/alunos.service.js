@@ -41,6 +41,20 @@ async function buscarPorId(empresaId, alunoId, filialId = null) {
   return aluno;
 }
 
+function normalizarTipoSanguineo(valor) {
+  if (valor === null || valor === undefined) return null;
+  if (typeof valor !== 'string') {
+    throw new AppError('Tipo sanguineo invalido.', 400);
+  }
+
+  const tipoSanguineo = valor.trim().toUpperCase();
+  if (!tipoSanguineo) return null;
+  if (!['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].includes(tipoSanguineo)) {
+    throw new AppError('Tipo sanguineo invalido.', 400);
+  }
+  return tipoSanguineo;
+}
+
 async function normalizarCpfOpcional(valor) {
   if (valor === null || valor === undefined || String(valor).trim() === '') return null;
 
@@ -110,6 +124,7 @@ async function resolverPorMatriculaDispositivo(empresaId, filialId, matriculaDis
 
 async function criar(empresaId, dados, filialId = null) {
   if (filialId && dados.filial_id !== filialId) throw new AppError('Aluno deve pertencer a filial do usuario.', 403);
+  const tipoSanguineo = normalizarTipoSanguineo(dados.tipo_sanguineo);
   const cpf = await normalizarCpfOpcional(dados.cpf);
   const matricula = String(dados.matricula || '').trim() || null;
 
@@ -149,6 +164,7 @@ async function criar(empresaId, dados, filialId = null) {
         matricula,
         nome: dados.nome,
         cpf,
+        tipo_sanguineo: tipoSanguineo,
         data_nascimento: dados.data_nascimento || null,
         nome_responsavel: nomeResponsavel,
         contato_responsavel: contatoResponsavel,
@@ -170,6 +186,9 @@ async function criar(empresaId, dados, filialId = null) {
 
 async function atualizar(empresaId, alunoId, dados, filialId = null) {
   const alunoAtual = await buscarPorId(empresaId, alunoId, filialId);
+  const tipoSanguineo = dados.tipo_sanguineo === undefined
+    ? undefined
+    : normalizarTipoSanguineo(dados.tipo_sanguineo);
   const cpf = await normalizarCpfOpcional(dados.cpf);
   const matricula = String(dados.matricula || '').trim() || null;
 
@@ -193,6 +212,7 @@ async function atualizar(empresaId, alunoId, dados, filialId = null) {
       turma_id: dados.turma_id || null,
       nome: dados.nome,
       cpf,
+      ...(tipoSanguineo !== undefined ? { tipo_sanguineo: tipoSanguineo } : {}),
       data_nascimento: dados.data_nascimento || null,
       nome_responsavel: dados.nome_responsavel || null,
       contato_responsavel: dados.contato_responsavel || null,
