@@ -2,25 +2,12 @@ import { useState } from 'react';
 import { api } from '../../api';
 import { BarraTopo } from '../Ui';
 import { useVoltar } from '../useVoltar';
+import { cpfValido, mascaraCpf } from '../../utils/dominio';
 
 /**
  * Vincular mais um filho: espelho da AdicionarFilhoScreen do APK — mesmos
  * campos, mesma conferencia de CPF, mesma fila offline.
  */
-function cpfValido(valor) {
-  const digitos = String(valor || '').replace(/\D/g, '');
-  if (digitos.length !== 11 || /^([0-9])\1+$/.test(digitos)) return false;
-  let soma = 0;
-  for (let indice = 0; indice < 9; indice += 1) soma += Number(digitos[indice]) * (10 - indice);
-  let primeiro = (soma * 10) % 11;
-  if (primeiro === 10) primeiro = 0;
-  if (primeiro !== Number(digitos[9])) return false;
-  soma = 0;
-  for (let indice = 0; indice < 10; indice += 1) soma += Number(digitos[indice]) * (11 - indice);
-  let segundo = (soma * 10) % 11;
-  if (segundo === 10) segundo = 0;
-  return segundo === Number(digitos[10]);
-}
 
 function Campo({ id, rotulo, ...props }) {
   return (
@@ -83,7 +70,7 @@ export default function AdicionarFilho() {
           <Campo id="filho-nome" rotulo="Nome completo" placeholder="Nome do aluno" autoComplete="off"
             value={nome} onChange={(e) => setNome(e.target.value)} />
           <Campo id="filho-cpf" rotulo="CPF" placeholder="000.000.000-00" inputMode="numeric" autoComplete="off"
-            value={cpf} onChange={(e) => setCpf(e.target.value)} />
+            value={cpf} onChange={(e) => setCpf(mascaraCpf(e.target.value))} />
           <Campo id="filho-matricula" rotulo="Matrícula" placeholder="Número da matrícula" autoComplete="off"
             value={matricula} onChange={(e) => setMatricula(e.target.value)} />
           <Campo id="filho-parentesco" rotulo="Parentesco (opcional)" placeholder="Mãe, pai, responsável..." autoComplete="off"

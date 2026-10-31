@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import Layout from '../components/Layout';
 import Selecao from '../components/Selecao';
 import { api } from '../api';
-import { mascaraCpf, soDigitos } from '../utils/dominio';
+import { cpfValido, mascaraCpf, soDigitos } from '../utils/dominio';
 
 const DIAS = [
   { valor: 1, rotulo: 'Seg' },
@@ -46,6 +46,16 @@ function payloadAluno(aluno, mudancas) {
     ativo: aluno.ativo,
     ...mudancas,
   };
+}
+
+/**
+ * Desde 25/10 o servidor recusa CPF invalido em qualquer gravacao, e o
+ * payloadAluno reenvia o CPF guardado. Aluno salvo antes com CPF invalido nao
+ * muda de turma ate o CPF ser corrigido no cadastro: a tela diz isso antes.
+ */
+function erroCpfGuardado(aluno) {
+  if (!aluno.cpf || cpfValido(aluno.cpf)) return null;
+  return `O CPF cadastrado de ${aluno.nome} é inválido. Corrija no cadastro do aluno e tente de novo.`;
 }
 
 export default function TurmaDetalhe() {
@@ -114,6 +124,8 @@ export default function TurmaDetalhe() {
     if (!vinculandoId) return;
     const aluno = alunos.find((a) => a.id === vinculandoId);
     if (!aluno) return;
+    const erroCpf = erroCpfGuardado(aluno);
+    if (erroCpf) { setErro(erroCpf); return; }
     setOcupado(true);
     setErro(null);
     try {
@@ -128,6 +140,8 @@ export default function TurmaDetalhe() {
   }
 
   async function removerDaTurma(aluno) {
+    const erroCpf = erroCpfGuardado(aluno);
+    if (erroCpf) { setErro(erroCpf); return; }
     setOcupado(true);
     setErro(null);
     try {
@@ -189,6 +203,10 @@ export default function TurmaDetalhe() {
     // Sequencial de proposito: o backend valida matricula duplicada consultando
     // o banco, e em paralelo duas linhas com a mesma matricula passariam as duas.
     for (const linha of preenchidas) {
+      if (!cpfValido(linha.cpf)) {
+        resultados.push({ ok: false, mensagem: 'CPF inválido. Confira os números digitados.' });
+        continue;
+      }
       try {
         await api.criarAluno({
           filial_id: turma.filial_id,

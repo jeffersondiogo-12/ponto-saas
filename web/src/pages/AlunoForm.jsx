@@ -5,7 +5,7 @@ import Selecao from '../components/Selecao';
 import FotoAluno from '../components/FotoAluno';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
-import { mascaraCpf, soDigitos } from '../utils/dominio';
+import { TIPOS_SANGUINEOS, cpfValido, mascaraCpf, soDigitos } from '../utils/dominio';
 
 /**
  * `ativo` nao aparece no formulario, mas mora aqui de proposito: o `atualizar`
@@ -19,6 +19,7 @@ import { mascaraCpf, soDigitos } from '../utils/dominio';
 const VAZIO = {
   nome: '', cpf: '', data_nascimento: '', matricula: '',
   filial_id: '', turma_id: '', nome_responsavel: '', contato_responsavel: '',
+  tipo_sanguineo: '',
   criar_acesso_responsavel: true,
   responsavel_email: '', responsavel_parentesco: '',
   responsavel_senha: '', responsavel_confirmacao_senha: '',
@@ -77,6 +78,7 @@ export default function AlunoForm() {
           turma_id: aluno.turma_id || '',
           nome_responsavel: aluno.nome_responsavel || '',
           contato_responsavel: aluno.contato_responsavel || '',
+          tipo_sanguineo: aluno.tipo_sanguineo || '',
           criar_acesso_responsavel: false,
           responsavel_email: '',
           responsavel_parentesco: '',
@@ -100,8 +102,8 @@ export default function AlunoForm() {
       setErro('Selecione a escola do aluno.');
       return;
     }
-    if (soDigitos(dados.cpf).length !== 11) {
-      setErro('Informe um CPF com 11 dígitos.');
+    if (!cpfValido(dados.cpf)) {
+      setErro('CPF inválido. Confira os números digitados.');
       return;
     }
     if (!dados.data_nascimento) {
@@ -146,6 +148,11 @@ export default function AlunoForm() {
         contato_responsavel: dados.contato_responsavel.trim() || null,
         ativo: dados.ativo,
       };
+      // So vai quando muda: ausente, o backend mantem o que esta gravado, e
+      // null apaga ("Não informado"). Diferente dos outros campos de cima.
+      if (dados.tipo_sanguineo !== (alunoAtual?.tipo_sanguineo || '')) {
+        payload.tipo_sanguineo = dados.tipo_sanguineo || null;
+      }
       if (!editando && dados.criar_acesso_responsavel) {
         payload.nome_responsavel = dados.nome_responsavel.trim();
         payload.contato_responsavel = dados.contato_responsavel.trim()
@@ -275,6 +282,22 @@ export default function AlunoForm() {
                     ...turmasDaEscola.map((t) => ({ valor: t.id, rotulo: t.nome })),
                   ]}
                 />
+              </div>
+
+              <div className="campo">
+                <label htmlFor="al-sangue">Tipo sanguíneo</label>
+                <Selecao
+                  id="al-sangue"
+                  rotuloAria="Tipo sanguíneo"
+                  valor={dados.tipo_sanguineo}
+                  aoMudar={(v) => set('tipo_sanguineo', v)}
+                  vazio="Não informado"
+                  opcoes={[
+                    { valor: '', rotulo: 'Não informado' },
+                    ...TIPOS_SANGUINEOS.map((t) => ({ valor: t, rotulo: t })),
+                  ]}
+                />
+                <span className="ajuda">Opcional. Para apagar, escolha “Não informado”.</span>
               </div>
             </div>
           </div>

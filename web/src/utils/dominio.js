@@ -59,6 +59,9 @@ export const STATUS_AVISO = {
 export const rotuloStatusAviso = (v) => STATUS_AVISO[v]?.rotulo || v || '—';
 export const tomStatusAviso = (v) => STATUS_AVISO[v]?.tom || 'neutro';
 
+/** Espelha a lista de `normalizarTipoSanguineo` do backend: fora dela, 400. */
+export const TIPOS_SANGUINEOS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+
 export const soDigitos = (v) => String(v || '').replace(/\D/g, '');
 
 /** Formata 000.000.000-00 enquanto a pessoa digita. */
@@ -68,6 +71,23 @@ export function mascaraCpf(v) {
     .replace(/^(\d{3})(\d)/, '$1.$2')
     .replace(/^(\d{3})\.(\d{3})(\d)/, '$1.$2.$3')
     .replace(/^(\d{3})\.(\d{3})\.(\d{3})(\d)/, '$1.$2.$3-$4');
+}
+
+/**
+ * CPF pelos digitos verificadores, a mesma conta do servidor
+ * (`normalizarCpfOpcional`) e do "Adicionar filho" do APK. Usada no cadastro
+ * de aluno, no cadastro em massa e no "Adicionar filho" do PWA.
+ */
+export function cpfValido(v) {
+  const d = soDigitos(v);
+  if (d.length !== 11 || /^(\d)\1{10}$/.test(d)) return false;
+  const digito = (n) => {
+    let soma = 0;
+    for (let i = 0; i < n; i += 1) soma += Number(d[i]) * (n + 1 - i);
+    const resto = soma % 11;
+    return resto < 2 ? 0 : 11 - resto;
+  };
+  return digito(9) === Number(d[9]) && digito(10) === Number(d[10]);
 }
 
 /** "Ana Beatriz Souza" -> "AS": primeira letra do primeiro e do ultimo nome. */
