@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import Layout from '../components/Layout';
 import Selecao from '../components/Selecao';
-import { api } from '../api';
+import { api, payloadAluno } from '../api';
 import { cpfValido, mascaraCpf, soDigitos } from '../utils/dominio';
 
 const DIAS = [
@@ -22,31 +22,6 @@ const linhaVazia = () => ({ nome: '', cpf: '', data_nascimento: '', matricula: '
  * extra no fim da tabela nao travar o envio.
  */
 const linhaIniciada = (l) => Boolean(l.nome.trim() || l.cpf.trim() || l.data_nascimento || l.matricula.trim());
-
-/**
- * atualizarAluno faz UPDATE de todos os campos do aluno (ver
- * backend/src/modules/alunos/alunos.service.js). Mandar so o turma_id
- * apagaria nome, cpf e o resto - por isso reenviamos o registro inteiro.
- *
- * A lista aqui precisa cobrir TODO campo que o `.update()` do backend grava.
- * Campo que falta nao da erro: o backend le `dados.campo` como undefined e
- * grava null, apagando em silencio o que ja estava la. Foi o que aconteceu com
- * `matricula`, incluida no UPDATE em 2026-08-31 - vincular um aluno a turma
- * apagava a matricula dele. Ao ver campo novo no `atualizar`, acrescente aqui.
- */
-function payloadAluno(aluno, mudancas) {
-  return {
-    nome: aluno.nome,
-    cpf: aluno.cpf,
-    matricula: aluno.matricula,
-    data_nascimento: aluno.data_nascimento ? String(aluno.data_nascimento).slice(0, 10) : null,
-    nome_responsavel: aluno.nome_responsavel,
-    contato_responsavel: aluno.contato_responsavel,
-    turma_id: aluno.turma_id,
-    ativo: aluno.ativo,
-    ...mudancas,
-  };
-}
 
 /**
  * Desde 25/10 o servidor recusa CPF invalido em qualquer gravacao, e o
