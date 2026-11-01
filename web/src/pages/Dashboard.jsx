@@ -4,6 +4,7 @@ import Layout from '../components/Layout';
 import Selecao from '../components/Selecao';
 import { api } from '../api';
 import { useRecarregarAoVivo } from '../context/RealtimeContext';
+import { cpfValido } from '../utils/dominio';
 import { MESES, baixarCsv, exportarPdf, limitesDoMes, minutosParaHoras } from '../utils/exportar';
 
 /** Plural de verdade: "1 turma", "8 turmas" — nada de "turma(s)". */
@@ -216,6 +217,9 @@ export default function Dashboard() {
       // A matricula deixou de ser obrigatoria no cadastro, entao este item e o
       // unico lembrete de que ela ainda falta. Nao remova.
       { chave: 'matricula', texto: 'Alunos sem matrícula — regularizar', total: alunosFiltrados.filter((a) => !a.matricula).length, link: '/alunos' },
+      // Gravados antes de o servidor conferir o CPF (25/10): nao editam nem
+      // mudam de turma ate o CPF ser corrigido.
+      { chave: 'cpf', texto: 'Alunos com CPF inválido — corrigir', total: alunosFiltrados.filter((a) => a.cpf && !cpfValido(a.cpf)).length, link: '/alunos' },
       { chave: 'vazia', texto: 'Turmas ativas sem nenhum aluno', total: turmasFiltradas.filter((t) => t.ativo && !comAluno.has(t.id)).length, link: '/turmas' },
       { chave: 'batidas', texto: 'Batidas sem funcionário ou aluno vinculado', total: naoResolvidosFiltrados.length, link: '/relatorios' },
     ].filter((p) => p.total > 0);

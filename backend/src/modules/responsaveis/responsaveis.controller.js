@@ -142,6 +142,38 @@ async function vincularAluno(req, res, next) {
   }
 }
 
+async function listarResponsaveisDoAluno(req, res, next) {
+  try {
+    const responsaveis = await responsaveisService.listarResponsaveisDoAluno(
+      req.empresaId,
+      req.params.alunoId,
+      req.filialId
+    );
+    res.json({ responsaveis });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function atualizarContaResponsavel(req, res, next) {
+  try {
+    const resultado = await responsaveisService.atualizarContaResponsavel(
+      req.empresaId,
+      req.params.alunoId,
+      req.params.responsavelId,
+      req.body,
+      {
+        filialId: req.filialId,
+        usuarioId: req.usuario.usuario_id,
+        ip: req.ip,
+      }
+    );
+    res.json(resultado);
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function excluir(req, res, next) {
   try {
     await responsaveisService.excluir(req.empresaId, req.params.id);
@@ -165,6 +197,8 @@ module.exports = {
   registrarPushWeb,
   removerPushWeb,
   vincularAluno,
+  listarResponsaveisDoAluno,
+  atualizarContaResponsavel,
   vincularNovoFilho,
   excluir,
 };

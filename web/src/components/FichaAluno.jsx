@@ -60,6 +60,14 @@ export default function FichaAluno({ aluno, podeExcluir, aoFechar, aoEditar, aoE
           <dt>Matrícula</dt><dd className="mono">{aluno.matricula || 'Sem matrícula'}</dd>
           <dt>CPF</dt><dd className="mono">{aluno.cpf ? mascaraCpf(aluno.cpf) : '—'}</dd>
           <dt>Nascimento</dt><dd className="mono">{dataBr(aluno.data_nascimento)}</dd>
+          {/* So na ficha, nunca no resumo do hover: e dado de saude. A linha
+              aparece quando o backend manda o campo (coluna existe no banco). */}
+          {'tipo_sanguineo' in aluno && (
+            <>
+              <dt>Tipo sanguíneo</dt>
+              <dd className="mono">{aluno.tipo_sanguineo || 'Não informado'}</dd>
+            </>
+          )}
           <dt>Responsável</dt><dd>{aluno.nome_responsavel || '—'}</dd>
           <dt>Contato</dt><dd>{aluno.contato_responsavel || '—'}</dd>
           {'responsaveis_vinculados' in aluno && (

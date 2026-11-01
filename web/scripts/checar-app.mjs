@@ -106,4 +106,14 @@ assert.equal(vapid.inscritaComChave(inscricaoA, chaveA), true);
 assert.equal(vapid.inscritaComChave(inscricaoA, chaveB), false);
 assert.equal(vapid.inscritaComChave({}, chaveB), true); // navegador que nao informa: nao refaz
 
+// CPF pelos digitos verificadores, como o servidor.
+const { cpfValido } = await import('../src/utils/dominio.js');
+assert.equal(cpfValido('529.982.247-25'), true);
+assert.equal(cpfValido('52998224725'), true);
+assert.equal(cpfValido('529.982.247-24'), false);
+assert.equal(cpfValido('111.111.111-00'), false);
+assert.equal(cpfValido('111.111.111-11'), false); // repetido passa na conta, mas nao vale
+assert.equal(cpfValido('5299822472'), false);
+assert.equal(cpfValido(null), false);
+
 console.log('ok');

@@ -323,6 +323,35 @@ function consulta(params) {
   ).toString();
 }
 
+/**
+ * atualizarAluno faz UPDATE de todos os campos do aluno (ver
+ * backend/src/modules/alunos/alunos.service.js). Mandar so o turma_id
+ * apagaria nome, cpf e o resto - por isso reenviamos o registro inteiro.
+ *
+ * A lista aqui precisa cobrir TODO campo que o `.update()` do backend grava.
+ * Campo que falta nao da erro: o backend le `dados.campo` como undefined e
+ * grava null, apagando em silencio o que ja estava la. Foi o que aconteceu com
+ * `matricula`, incluida no UPDATE em 2026-08-31 - vincular um aluno a turma
+ * apagava a matricula dele. Ao ver campo novo no `atualizar`, acrescente aqui.
+ * (`tipo_sanguineo` fica de fora de proposito: ausente, o backend mantem.)
+ *
+ * Usado pela TurmaDetalhe (mudar de turma) e pelo AcessoResponsavel (dar
+ * acesso pela edicao, sem gravar o que o formulario ainda nao salvou).
+ */
+export function payloadAluno(aluno, mudancas) {
+  return {
+    nome: aluno.nome,
+    cpf: aluno.cpf,
+    matricula: aluno.matricula,
+    data_nascimento: aluno.data_nascimento ? String(aluno.data_nascimento).slice(0, 10) : null,
+    nome_responsavel: aluno.nome_responsavel,
+    contato_responsavel: aluno.contato_responsavel,
+    turma_id: aluno.turma_id,
+    ativo: aluno.ativo,
+    ...mudancas,
+  };
+}
+
 export const api = {
   login: (email, senha, unidade) => requisitar('/api/auth/login', { method: 'POST', body: { email, senha, unidade } }),
   loginResponsavel: (email, senha) => requisitar('/api/responsaveis/login', { method: 'POST', body: { email, senha } }),
@@ -472,6 +501,13 @@ export const api = {
   criarAluno: (dados) => requisitar('/api/alunos', { method: 'POST', body: dados }),
   atualizarAluno: (id, dados) => requisitar(`/api/alunos/${id}`, { method: 'PUT', body: dados }),
   excluirAluno: (id) => requisitar(`/api/alunos/${id}`, { method: 'DELETE' }),
+  // Acesso do responsavel ao app, pela escola. Adicionar e pelo atualizarAluno
+  // com `responsavel` no corpo; listar e alterar a conta, pelas rotas abaixo.
+  listarResponsaveisDoAluno: (alunoId) => requisitar(`/api/responsaveis/alunos/${alunoId}/responsaveis`),
+  atualizarContaResponsavel: (alunoId, responsavelId, dados) => requisitar(
+    `/api/responsaveis/alunos/${alunoId}/responsaveis/${responsavelId}`,
+    { method: 'PATCH', body: dados },
+  ),
   // Foto guardada do aluno: JPEG ja preparado (utils/fotoAluno.js), em Base64.
   salvarFotoAluno: (id, fotoBase64) => requisitar(`/api/alunos/${id}/foto`, { method: 'PUT', body: { foto_base64: fotoBase64 } }),
   removerFotoAluno: (id) => requisitar(`/api/alunos/${id}/foto`, { method: 'DELETE' }),

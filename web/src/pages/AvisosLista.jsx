@@ -188,7 +188,7 @@ export default function AvisosLista() {
                   <th>Para</th>
                   <th>Envio</th>
                   <th>Situação</th>
-                  <th>Leram</th>
+                  <th>Leituras</th>
                   <th>Ações</th>
                 </tr>
               </thead>

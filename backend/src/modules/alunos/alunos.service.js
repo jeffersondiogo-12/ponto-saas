@@ -3,6 +3,17 @@ const { AppError } = require('../../middlewares/errorHandler');
 const responsaveisService = require('../responsaveis/responsaveis.service');
 const { classificarBatidasDeAluno, janelaDeDiasCompletos } = require('../ponto/classificacaoBatidas');
 
+function expressaoResponsaveisVinculados(alias = 'a') {
+  return db.raw(`(
+    SELECT COUNT(*)::int
+    FROM responsavel_alunos ra
+    JOIN responsaveis r ON r.id = ra.responsavel_id
+    WHERE ra.aluno_id = ${alias}.id
+      AND r.empresa_id = ${alias}.empresa_id
+      AND r.ativo = true
+  ) AS responsaveis_vinculados`);
+}
+
 async function listar(empresaId, { turmaId, filialId, ativo } = {}) {
   const query = db('alunos as a')
     .select(
@@ -10,14 +21,7 @@ async function listar(empresaId, { turmaId, filialId, ativo } = {}) {
       't.nome as turma_nome',
       'f.nome as filial_nome',
       db.raw(`COALESCE((SELECT json_agg(ht ORDER BY ht.dia_semana) FROM horarios_turmas ht WHERE ht.turma_id = t.id AND ht.ativo = true), '[]'::json) AS horarios_turma`),
-      db.raw(`(
-        SELECT COUNT(*)::int
-        FROM responsavel_alunos ra
-        JOIN responsaveis r ON r.id = ra.responsavel_id
-        WHERE ra.aluno_id = a.id
-          AND r.empresa_id = a.empresa_id
-          AND r.ativo = true
-      ) AS responsaveis_vinculados`),
+      expressaoResponsaveisVinculados(),
       // So o "tem ou nao": a foto em si vem por GET /:id/foto, quando a tela precisa.
       db.raw('EXISTS (SELECT 1 FROM fotos_alunos fa WHERE fa.aluno_id = a.id) AS tem_foto'),
     )
@@ -34,8 +38,10 @@ async function listar(empresaId, { turmaId, filialId, ativo } = {}) {
 }
 
 async function buscarPorId(empresaId, alunoId, filialId = null) {
-  const query = db('alunos').where({ id: alunoId, empresa_id: empresaId });
-  if (filialId) query.where('filial_id', filialId);
+  const query = db('alunos as a')
+    .select('a.*', expressaoResponsaveisVinculados())
+    .where({ 'a.id': alunoId, 'a.empresa_id': empresaId });
+  if (filialId) query.where('a.filial_id', filialId);
   const aluno = await query.first();
   if (!aluno) throw new AppError('Aluno nao encontrado.', 404);
   return aluno;
@@ -70,8 +76,8 @@ async function normalizarCpfOpcional(valor) {
   };
 
   if (
-    calcularDigito(cpf.slice(0, 9), 10) !== Number(cpf[9])
-    || calcularDigito(cpf.slice(0, 10), 11) !== Number(cpf[10])
+    calcularDigito([...cpf.slice(0, 9)], 10) !== Number(cpf[9])
+    || calcularDigito([...cpf.slice(0, 10)], 11) !== Number(cpf[10])
   ) {
     throw new AppError('CPF do aluno invalido.', 400);
   }
@@ -205,22 +211,46 @@ async function atualizar(empresaId, alunoId, dados, filialId = null) {
     if (matriculaExistente) throw new AppError('Já existe um aluno com esta matrícula.', 409);
   }
 
-  const [aluno] = await db('alunos')
-    .where({ id: alunoId, empresa_id: empresaId })
-    .update({
-      matricula,
-      turma_id: dados.turma_id || null,
-      nome: dados.nome,
-      cpf,
-      ...(tipoSanguineo !== undefined ? { tipo_sanguineo: tipoSanguineo } : {}),
-      data_nascimento: dados.data_nascimento || null,
-      nome_responsavel: dados.nome_responsavel || null,
-      contato_responsavel: dados.contato_responsavel || null,
-      ativo: dados.ativo !== undefined ? dados.ativo : true,
-    })
-    .returning('*');
+  return db.transaction(async (trx) => {
+    const [aluno] = await trx('alunos')
+      .where({ id: alunoId, empresa_id: empresaId })
+      .update({
+        matricula,
+        turma_id: dados.turma_id || null,
+        nome: dados.nome,
+        cpf,
+        ...(tipoSanguineo !== undefined ? { tipo_sanguineo: tipoSanguineo } : {}),
+        data_nascimento: dados.data_nascimento || null,
+        nome_responsavel: dados.nome_responsavel || null,
+        contato_responsavel: dados.contato_responsavel || null,
+        ativo: dados.ativo !== undefined ? dados.ativo : true,
+      })
+      .returning('*');
 
-  return aluno;
+    let acesso = { responsavel: null, vinculo: null };
+    if (dados.responsavel) {
+      acesso = await responsaveisService.criarOuVincularAoAluno(
+        trx,
+        empresaId,
+        aluno.id,
+        dados.responsavel
+      );
+    }
+
+    const [{ total }] = await trx('responsavel_alunos as ra')
+      .join('responsaveis as r', 'r.id', 'ra.responsavel_id')
+      .where({
+        'ra.aluno_id': aluno.id,
+        'r.empresa_id': empresaId,
+        'r.ativo': true,
+      })
+      .count('* as total');
+
+    return {
+      aluno: { ...aluno, responsaveis_vinculados: Number(total) },
+      ...acesso,
+    };
+  });
 }
 
 /**

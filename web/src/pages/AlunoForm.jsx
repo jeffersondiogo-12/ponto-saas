@@ -3,9 +3,11 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import Layout from '../components/Layout';
 import Selecao from '../components/Selecao';
 import FotoAluno from '../components/FotoAluno';
+import AcessoResponsavel from '../components/AcessoResponsavel';
+import { ResponsavelVinculado } from '../components/FichaAluno';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
-import { mascaraCpf, soDigitos } from '../utils/dominio';
+import { TIPOS_SANGUINEOS, cpfValido, mascaraCpf, soDigitos } from '../utils/dominio';
 
 /**
  * `ativo` nao aparece no formulario, mas mora aqui de proposito: o `atualizar`
@@ -19,9 +21,9 @@ import { mascaraCpf, soDigitos } from '../utils/dominio';
 const VAZIO = {
   nome: '', cpf: '', data_nascimento: '', matricula: '',
   filial_id: '', turma_id: '', nome_responsavel: '', contato_responsavel: '',
-  criar_acesso_responsavel: true,
-  responsavel_email: '', responsavel_parentesco: '',
-  responsavel_senha: '', responsavel_confirmacao_senha: '',
+  tipo_sanguineo: '',
+  // Dados guardados pela tela "Acesso do responsável", so no cadastro.
+  acesso: null,
   ativo: true,
 };
 
@@ -39,8 +41,9 @@ export default function AlunoForm() {
   const [turmas, setTurmas] = useState([]);
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState(null);
+  const [acessoAberto, setAcessoAberto] = useState(false);
 
-  const set = (campo, valor) => setDados((d) => ({ ...d, [campo]: valor }));
+  const set =(campo, valor) => setDados((d) => ({ ...d, [campo]: valor }));
   const escolheFilial = usuario?.papel === 'admin' || usuario?.papel === 'super_admin';
 
   useEffect(() => {
@@ -77,11 +80,8 @@ export default function AlunoForm() {
           turma_id: aluno.turma_id || '',
           nome_responsavel: aluno.nome_responsavel || '',
           contato_responsavel: aluno.contato_responsavel || '',
-          criar_acesso_responsavel: false,
-          responsavel_email: '',
-          responsavel_parentesco: '',
-          responsavel_senha: '',
-          responsavel_confirmacao_senha: '',
+          tipo_sanguineo: aluno.tipo_sanguineo || '',
+          acesso: null,
           ativo: aluno.ativo !== undefined ? aluno.ativo : true,
         });
       }
@@ -100,33 +100,13 @@ export default function AlunoForm() {
       setErro('Selecione a escola do aluno.');
       return;
     }
-    if (soDigitos(dados.cpf).length !== 11) {
-      setErro('Informe um CPF com 11 dígitos.');
+    if (!cpfValido(dados.cpf)) {
+      setErro('CPF inválido. Confira os números digitados.');
       return;
     }
     if (!dados.data_nascimento) {
       setErro('Informe a data de nascimento.');
       return;
-    }
-
-    if (!editando && dados.criar_acesso_responsavel) {
-      const emailResponsavel = dados.responsavel_email.trim();
-      if (!dados.nome_responsavel.trim()) {
-        setErro('Informe o nome do responsavel.');
-        return;
-      }
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailResponsavel)) {
-        setErro('Informe um email valido para o responsavel.');
-        return;
-      }
-      if (dados.responsavel_senha.length < 8) {
-        setErro('A senha do responsavel deve ter no minimo 8 caracteres.');
-        return;
-      }
-      if (dados.responsavel_senha !== dados.responsavel_confirmacao_senha) {
-        setErro('A senha e a confirmacao do responsavel nao conferem.');
-        return;
-      }
     }
 
     const matricula = dados.matricula.trim();
@@ -146,17 +126,17 @@ export default function AlunoForm() {
         contato_responsavel: dados.contato_responsavel.trim() || null,
         ativo: dados.ativo,
       };
-      if (!editando && dados.criar_acesso_responsavel) {
-        payload.nome_responsavel = dados.nome_responsavel.trim();
-        payload.contato_responsavel = dados.contato_responsavel.trim()
-          || dados.responsavel_email.trim().toLowerCase();
-        payload.responsavel = {
-          nome: dados.nome_responsavel.trim(),
-          email: dados.responsavel_email.trim().toLowerCase(),
-          telefone: dados.contato_responsavel.trim() || null,
-          parentesco: dados.responsavel_parentesco.trim() || null,
-          senha: dados.responsavel_senha,
-        };
+      // So vai quando muda: ausente, o backend mantem o que esta gravado, e
+      // null apaga ("Não informado"). Diferente dos outros campos de cima.
+      if (dados.tipo_sanguineo !== (alunoAtual?.tipo_sanguineo || '')) {
+        payload.tipo_sanguineo = dados.tipo_sanguineo || null;
+      }
+      // Acesso guardado na tela "Acesso do responsável": vai junto com o aluno.
+      // Na edicao, a propria tela salva na hora; aqui so o cadastro.
+      if (!editando && dados.acesso) {
+        payload.nome_responsavel = payload.nome_responsavel || dados.acesso.nome;
+        payload.contato_responsavel = payload.contato_responsavel || dados.acesso.telefone || dados.acesso.email;
+        payload.responsavel = dados.acesso;
       }
 
       if (editando) {
@@ -276,6 +256,22 @@ export default function AlunoForm() {
                   ]}
                 />
               </div>
+
+              <div className="campo">
+                <label htmlFor="al-sangue">Tipo sanguíneo</label>
+                <Selecao
+                  id="al-sangue"
+                  rotuloAria="Tipo sanguíneo"
+                  valor={dados.tipo_sanguineo}
+                  aoMudar={(v) => set('tipo_sanguineo', v)}
+                  vazio="Não informado"
+                  opcoes={[
+                    { valor: '', rotulo: 'Não informado' },
+                    ...TIPOS_SANGUINEOS.map((t) => ({ valor: t, rotulo: t })),
+                  ]}
+                />
+                <span className="ajuda">Opcional. Para apagar, escolha “Não informado”.</span>
+              </div>
             </div>
           </div>
         </div>
@@ -284,101 +280,54 @@ export default function AlunoForm() {
           <div className="eyebrow">Responsável</div>
           <div className="card-corpo">
             <p className="texto-apoio" style={{ marginTop: 0 }}>
-              {editando
-                ? 'A edicao do aluno nao altera as credenciais de acesso do responsavel.'
-                : 'Cadastre as credenciais que o responsavel usara para entrar no aplicativo.'}
+              Nome e contato ficam no cadastro do aluno e aparecem na ficha. E-mail e senha
+              do aplicativo ficam em “Acesso do responsável”.
             </p>
-
-            {!editando && (
-              <label className="campo" style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                <input
-                  type="checkbox"
-                  checked={dados.criar_acesso_responsavel}
-                  onChange={(e) => set('criar_acesso_responsavel', e.target.checked)}
-                  style={{ width: 'auto' }}
-                />
-                Criar acesso ao aplicativo
-              </label>
-            )}
 
             <div className="grid-form">
               <div className="campo">
-                <label htmlFor="al-resp">
-                  Nome do responsável
-                  {!editando && dados.criar_acesso_responsavel && <span className="obrigatorio"> *</span>}
-                </label>
+                <label htmlFor="al-resp">Nome do responsável</label>
                 <input
                   id="al-resp"
                   value={dados.nome_responsavel}
                   onChange={(e) => set('nome_responsavel', e.target.value)}
-                  required={!editando && dados.criar_acesso_responsavel}
                   maxLength={150}
                 />
               </div>
               <div className="campo">
-                <label htmlFor="al-contato">
-                  {!editando && dados.criar_acesso_responsavel ? 'Telefone' : 'Contato'}
-                </label>
+                <label htmlFor="al-contato">Contato</label>
                 <input
                   id="al-contato"
                   value={dados.contato_responsavel}
                   onChange={(e) => set('contato_responsavel', e.target.value)}
-                  placeholder={!editando && dados.criar_acesso_responsavel ? '(81) 99999-9999' : 'telefone ou e-mail'}
-                  maxLength={!editando && dados.criar_acesso_responsavel ? 20 : 100}
+                  placeholder="telefone ou e-mail"
+                  maxLength={100}
                 />
               </div>
+            </div>
 
-              {!editando && dados.criar_acesso_responsavel && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12, marginTop: 14 }}>
+              <button
+                type="button"
+                className="btn btn-secundario"
+                onClick={() => setAcessoAberto(true)}
+                disabled={editando && !alunoAtual}
+              >
+                Acesso do responsável
+              </button>
+              {editando ? (
+                alunoAtual && 'responsaveis_vinculados' in alunoAtual && (
+                  <ResponsavelVinculado quantidade={alunoAtual.responsaveis_vinculados} />
+                )
+              ) : dados.acesso ? (
                 <>
-                  <div className="campo">
-                    <label htmlFor="al-resp-email">E-mail de acesso <span className="obrigatorio">*</span></label>
-                    <input
-                      id="al-resp-email"
-                      type="email"
-                      value={dados.responsavel_email}
-                      onChange={(e) => set('responsavel_email', e.target.value)}
-                      placeholder="responsavel@email.com"
-                      autoComplete="email"
-                      maxLength={150}
-                      required
-                    />
-                  </div>
-                  <div className="campo">
-                    <label htmlFor="al-resp-parentesco">Parentesco</label>
-                    <input
-                      id="al-resp-parentesco"
-                      value={dados.responsavel_parentesco}
-                      onChange={(e) => set('responsavel_parentesco', e.target.value)}
-                      placeholder="pai, mae, avo, tutor..."
-                      maxLength={40}
-                    />
-                  </div>
-                  <div className="campo">
-                    <label htmlFor="al-resp-senha">Senha <span className="obrigatorio">*</span></label>
-                    <input
-                      id="al-resp-senha"
-                      type="password"
-                      value={dados.responsavel_senha}
-                      onChange={(e) => set('responsavel_senha', e.target.value)}
-                      autoComplete="new-password"
-                      minLength={8}
-                      required
-                    />
-                    <span className="ajuda">Use pelo menos 8 caracteres.</span>
-                  </div>
-                  <div className="campo">
-                    <label htmlFor="al-resp-confirmar">Confirmar senha <span className="obrigatorio">*</span></label>
-                    <input
-                      id="al-resp-confirmar"
-                      type="password"
-                      value={dados.responsavel_confirmacao_senha}
-                      onChange={(e) => set('responsavel_confirmacao_senha', e.target.value)}
-                      autoComplete="new-password"
-                      minLength={8}
-                      required
-                    />
-                  </div>
+                  <span>Acesso para <strong>{dados.acesso.email}</strong>, criado ao cadastrar.</span>
+                  <button type="button" className="btn btn-secundario" onClick={() => set('acesso', null)}>
+                    Remover acesso
+                  </button>
                 </>
+              ) : (
+                <span className="texto-apoio">Sem acesso ao aplicativo.</span>
               )}
             </div>
           </div>
@@ -391,6 +340,21 @@ export default function AlunoForm() {
           </button>
         </div>
       </form>
+
+      {acessoAberto && (
+        <AcessoResponsavel
+          aluno={editando ? alunoAtual : null}
+          inicial={dados.acesso
+            ? { ...dados.acesso, confirmacao: dados.acesso.senha }
+            : {
+                nome: dados.nome_responsavel,
+                telefone: dados.contato_responsavel.includes('@') ? '' : dados.contato_responsavel,
+              }}
+          aoGuardar={(acesso) => set('acesso', acesso)}
+          aoAlunoSalvo={(aluno) => setAlunoAtual((atual) => ({ ...atual, ...aluno }))}
+          aoFechar={() => setAcessoAberto(false)}
+        />
+      )}
     </Layout>
   );
 }
