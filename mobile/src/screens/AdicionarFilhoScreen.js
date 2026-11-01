@@ -87,20 +87,41 @@ export default function AdicionarFilhoScreen({ navigation }) {
     }
     setCarregando(true);
     try {
+      let alunosVinculados = [];
+      try {
+        const resposta = await api.listarAlunos({ atualizar: true });
+        alunosVinculados = resposta?.alunos || [];
+      } catch (erroConsulta) {
+        if (!erroConsulta?.offline) throw erroConsulta;
+      }
+
+      const matriculaInformada = matricula.trim();
+      const jaVinculado = alunosVinculados.some(
+        (aluno) => String(aluno.matricula || '').trim() === matriculaInformada
+      );
+      if (jaVinculado) {
+        setErro('Este aluno já está vinculado à sua conta.');
+        return;
+      }
+
       const resultado = await api.vincularFilho({
         nome_completo: nome.trim(),
         cpf: cpf.replace(/\D/g, ''),
-        matricula_aluno: matricula.trim(),
+        matricula_aluno: matriculaInformada,
         parentesco: parentesco.trim() || null,
       });
       if (resultado._fila) {
         Alert.alert(
           'Salvo no aparelho',
-          'Sem conexão agora — assim que a internet voltar, o vínculo é confirmado automaticamente.',
+          'Sem conexão agora — o pedido será enviado quando a internet voltar e a escola precisará aprová-lo.',
           [{ text: 'Entendi', onPress: () => navigation.goBack() }]
         );
       } else {
-        navigation.goBack();
+        Alert.alert(
+          'Pedido enviado',
+          'A escola vai analisar seu pedido. O vínculo será liberado após a aprovação.',
+          [{ text: 'Entendi', onPress: () => navigation.goBack() }]
+        );
       }
     } catch (err) {
       setErro(err.message || 'Não foi possível adicionar este aluno.');

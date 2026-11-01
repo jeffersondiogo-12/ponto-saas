@@ -64,6 +64,20 @@ export default function ResponsavelHomeScreen({ navigation }) {
   const [cacheEm, setCacheEm] = useState(null);
   const [atualizando, setAtualizando] = useState(false);
   const [pendentes, setPendentes] = useState([]);
+  const [pedidosVinculo, setPedidosVinculo] = useState([]);
+  const [erroPedidosVinculo, setErroPedidosVinculo] = useState('');
+
+  const carregarPedidosVinculo = useCallback(async () => {
+    try {
+      const resposta = await api.listarMeusPedidosVinculo();
+      setPedidosVinculo(resposta?.pedidos || []);
+      setErroPedidosVinculo('');
+    } catch (err) {
+      setErroPedidosVinculo(err?.offline
+        ? 'Sem conexão para atualizar o estado dos pedidos.'
+        : err?.message || 'Não foi possível consultar os pedidos de vínculo.');
+    }
+  }, []);
 
   // Pendencias da fila offline desta conta.
   useEffect(() => {
@@ -136,17 +150,22 @@ export default function ResponsavelHomeScreen({ navigation }) {
   useFocusEffect(
     useCallback(() => {
       carregar();
-    }, [carregar])
+      carregarPedidosVinculo();
+    }, [carregar, carregarPedidosVinculo])
   );
   // Evento de aluno so conta se for de um dos filhos; aviso nao traz aluno e conta sempre.
   useRecarregarAoVivo(EVENTOS, carregar, (mensagem) => {
     const alunoId = mensagem?.dados?.alunoId;
     return !alunoId || filhos.some((filho) => filho.id === alunoId);
   });
+  useRecarregarAoVivo(
+    ['responsavel.vinculo.solicitado', 'responsavel.vinculo.decidido', 'responsavel.vinculado'],
+    () => { carregar(); carregarPedidosVinculo(); }
+  );
 
   async function aoAtualizar() {
     setAtualizando(true);
-    await carregar();
+    await Promise.all([carregar(), carregarPedidosVinculo()]);
     setAtualizando(false);
   }
 
@@ -194,6 +213,23 @@ export default function ResponsavelHomeScreen({ navigation }) {
               onSincronizar={() => navigation.navigate('Sincronizacao')}
             />
           </AparecerEm>
+        ) : null}
+
+        {pedidosVinculo.length > 0 || erroPedidosVinculo ? (
+          <View style={estilos.pedidos}>
+            <Text style={estilos.pedidosTitulo}>Pedidos de vínculo</Text>
+            {erroPedidosVinculo ? <Text style={estilos.pedidosErro}>{erroPedidosVinculo}</Text> : null}
+            {pedidosVinculo.map((pedido) => (
+              <View key={pedido.id} style={estilos.pedido}>
+                <Text style={estilos.pedidoAluno}>{pedido.aluno_nome}</Text>
+                <Text style={estilos.pedidoEstado}>
+                  {pedido.status === 'pendente' ? 'Aguardando aprovação da escola'
+                    : pedido.status === 'aprovado' ? 'Pedido aprovado'
+                      : 'Pedido não aprovado'}
+                </Text>
+              </View>
+            ))}
+          </View>
         ) : null}
 
         <Aviso tipo="erro" texto={filhos.length > 0 ? erro : ''} />
@@ -304,6 +340,12 @@ const estilos = StyleSheet.create({
   tela: { flex: 1, backgroundColor: cores.paper },
   conteudo: { padding: 20, gap: 14 },
   metricas: { flexDirection: 'row', gap: 10 },
+  pedidos: { backgroundColor: cores.surface, borderRadius: raio.lg, borderWidth: 1, borderColor: cores.linha, padding: 14, gap: 8 },
+  pedidosTitulo: { color: cores.ink, fontSize: 14, fontWeight: '800' },
+  pedido: { borderTopWidth: 1, borderTopColor: cores.linha, paddingTop: 8 },
+  pedidoAluno: { color: cores.ink, fontSize: 13, fontWeight: '700' },
+  pedidoEstado: { color: cores.inkSoft, fontSize: 12, marginTop: 2 },
+  pedidosErro: { color: cores.vermelho, fontSize: 12 },
   secaoLinha: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 },
   secao: { color: cores.inkSoft, fontSize: 13, fontWeight: '700' },
   carregando: { marginVertical: 24 },
