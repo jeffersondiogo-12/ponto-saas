@@ -372,7 +372,7 @@ export const api = {
       method: 'POST', fila: 'Confirmar leitura de aviso',
     }),
     vincularFilho: (dados) => requisitar('/api/responsaveis/alunos/vincular', {
-      method: 'POST', body: dados, fila: `Vincular ${dados?.nome_completo || 'filho'}`,
+      method: 'POST', body: dados, fila: `Pedir vínculo: ${dados?.nome_completo || 'filho'}`,
     }),
     // A inscricao vai inteira no corpo: { endpoint, keys: { p256dh, auth } }.
     registrarPushWeb: (inscricao) => requisitar('/api/responsaveis/push-web', { method: 'POST', body: inscricao }),
@@ -507,6 +507,24 @@ export const api = {
   atualizarContaResponsavel: (alunoId, responsavelId, dados) => requisitar(
     `/api/responsaveis/alunos/${alunoId}/responsaveis/${responsavelId}`,
     { method: 'PATCH', body: dados },
+  ),
+  // Responsaveis do ambiente: a busca (nome ou e-mail) e obrigatoria; editar a
+  // conta vale para todas as escolas e pede alcance de ambiente.
+  buscarResponsaveis: (busca) => requisitar(`/api/responsaveis?${consulta({ busca })}`),
+  atualizarResponsavel: (responsavelId, dados) => requisitar(
+    `/api/responsaveis/${responsavelId}`,
+    { method: 'PATCH', body: dados },
+  ),
+  vincularResponsavelAoAluno: (alunoId, responsavelId, parentesco) => requisitar(
+    `/api/responsaveis/alunos/${alunoId}/vincular-responsavel`,
+    { method: 'POST', body: { responsavel_id: responsavelId, parentesco } },
+  ),
+  // Pedidos de vinculacao feitos pelo app (sino da tela de alunos). Aprovar
+  // ainda nao entra: o vinculo e feito na tela "Acesso do responsável".
+  listarPedidosVinculo: () => requisitar('/api/responsaveis/admin/notificacoes-vinculo'),
+  recusarPedidoVinculo: (pedidoId) => requisitar(
+    `/api/responsaveis/admin/pedidos-vinculo/${pedidoId}/rejeitado`,
+    { method: 'POST' },
   ),
   // Foto guardada do aluno: JPEG ja preparado (utils/fotoAluno.js), em Base64.
   salvarFotoAluno: (id, fotoBase64) => requisitar(`/api/alunos/${id}/foto`, { method: 'PUT', body: { foto_base64: fotoBase64 } }),

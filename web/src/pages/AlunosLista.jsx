@@ -6,6 +6,7 @@ import FichaAluno, { ResponsavelVinculado } from '../components/FichaAluno';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../api';
 import FotoDoAluno from '../components/FotoDoAluno';
+import PedidosVinculo from '../components/PedidosVinculo';
 
 // Cartoes ou lista: preferencia de quem olha, lembrada so neste navegador.
 const CHAVE_VISAO = 'ponto_saas_alunos_visao';
@@ -71,7 +72,11 @@ export default function AlunosLista() {
 
   return (
     <Layout>
-      <h1 className="titulo-pagina">Alunos</h1>
+      <div className="titulo-com-sino">
+        <h1 className="titulo-pagina">Alunos</h1>
+        {/* As rotas dos pedidos so aceitam admin e gestor (o super_admin passa sempre). */}
+        {['admin', 'gestor', 'super_admin'].includes(usuario?.papel) && <PedidosVinculo />}
+      </div>
 
       {erro && <div className="erro">{erro}</div>}
       {aviso && <div className="sucesso">{aviso}</div>}

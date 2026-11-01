@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useCallback, useEffect, useState } from 'react';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import Layout from '../components/Layout';
 import Selecao from '../components/Selecao';
 import FotoAluno from '../components/FotoAluno';
 import AcessoResponsavel from '../components/AcessoResponsavel';
-import { ResponsavelVinculado } from '../components/FichaAluno';
+import ResponsavelResumo from '../components/ResponsavelResumo';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { TIPOS_SANGUINEOS, cpfValido, mascaraCpf, soDigitos } from '../utils/dominio';
@@ -42,8 +42,33 @@ export default function AlunoForm() {
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState(null);
   const [acessoAberto, setAcessoAberto] = useState(false);
+  // Contas ligadas ao aluno, so na edicao. null = sem permissao ou falha: o
+  // bloco cai no que esta gravado no aluno.
+  const [responsaveis, setResponsaveis] = useState(null);
 
-  const set =(campo, valor) => setDados((d) => ({ ...d, [campo]: valor }));
+  const carregarResponsaveis = useCallback(async () => {
+    try {
+      const resposta = await api.listarResponsaveisDoAluno(id);
+      setResponsaveis(resposta.responsaveis || []);
+    } catch {
+      setResponsaveis(null);
+    }
+  }, [id]);
+
+  useEffect(() => { if (editando) carregarResponsaveis(); }, [editando, carregarResponsaveis]);
+
+  // `?acesso=1` vem do sino de pedidos: abre a tela de acesso quando o aluno
+  // chega, sem preencher nem selecionar ninguem. O parametro sai da URL para o
+  // F5 nao reabrir.
+  const [parametros, setParametros] = useSearchParams();
+  useEffect(() => {
+    if (alunoAtual && parametros.get('acesso')) {
+      setAcessoAberto(true);
+      setParametros({}, { replace: true });
+    }
+  }, [alunoAtual, parametros, setParametros]);
+
+  const set = (campo, valor) => setDados((d) => ({ ...d, [campo]: valor }));
   const escolheFilial = usuario?.papel === 'admin' || usuario?.papel === 'super_admin';
 
   useEffect(() => {
@@ -133,19 +158,19 @@ export default function AlunoForm() {
       }
       // Acesso guardado na tela "Acesso do responsável": vai junto com o aluno.
       // Na edicao, a propria tela salva na hora; aqui so o cadastro.
-      if (!editando && dados.acesso) {
-        payload.nome_responsavel = payload.nome_responsavel || dados.acesso.nome;
-        payload.contato_responsavel = payload.contato_responsavel || dados.acesso.telefone || dados.acesso.email;
-        payload.responsavel = dados.acesso;
+      // Nome e contato do responsavel no aluno o servidor grava a partir da conta.
+      if (!editando && dados.acesso?.existente) {
+        payload.responsavel_id = dados.acesso.id;
+        payload.parentesco = dados.acesso.parentesco;
+      } else if (!editando && dados.acesso) {
+        const { nome, email, telefone, parentesco, senha } = dados.acesso;
+        payload.responsavel = { nome, email, telefone, parentesco, senha };
       }
 
       if (editando) {
         await api.atualizarAluno(id, payload);
       } else {
-        const resposta = await api.criarAluno(payload);
-        if (resposta.responsavel && !resposta.responsavel.conta_criada) {
-          window.alert('Este responsavel ja possuia uma conta. O aluno foi vinculado, mas a senha existente foi mantida.');
-        }
+        await api.criarAluno(payload);
       }
       navigate('/alunos');
     } catch (err) {
@@ -279,34 +304,46 @@ export default function AlunoForm() {
         <div className="card">
           <div className="eyebrow">Responsável</div>
           <div className="card-corpo">
+            {/* Na edicao a fonte e a CONTA do responsavel, nao a copia
+                `nome_responsavel`/`contato_responsavel` do aluno, que fica com o
+                que foi digitado e envelhece quando a conta muda. Nada aqui se
+                edita: adicionar e mudar e pelo "Acesso do responsável". */}
             <p className="texto-apoio" style={{ marginTop: 0 }}>
-              Nome e contato ficam no cadastro do aluno e aparecem na ficha. E-mail e senha
-              do aplicativo ficam em “Acesso do responsável”.
+              Quem acompanha o aluno pelo aplicativo. Para {editando ? 'adicionar ou mudar' : 'criar o acesso'}, use
+              “Acesso do responsável”.
             </p>
 
-            <div className="grid-form">
-              <div className="campo">
-                <label htmlFor="al-resp">Nome do responsável</label>
-                <input
-                  id="al-resp"
-                  value={dados.nome_responsavel}
-                  onChange={(e) => set('nome_responsavel', e.target.value)}
-                  maxLength={150}
+            {editando ? (
+              responsaveis?.length ? (
+                <ul className="responsaveis">
+                  {responsaveis.map((r) => <ResponsavelResumo key={r.id} {...r} />)}
+                </ul>
+              ) : dados.nome_responsavel || dados.contato_responsavel ? (
+                <ul className="responsaveis">
+                  <ResponsavelResumo
+                    nome={dados.nome_responsavel || 'Sem nome registrado'}
+                    email={dados.contato_responsavel.includes('@') ? dados.contato_responsavel : null}
+                    telefone={dados.contato_responsavel.includes('@') ? null : dados.contato_responsavel}
+                    nota="Registrado no cadastro do aluno, sem acesso ao aplicativo."
+                  />
+                </ul>
+              ) : (
+                <p className="texto-apoio">Nenhum responsável com acesso ao aplicativo.</p>
+              )
+            ) : dados.acesso ? (
+              <ul className="responsaveis">
+                <ResponsavelResumo
+                  {...dados.acesso}
+                  nota={dados.acesso.existente
+                    ? 'Conta existente: é vinculada ao clicar em “Cadastrar aluno”.'
+                    : 'Conta nova: é criada ao clicar em “Cadastrar aluno”.'}
                 />
-              </div>
-              <div className="campo">
-                <label htmlFor="al-contato">Contato</label>
-                <input
-                  id="al-contato"
-                  value={dados.contato_responsavel}
-                  onChange={(e) => set('contato_responsavel', e.target.value)}
-                  placeholder="telefone ou e-mail"
-                  maxLength={100}
-                />
-              </div>
-            </div>
+              </ul>
+            ) : (
+              <p className="texto-apoio">Nenhum responsável ainda.</p>
+            )}
 
-            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12, marginTop: 14 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 14 }}>
               <button
                 type="button"
                 className="btn btn-secundario"
@@ -315,19 +352,10 @@ export default function AlunoForm() {
               >
                 Acesso do responsável
               </button>
-              {editando ? (
-                alunoAtual && 'responsaveis_vinculados' in alunoAtual && (
-                  <ResponsavelVinculado quantidade={alunoAtual.responsaveis_vinculados} />
-                )
-              ) : dados.acesso ? (
-                <>
-                  <span>Acesso para <strong>{dados.acesso.email}</strong>, criado ao cadastrar.</span>
-                  <button type="button" className="btn btn-secundario" onClick={() => set('acesso', null)}>
-                    Remover acesso
-                  </button>
-                </>
-              ) : (
-                <span className="texto-apoio">Sem acesso ao aplicativo.</span>
+              {!editando && dados.acesso && (
+                <button type="button" className="btn btn-secundario" onClick={() => set('acesso', null)}>
+                  Remover acesso
+                </button>
               )}
             </div>
           </div>
@@ -344,17 +372,16 @@ export default function AlunoForm() {
       {acessoAberto && (
         <AcessoResponsavel
           aluno={editando ? alunoAtual : null}
-          inicial={dados.acesso
-            ? { ...dados.acesso, confirmacao: dados.acesso.senha }
-            : {
-                nome: dados.nome_responsavel,
-                telefone: dados.contato_responsavel.includes('@') ? '' : dados.contato_responsavel,
-              }}
+          // "Criar acesso novo" volta com o que ja foi guardado no cadastro;
+          // fora disso comeca vazio - nada vem pre-preenchido.
+          inicial={dados.acesso && !dados.acesso.existente
+            ? { ...dados.acesso, telefone: dados.acesso.telefone || '', parentesco: dados.acesso.parentesco || '', confirmacao: dados.acesso.senha }
+            : {}}
           aoGuardar={(acesso) => set('acesso', acesso)}
           aoAlunoSalvo={(aluno) => setAlunoAtual((atual) => ({ ...atual, ...aluno }))}
+          aoMudar={carregarResponsaveis}
           aoFechar={() => setAcessoAberto(false)}
         />
-      )}
-    </Layout>
+      )}    </Layout>
   );
 }

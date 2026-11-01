@@ -35,15 +35,28 @@ export default function AdicionarFilho() {
     if (!cpfValido(cpf)) { setErro('Informe um CPF válido.'); return; }
     setCarregando(true);
     try {
+      // Desde 31/10 isto vira PEDIDO, e o servidor responde igual exista ou nao
+      // a matricula. So quem ja esta ligado a conta a tela barra antes - como no
+      // APK. Sem internet, a conferencia fica para o servidor.
+      const matriculaInformada = matricula.trim();
+      try {
+        const { alunos = [] } = await api.responsavel.listarAlunos();
+        if (alunos.some((a) => String(a.matricula || '').trim() === matriculaInformada)) {
+          setErro('Este aluno já está vinculado à sua conta.');
+          return;
+        }
+      } catch {
+        // Sem conexao: segue para a fila.
+      }
       const resultado = await api.responsavel.vincularFilho({
         nome_completo: nome.trim(),
         cpf: cpf.replace(/\D/g, ''),
-        matricula_aluno: matricula.trim(),
+        matricula_aluno: matriculaInformada,
         parentesco: parentesco.trim() || null,
       });
-      if (resultado._fila) {
-        window.alert('Salvo no aparelho\n\nSem conexão agora — assim que a internet voltar, o vínculo é confirmado automaticamente.');
-      }
+      window.alert(resultado._fila
+        ? 'Salvo no aparelho\n\nSem conexão agora — a solicitação será validada quando a internet voltar. Se os dados forem confirmados, a escola poderá analisá-la.'
+        : 'Solicitação recebida\n\nSe os dados forem confirmados, a escola poderá analisar a solicitação. O vínculo depende da aprovação.');
       voltar();
     } catch (err) {
       setErro(err.message || 'Não foi possível adicionar este aluno.');

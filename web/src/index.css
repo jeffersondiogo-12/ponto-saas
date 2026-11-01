@@ -757,6 +757,31 @@ label.btn:has(.foto-aluno-entrada:focus-visible) { outline: 2px solid var(--azul
 .ficha-dados .vinculo { color: var(--verde); }
 .ficha-dados .sem-vinculo { color: var(--ambar); }
 
+/* Responsaveis no formulario do aluno (so leitura). Linhas com regua fina
+   entre elas, sem caixa dentro do cartao. Iniciais em azul-forte sobre
+   azul-fraco: passa de 4,5:1. */
+.responsaveis { list-style: none; margin: 0; padding: 0; }
+.responsavel { display: grid; grid-template-columns: 44px 1fr auto; gap: 12px; align-items: start; padding: 12px 0; }
+.responsavel-acoes { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+.responsavel-detalhe { margin-top: 4px; font-size: 14px; }
+@media (max-width: 640px) {
+  /* No celular os botoes descem para baixo da linha, alinhados ao texto. */
+  .responsavel { grid-template-columns: 44px 1fr; }
+  .responsavel-acoes { grid-column: 2; justify-content: flex-start; }
+}
+/* Sino dos pedidos de vinculacao, ao lado do titulo da tela de alunos. */
+.titulo-com-sino { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.sino { display: inline-flex; align-items: center; gap: 8px; }
+.responsavel + .responsavel { border-top: 1px solid var(--borda); }
+.responsavel-avatar {
+  width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--azul-fraco); color: var(--azul-forte); font-weight: 600; font-size: 15px;
+}
+.responsavel-topo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-height: 24px; }
+.responsavel-contatos { display: flex; flex-wrap: wrap; gap: 4px 20px; margin-top: 4px; font-size: 14px; }
+.responsavel-contatos .rotulo { color: var(--tinta-fraca); margin-right: 6px; }
+.responsavel .ajuda { display: block; margin-top: 4px; }
+
 /* ---------- Responsivo ---------- */
 
 @media (max-width: 860px) {
