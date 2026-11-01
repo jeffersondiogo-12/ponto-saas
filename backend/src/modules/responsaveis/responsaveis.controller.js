@@ -84,7 +84,7 @@ async function listarMeusPedidosVinculo(req, res, next) {
 
 async function listarResponsaveisDaEmpresa(req, res, next) {
   try {
-    const responsaveis = await responsaveisService.listarResponsaveisDaEmpresa(req.empresaId, req.query.email);
+    const responsaveis = await responsaveisService.listarResponsaveisDaEmpresa(req.empresaId, req.query.busca); //query de busca para filtrar 
     res.json({ responsaveis });
   } catch (err) {
     next(err);

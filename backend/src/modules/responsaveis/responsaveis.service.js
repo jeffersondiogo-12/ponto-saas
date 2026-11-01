@@ -326,18 +326,20 @@ async function listarResponsaveisDoAluno(empresaId, alunoId, filialId = null) {
   return query;
 }
 
-async function listarResponsaveisDaEmpresa(empresaId, email) {
-  const busca = String(email || '').trim().toLowerCase();
-  if (busca && (busca.length > 150 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(busca))) {
-    throw new AppError('Informe um email valido para buscar o responsavel.', 400);
+async function listarResponsaveisDaEmpresa(empresaId, busca) { // get de busca
+  if (typeof busca !== 'string' || !busca.trim()) {
+    throw new AppError('Informe uma busca por nome ou email do responsavel.', 400);
   }
+  const termo = busca.trim().toLowerCase();
+  if (termo.length > 150) {
+    throw new AppError('A busca deve ter no maximo 150 caracteres.', 400);
+  } 
 
-  const query = db('responsaveis')
+  return db('responsaveis')
     .select('id', 'nome', 'email', 'telefone', 'ativo')
     .where({ empresa_id: empresaId })
+    .whereRaw('(strpos(LOWER(nome), ?) > 0 OR strpos(LOWER(email), ?) > 0)', [termo, termo])
     .orderBy('nome');
-  if (busca) query.whereRaw('LOWER(email) = ?', [busca]);
-  return query;
 }
 
 function normalizarAtualizacaoContaResponsavel(dados = {}) {
