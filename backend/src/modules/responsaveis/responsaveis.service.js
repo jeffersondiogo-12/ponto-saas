@@ -30,46 +30,35 @@ function normalizarDadosDeAcesso(dados = {}) {
   return { nome, email, senha, telefone, parentesco };
 }
 
-/**
- * Cria o acesso do responsavel ou reutiliza uma conta da mesma empresa e
- * garante o vinculo com o aluno. A transacao vem do chamador para que aluno,
- * conta e vinculo sejam confirmados ou revertidos juntos.
- */
+ // Cria um novo acesso de responsavel para vinculo com o aluno.
+
+
 async function criarOuVincularAoAluno(trx, empresaId, alunoId, dados) {
   const responsavelDados = normalizarDadosDeAcesso(dados);
-  let responsavel = await trx('responsaveis').where({ email: responsavelDados.email }).first();
-  let contaCriada = false;
-
-  if (responsavel && String(responsavel.empresa_id) !== String(empresaId)) {
-    throw new AppError('Ja existe uma conta com este email em outra empresa.', 409);
-  }
-  if (responsavel && !responsavel.ativo) {
-    throw new AppError('A conta deste responsavel esta inativa.', 409);
+  const existente = await trx('responsaveis').whereRaw('LOWER(email) = ?', [responsavelDados.email]).first('id');
+  if (existente) {
+    throw new AppError('Ja existe uma conta com este email. Selecione o responsavel existente para vincular.', 409);
   }
 
+  if (responsavelDados.senha.length < 8) {
+    throw new AppError('A senha do responsavel deve ter no minimo 8 caracteres.', 400);
+  }
+  const senha_hash = await bcrypt.hash(responsavelDados.senha, 12);
+  const [responsavel] = await trx('responsaveis')
+    .insert({
+      empresa_id: empresaId,
+      nome: responsavelDados.nome,
+      email: responsavelDados.email,
+      senha_hash,
+      telefone: responsavelDados.telefone,
+    })
+    .onConflict(['email'])
+    .ignore()
+    .returning('*');
+
+  // Outra requisicao pode cadastrar o email depois da consulta inicial.
   if (!responsavel) {
-    if (responsavelDados.senha.length < 8) {
-      throw new AppError('A senha do responsavel deve ter no minimo 8 caracteres.', 400);
-    }
-    const senha_hash = await bcrypt.hash(responsavelDados.senha, 12);
-    const [novaConta] = await trx('responsaveis')
-      .insert({
-        empresa_id: empresaId,
-        nome: responsavelDados.nome,
-        email: responsavelDados.email,
-        senha_hash,
-        telefone: responsavelDados.telefone,
-      })
-      .onConflict(['email'])
-      .ignore()
-      .returning('*');
-
-    responsavel = novaConta || await trx('responsaveis').where({ email: responsavelDados.email }).first();
-    if (String(responsavel?.empresa_id) !== String(empresaId)) {
-      throw new AppError('Ja existe uma conta com este email em outra empresa.', 409);
-    }
-    if (!responsavel?.ativo) throw new AppError('A conta deste responsavel esta inativa.', 409);
-    contaCriada = Boolean(novaConta);
+    throw new AppError('Ja existe uma conta com este email. Selecione o responsavel existente para vincular.', 409);
   }
 
   const [vinculo] = await trx('responsavel_alunos')
@@ -90,7 +79,7 @@ async function criarOuVincularAoAluno(trx, empresaId, alunoId, dados) {
       email: responsavel.email,
       telefone: responsavel.telefone,
       ativo: responsavel.ativo,
-      conta_criada: contaCriada,
+      conta_criada: true, //conta nova true
     },
     vinculo,
   };
