@@ -692,6 +692,45 @@ async function listarPedidosVinculo(empresaId, filialId = null) {
   return query;
 }
 
+async function listarNotificacoesVinculo(empresaId, filialId = null) {
+  const query = db('pedidos_vinculo_responsaveis as p')
+    .join('alunos as a', 'a.id', 'p.aluno_id')
+    .join('responsaveis as r', 'r.id', 'p.responsavel_id')
+    .select(
+      'p.id',
+      'p.created_at as criado_em',
+      'a.id as aluno_id',
+      'a.nome as aluno_nome',
+      'a.matricula',
+      'r.id as responsavel_id',
+      'r.nome as responsavel_nome',
+      'r.email as responsavel_email'
+    )
+    .where({ 'p.empresa_id': empresaId, 'p.status': 'pendente' })
+    .orderBy('p.created_at', 'desc');
+  if (filialId) query.where('a.filial_id', filialId);
+
+  const pedidos = await query;
+  return pedidos.map((pedido) => ({
+    id: pedido.id,
+    tipo: 'responsavel.vinculo.solicitado',
+    titulo: 'Solicitação de vínculo de aluno',
+    mensagem: `${pedido.responsavel_nome} solicita vínculo com ${pedido.aluno_nome}.`,
+    criado_em: pedido.criado_em,
+    pedido_id: pedido.id,
+    aluno: {
+      id: pedido.aluno_id,
+      nome: pedido.aluno_nome,
+      matricula: pedido.matricula,
+    },
+    responsavel: {
+      id: pedido.responsavel_id,
+      nome: pedido.responsavel_nome,
+      email: pedido.responsavel_email,
+    },
+  }));
+}
+
 async function decidirPedidoVinculo(empresaId, pedidoId, decisao, { filialId = null, usuarioId, ip } = {}) {
   if (!['aprovado', 'rejeitado'].includes(decisao)) throw new AppError('Decisao invalida.', 400);
 
@@ -919,6 +958,7 @@ module.exports = {
   vincularNovoFilho,
   listarMeusPedidosVinculo,
   listarPedidosVinculo,
+  listarNotificacoesVinculo,
   decidirPedidoVinculo,
   listarAlunosVinculados,
   frequenciaDoAluno,

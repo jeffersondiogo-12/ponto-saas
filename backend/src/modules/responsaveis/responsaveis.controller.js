@@ -109,6 +109,15 @@ async function listarPedidosVinculo(req, res, next) {
   }
 }
 
+async function listarNotificacoesVinculo(req, res, next) {
+  try {
+    const notificacoes = await responsaveisService.listarNotificacoesVinculo(req.empresaId, req.filialId);
+    res.json({ notificacoes });
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function decidirPedidoVinculo(req, res, next) {
   try {
     const resultado = await responsaveisService.decidirPedidoVinculo(
@@ -283,6 +292,7 @@ module.exports = {
   vincularNovoFilho,
   listarMeusPedidosVinculo,
   listarPedidosVinculo,
+  listarNotificacoesVinculo,
   decidirPedidoVinculo,
   excluir,
 };

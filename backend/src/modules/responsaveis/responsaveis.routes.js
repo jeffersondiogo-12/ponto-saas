@@ -1,6 +1,6 @@
 const express = require('express');
 const responsaveisController = require('./responsaveis.controller');
-const { autenticar, exigirTipo } = require('../../middlewares/auth');
+const { autenticar, exigirTipo, exigirPapel } = require('../../middlewares/auth');
 const { exigirPermissao } = require('../../middlewares/permissions');
 const { resolverTenant } = require('../../middlewares/tenant');
 
@@ -74,9 +74,19 @@ router.patch(
 );
 
 router.get(
+  '/admin/notificacoes-vinculo',
+  autenticar,
+  exigirTipo('staff'),
+  exigirPapel('admin', 'gestor'),
+  resolverTenant,
+  responsaveisController.listarNotificacoesVinculo
+);
+
+router.get(
   '/admin/pedidos-vinculo',
   autenticar,
   exigirTipo('staff'),
+  exigirPapel('admin', 'gestor'),
   resolverTenant,
   exigirPermissao('responsaveis', 'ver'),
   responsaveisController.listarPedidosVinculo
@@ -86,6 +96,7 @@ router.post(
   '/admin/pedidos-vinculo/:pedidoId/:decisao',
   autenticar,
   exigirTipo('staff'),
+  exigirPapel('admin', 'gestor'),
   resolverTenant,
   (req, res, next) => {
     const acao = req.params.decisao === 'aprovado' ? 'adicionar' : 'atualizar';
