@@ -2,8 +2,13 @@ const responsaveisService = require('./responsaveis.service');
 
 async function cadastrar(req, res, next) {
   try {
-    const responsavel = await responsaveisService.cadastrar(req.body);
-    res.status(201).json({ responsavel: { id: responsavel.id, nome: responsavel.nome, email: responsavel.email } });
+    await responsaveisService.cadastrar(req.body);
+    res.status(202).json({
+      solicitacao: {
+        status: 'recebida',
+        mensagem: 'Se os dados forem confirmados, a escola poderá analisar a solicitação.',
+      },
+    });
   } catch (err) {
     next(err);
   }

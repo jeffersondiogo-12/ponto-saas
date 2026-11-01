@@ -113,13 +113,13 @@ export default function AdicionarFilhoScreen({ navigation }) {
       if (resultado._fila) {
         Alert.alert(
           'Salvo no aparelho',
-          'Sem conexão agora — o pedido será enviado quando a internet voltar e a escola precisará aprová-lo.',
+          'Sem conexão agora — a solicitação será validada quando a internet voltar. Se os dados forem confirmados, a escola poderá analisá-la.',
           [{ text: 'Entendi', onPress: () => navigation.goBack() }]
         );
       } else {
         Alert.alert(
-          'Pedido enviado',
-          'A escola vai analisar seu pedido. O vínculo será liberado após a aprovação.',
+          'Solicitação recebida',
+          'Se os dados forem confirmados, a escola poderá analisar a solicitação. O vínculo depende da aprovação.',
           [{ text: 'Entendi', onPress: () => navigation.goBack() }]
         );
       }

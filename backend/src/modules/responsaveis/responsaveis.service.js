@@ -5,6 +5,8 @@ const { AppError } = require('../../middlewares/errorHandler');
 const { publicarEvento } = require('../../realtime');
 const { classificarBatidasDeAluno, janelaDeDiasCompletos } = require('../ponto/classificacaoBatidas');
 
+const LIMITE_PEDIDOS_VINCULO_PENDENTES = 5;
+
 function normalizarDadosDeAcesso(dados = {}) {
   const nome = String(dados.nome || '').trim();
   const email = String(dados.email || '').trim().toLowerCase();
@@ -141,29 +143,97 @@ async function login(email, senha) {
   return { token, responsavel: payload };
 }
 
+async function criarPedidoVinculoPendente(
+  trx,
+  empresaId,
+  responsavelId,
+  { matricula_aluno, nome_completo, cpf, parentesco }
+) {
+  const responsavel = await trx('responsaveis')
+    .where({ id: responsavelId, empresa_id: empresaId })
+    .forUpdate()
+    .first('id');
+  if (!responsavel) throw new AppError('Responsavel nao encontrado.', 404);
+
+  const [{ total }] = await trx('pedidos_vinculo_responsaveis')
+    .where({ responsavel_id: responsavelId, status: 'pendente' })
+    .count('* as total');
+  if (Number(total) >= LIMITE_PEDIDOS_VINCULO_PENDENTES) {
+    throw new AppError(`Voce pode ter no maximo ${LIMITE_PEDIDOS_VINCULO_PENDENTES} pedidos de vinculo pendentes.`, 429);
+  }
+
+  const aluno = await trx('alunos')
+    .where({ empresa_id: empresaId, matricula: String(matricula_aluno || '').trim() })
+    .first('id', 'nome', 'cpf');
+  if (!aluno) return null;
+
+  if (aluno.cpf && cpf && String(aluno.cpf).replace(/\D/g, '') !== String(cpf).replace(/\D/g, '')) {
+    return null;
+  }
+  if (
+    nome_completo
+    && aluno.nome
+    && String(nome_completo).trim().toLowerCase() !== aluno.nome.trim().toLowerCase()
+  ) {
+    return null;
+  }
+
+  const jaVinculado = await trx('responsavel_alunos')
+    .where({ responsavel_id: responsavelId, aluno_id: aluno.id })
+    .first('id');
+  if (jaVinculado) return null;
+
+  try {
+    const [pedido] = await trx('pedidos_vinculo_responsaveis')
+      .insert({
+        empresa_id: empresaId,
+        responsavel_id: responsavelId,
+        aluno_id: aluno.id,
+        parentesco: parentesco || null,
+      })
+      .returning('*');
+    return pedido;
+  } catch (err) {
+    if (err.code === '23505') return null;
+    throw err;
+  }
+}
+
 /**
- * Cadastro do responsavel + vinculo inicial com um aluno pela matricula (o
- * jeito mais simples de uma escola "convidar" um pai: dar a matricula do
- * filho, o proprio pai confirma o vinculo ao criar a conta).
+ * Cria a conta do responsavel e encaminha o vinculo inicial para aprovacao.
+ * A conta nao recebe acesso ao aluno ate a decisao da escola.
  */
 async function cadastrar({ empresa_id, nome, email, senha, telefone, matricula_aluno }) {
   const existente = await db('responsaveis').where({ email: email.toLowerCase().trim() }).first();
   if (existente) throw new AppError('Ja existe uma conta com este email.', 409);
 
-  const aluno = await db('alunos').where({ empresa_id, matricula: matricula_aluno }).first();
-  if (!aluno) throw new AppError('Matricula de aluno nao encontrada.', 404);
-
   const senha_hash = await bcrypt.hash(senha, 12);
+  const descarteSilencioso = new Error('Solicitacao descartada por nao passar pela validacao.');
+  let resultado;
+  try {
+    resultado = await db.transaction(async (trx) => {
+      const [responsavel] = await trx('responsaveis')
+        .insert({ empresa_id, nome, email: email.toLowerCase().trim(), senha_hash, telefone: telefone || null })
+        .returning('*');
 
-  return db.transaction(async (trx) => {
-    const [responsavel] = await trx('responsaveis')
-      .insert({ empresa_id, nome, email: email.toLowerCase().trim(), senha_hash, telefone: telefone || null })
-      .returning('*');
+      const pedido = await criarPedidoVinculoPendente(trx, empresa_id, responsavel.id, { matricula_aluno });
+      if (!pedido) throw descarteSilencioso;
+      return { responsavel, pedido };
+    });
+  } catch (err) {
+    if (err === descarteSilencioso) return null;
+    if (err.code === '23505') throw new AppError('Ja existe uma conta com este email.', 409);
+    throw err;
+  }
 
-    await trx('responsavel_alunos').insert({ responsavel_id: responsavel.id, aluno_id: aluno.id });
-
-    return responsavel;
-  });
+  if (resultado.pedido) {
+    publicarEvento('responsavel.vinculo.solicitado', {
+      empresaId: empresa_id,
+      responsavelId: resultado.responsavel.id,
+      pedidoId: resultado.pedido.id,
+    });
+  }
+  return resultado.responsavel;
 }
 
 async function vincularAluno(empresaId, responsavelId, matriculaAluno, parentesco) {
@@ -632,41 +702,14 @@ async function observacoesDoAluno(alunoIdsPermitidos, alunoId) {
  * O responsavel autenticado solicita incluir outro aluno, com conferencia
  * dos dados informados. O vinculo so e criado depois da decisao da escola.
  */
-async function vincularNovoFilho(empresaId, responsavelId, { nome_completo, cpf, matricula_aluno, parentesco }) {
-  const aluno = await db('alunos').where({ empresa_id: empresaId, matricula: matricula_aluno }).first();
-  if (!aluno) throw new AppError('Matricula de aluno nao encontrada nesta escola.', 404);
-
-  if (aluno.cpf && cpf) {
-    const soDigitos = (valor) => String(valor || '').replace(/\D/g, '');
-    if (soDigitos(aluno.cpf) !== soDigitos(cpf)) {
-      throw new AppError('CPF nao confere com o aluno desta matricula.', 409);
-    }
+async function vincularNovoFilho(empresaId, responsavelId, dados) {
+  const pedido = await db.transaction((trx) =>
+    criarPedidoVinculoPendente(trx, empresaId, responsavelId, dados)
+  );
+  if (pedido) {
+    publicarEvento('responsavel.vinculo.solicitado', { empresaId, responsavelId, pedidoId: pedido.id });
   }
-  if (nome_completo && aluno.nome && nome_completo.trim().toLowerCase() !== aluno.nome.trim().toLowerCase()) {
-    throw new AppError('Nome nao confere com o aluno desta matricula.', 409);
-  }
-
-  const jaVinculado = await db('responsavel_alunos')
-    .where({ responsavel_id: responsavelId, aluno_id: aluno.id })
-    .first();
-  if (jaVinculado) throw new AppError('Este aluno ja esta vinculado a sua conta.', 409);
-
-  let pedido;
-  try {
-    [pedido] = await db('pedidos_vinculo_responsaveis')
-      .insert({
-        empresa_id: empresaId,
-        responsavel_id: responsavelId,
-        aluno_id: aluno.id,
-        parentesco: parentesco || null,
-      })
-      .returning('*');
-  } catch (err) {
-    if (err.code === '23505') throw new AppError('Ja existe um pedido pendente para este aluno.', 409);
-    throw err;
-  }
-  publicarEvento('responsavel.vinculo.solicitado', { empresaId, responsavelId, pedidoId: pedido.id });
-  return pedido;
+  return { status: 'recebido' };
 }
 
 async function listarMeusPedidosVinculo(empresaId, responsavelId) {
