@@ -128,7 +128,15 @@ router.patch(
   autenticar,
   exigirTipo('staff'),
   resolverTenant,
-  exigirPermissao('responsaveis', 'atualizar'),
+  (req, res, next) => {
+    const atualizaConta = ['nome', 'email', 'telefone', 'senha'].some((campo) =>
+      Object.prototype.hasOwnProperty.call(req.body || {}, campo)
+    );
+    const exigir = atualizaConta
+      ? exigirPermissaoAmbiente('responsaveis', 'atualizar')
+      : exigirPermissao('responsaveis', 'atualizar');
+    return exigir(req, res, next);
+  },
   responsaveisController.atualizarContaResponsavel
 );
 

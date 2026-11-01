@@ -208,7 +208,13 @@ async function removerPushWeb(req, res, next) {
 async function vincularAluno(req, res, next) {
   try {
     const { responsavel_id, matricula_aluno, parentesco } = req.body;
-    const vinculo = await responsaveisService.vincularAluno(req.empresaId, responsavel_id, matricula_aluno, parentesco);
+    const vinculo = await responsaveisService.vincularAluno(
+      req.empresaId,
+      responsavel_id,
+      matricula_aluno,
+      parentesco,
+      { usuarioId: req.usuario.usuario_id, ip: req.ip }
+    );
     res.status(201).json({ vinculo });
   } catch (err) {
     next(err);

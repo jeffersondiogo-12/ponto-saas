@@ -215,7 +215,6 @@ async function cadastrar({ empresa_id, nome, email, senha, telefone, matricula_a
   if (existente) throw new AppError('Ja existe uma conta com este email.', 409);
 
   const senha_hash = await bcrypt.hash(senha, 12);
-  const descarteSilencioso = new Error('Solicitacao descartada por nao passar pela validacao.');
   let resultado;
   try {
     resultado = await db.transaction(async (trx) => {
@@ -224,11 +223,9 @@ async function cadastrar({ empresa_id, nome, email, senha, telefone, matricula_a
         .returning('*');
 
       const pedido = await criarPedidoVinculoPendente(trx, empresa_id, responsavel.id, { matricula_aluno });
-      if (!pedido) throw descarteSilencioso;
       return { responsavel, pedido };
     });
   } catch (err) {
-    if (err === descarteSilencioso) return null;
     if (err.code === '23505') throw new AppError('Ja existe uma conta com este email.', 409);
     throw err;
   }
@@ -243,20 +240,58 @@ async function cadastrar({ empresa_id, nome, email, senha, telefone, matricula_a
   return resultado.responsavel;
 }
 
-async function vincularAluno(empresaId, responsavelId, matriculaAluno, parentesco) {
-  const responsavel = await db('responsaveis').where({ id: responsavelId, empresa_id: empresaId }).first();
-  if (!responsavel) throw new AppError('Responsavel nao encontrado.', 404);
+async function aprovarPedidosPendentesDoVinculo(
+  trx,
+  empresaId,
+  alunoId,
+  responsavelId,
+  { usuarioId = null, ip } = {}
+) {
+  const pedidos = await trx('pedidos_vinculo_responsaveis')
+    .where({
+      empresa_id: empresaId,
+      aluno_id: alunoId,
+      responsavel_id: responsavelId,
+      status: 'pendente',
+    })
+    .forUpdate();
+  if (!pedidos.length) return [];
 
-  const aluno = await db('alunos').where({ empresa_id: empresaId, matricula: matriculaAluno }).first();
+  const pedidoIds = pedidos.map((pedido) => pedido.id);
+  await trx('pedidos_vinculo_responsaveis')
+    .whereIn('id', pedidoIds)
+    .update({
+      status: 'aprovado',
+      decidido_por: usuarioId,
+      decidido_em: trx.fn.now(),
+      updated_at: trx.fn.now(),
+    });
+
+  await trx('auditoria_logs').insert(pedidos.map((pedido) => ({
+    empresa_id: empresaId,
+    usuario_id: usuarioId,
+    acao: 'aprovar_pedido_vinculo_responsavel',
+    entidade: 'pedidos_vinculo_responsaveis',
+    entidade_id: String(pedido.id),
+    dados_antes: { status: 'pendente' },
+    dados_depois: { status: 'aprovado', aluno_id: alunoId, responsavel_id: responsavelId },
+    ip_origem: ip,
+  })));
+  return pedidoIds;
+}
+
+async function vincularAluno(empresaId, responsavelId, matriculaAluno, parentesco, contexto = {}) {
+  const aluno = await db('alunos').where({ empresa_id: empresaId, matricula: matriculaAluno }).first('id');
   if (!aluno) throw new AppError('Matricula de aluno nao encontrada.', 404);
 
-  const [vinculo] = await db('responsavel_alunos')
-    .insert({ responsavel_id: responsavelId, aluno_id: aluno.id, parentesco: parentesco || null })
-    .onConflict(['responsavel_id', 'aluno_id'])
-    .merge({ parentesco: parentesco || null })
-    .returning('*');
-
-  return vinculo;
+  const resultado = await vincularResponsavelAoAluno(
+    empresaId,
+    aluno.id,
+    responsavelId,
+    parentesco,
+    contexto
+  );
+  return resultado.vinculo;
 }
 
 async function vincularResponsavelAoAluno(
@@ -285,6 +320,13 @@ async function vincularResponsavelAoAluno(
       .onConflict(['responsavel_id', 'aluno_id'])
       .merge({ parentesco: parentescoNormalizado })
       .returning('*');
+    const pedidosAprovados = await aprovarPedidosPendentesDoVinculo(
+      trx,
+      empresaId,
+      alunoId,
+      responsavelId,
+      { usuarioId, ip }
+    );
     if (!existente || existente.parentesco !== parentescoNormalizado) {
       await trx('auditoria_logs').insert({
         empresa_id: empresaId,
@@ -297,10 +339,19 @@ async function vincularResponsavelAoAluno(
         ip_origem: ip,
       });
     }
-    return { vinculo, ja_vinculado: Boolean(existente) };
+    return { vinculo, ja_vinculado: Boolean(existente), pedidosAprovados };
   });
   if (!resultado.ja_vinculado) {
     publicarEvento('responsavel.vinculado', { empresaId, responsavelId, alunoId });
+  }
+  for (const pedidoId of resultado.pedidosAprovados) {
+    publicarEvento('responsavel.vinculo.decidido', {
+      empresaId,
+      responsavelId,
+      alunoId,
+      pedidoId,
+      status: 'aprovado',
+    });
   }
   return resultado;
 }
@@ -338,6 +389,9 @@ async function listarResponsaveisDaEmpresa(empresaId, busca) { // get de busca
     throw new AppError('Informe uma busca por nome ou email do responsavel.', 400);
   }
   const termo = busca.trim().toLowerCase();
+  if (termo.length < 3) {
+    throw new AppError('A busca deve ter pelo menos 3 caracteres.', 400);
+  }
   if (termo.length > 150) {
     throw new AppError('A busca deve ter no maximo 150 caracteres.', 400);
   } 
