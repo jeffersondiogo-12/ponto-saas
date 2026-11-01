@@ -1,6 +1,6 @@
 const express = require('express');
 const responsaveisController = require('./responsaveis.controller');
-const { autenticar, exigirTipo } = require('../../middlewares/auth');
+const { autenticar, exigirTipo, exigirPapel } = require('../../middlewares/auth');
 const { exigirPermissao } = require('../../middlewares/permissions');
 const { resolverTenant } = require('../../middlewares/tenant');
 
@@ -31,6 +31,8 @@ router.get(
   responsaveisController.observacoesDoAluno
 );
 router.post('/alunos/vincular', autenticar, exigirTipo('responsavel'), responsaveisController.vincularNovoFilho);
+router.post('/pedidos-vinculo', autenticar, exigirTipo('responsavel'), responsaveisController.vincularNovoFilho);
+router.get('/meus-pedidos-vinculo', autenticar, exigirTipo('responsavel'), responsaveisController.listarMeusPedidosVinculo);
 router.get(
   '/alunos/:alunoId/presenca-sala',
   autenticar,
@@ -54,12 +56,71 @@ router.post(
 );
 
 router.get(
+  '/',
+  autenticar,
+  exigirTipo('staff'),
+  resolverTenant,
+  exigirPermissao('responsaveis', 'ver'),
+  responsaveisController.listarResponsaveisDaEmpresa
+);
+
+router.patch(
+  '/:responsavelId',
+  autenticar,
+  exigirTipo('staff'),
+  resolverTenant,
+  exigirPermissao('responsaveis', 'atualizar'),
+  responsaveisController.atualizarResponsavelDaEmpresa
+);
+
+router.get(
+  '/admin/notificacoes-vinculo',
+  autenticar,
+  exigirTipo('staff'),
+  exigirPapel('admin', 'gestor'),
+  resolverTenant,
+  responsaveisController.listarNotificacoesVinculo
+);
+
+router.get(
+  '/admin/pedidos-vinculo',
+  autenticar,
+  exigirTipo('staff'),
+  exigirPapel('admin', 'gestor'),
+  resolverTenant,
+  exigirPermissao('responsaveis', 'ver'),
+  responsaveisController.listarPedidosVinculo
+);
+
+router.post(
+  '/admin/pedidos-vinculo/:pedidoId/:decisao',
+  autenticar,
+  exigirTipo('staff'),
+  exigirPapel('admin', 'gestor'),
+  resolverTenant,
+  (req, res, next) => {
+    const acao = req.params.decisao === 'aprovado' ? 'adicionar' : 'atualizar';
+    return exigirPermissao('responsaveis', acao)(req, res, next);
+  },
+  responsaveisController.decidirPedidoVinculo
+);
+
+router.get(
   '/alunos/:alunoId/responsaveis',
   autenticar,
   exigirTipo('staff'),
   resolverTenant,
   exigirPermissao('responsaveis', 'ver'),
   responsaveisController.listarResponsaveisDoAluno
+);
+
+router.post(
+  '/alunos/:alunoId/vincular-responsavel',
+  autenticar,
+  exigirTipo('staff'),
+  resolverTenant,
+  exigirPermissao('responsaveis', 'adicionar'),
+  responsaveisController.vincularResponsavelAoAluno
 );
 
 router.patch(

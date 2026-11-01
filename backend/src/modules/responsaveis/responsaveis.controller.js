@@ -2,8 +2,13 @@ const responsaveisService = require('./responsaveis.service');
 
 async function cadastrar(req, res, next) {
   try {
-    const responsavel = await responsaveisService.cadastrar(req.body);
-    res.status(201).json({ responsavel: { id: responsavel.id, nome: responsavel.nome, email: responsavel.email } });
+    await responsaveisService.cadastrar(req.body);
+    res.status(202).json({
+      solicitacao: {
+        status: 'recebida',
+        mensagem: 'Se os dados forem confirmados, a escola poderá analisar a solicitação.',
+      },
+    });
   } catch (err) {
     next(err);
   }
@@ -61,8 +66,76 @@ async function observacoesDoAluno(req, res, next) {
 
 async function vincularNovoFilho(req, res, next) {
   try {
-    const vinculo = await responsaveisService.vincularNovoFilho(req.usuario.empresa_id, req.usuario.responsavelId, req.body);
-    res.status(201).json({ vinculo });
+    const pedido = await responsaveisService.vincularNovoFilho(req.usuario.empresa_id, req.usuario.responsavelId, req.body);
+    res.status(201).json({ pedido });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function listarMeusPedidosVinculo(req, res, next) {
+  try {
+    const pedidos = await responsaveisService.listarMeusPedidosVinculo(req.usuario.empresa_id, req.usuario.responsavelId);
+    res.json({ pedidos });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function listarResponsaveisDaEmpresa(req, res, next) {
+  try {
+    const responsaveis = await responsaveisService.listarResponsaveisDaEmpresa(req.empresaId, req.query.email);
+    res.json({ responsaveis });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function atualizarResponsavelDaEmpresa(req, res, next) {
+  try {
+    const resultado = await responsaveisService.atualizarResponsavelDaEmpresa(
+      req.empresaId,
+      req.params.responsavelId,
+      req.body,
+      { usuarioId: req.usuario.usuario_id, ip: req.ip }
+    );
+    res.json(resultado);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function listarPedidosVinculo(req, res, next) {
+  try {
+    const pedidos = await responsaveisService.listarPedidosVinculo(req.empresaId, req.filialId);
+    res.json({ pedidos });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function listarNotificacoesVinculo(req, res, next) {
+  try {
+    const notificacoes = await responsaveisService.listarNotificacoesVinculo(req.empresaId, req.filialId);
+    res.json({ notificacoes });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function decidirPedidoVinculo(req, res, next) {
+  try {
+    const resultado = await responsaveisService.decidirPedidoVinculo(
+      req.empresaId,
+      req.params.pedidoId,
+      req.params.decisao,
+      {
+        filialId: req.filialId,
+        usuarioId: req.usuario.usuario_id,
+        ip: req.ip,
+      }
+    );
+    res.json({ pedido: resultado });
   } catch (err) {
     next(err);
   }
@@ -142,6 +215,25 @@ async function vincularAluno(req, res, next) {
   }
 }
 
+async function vincularResponsavelAoAluno(req, res, next) {
+  try {
+    const resultado = await responsaveisService.vincularResponsavelAoAluno(
+      req.empresaId,
+      req.params.alunoId,
+      req.body.responsavel_id,
+      req.body.parentesco,
+      {
+        filialId: req.filialId,
+        usuarioId: req.usuario.usuario_id,
+        ip: req.ip,
+      }
+    );
+    res.status(201).json(resultado);
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function listarResponsaveisDoAluno(req, res, next) {
   try {
     const responsaveis = await responsaveisService.listarResponsaveisDoAluno(
@@ -197,8 +289,15 @@ module.exports = {
   registrarPushWeb,
   removerPushWeb,
   vincularAluno,
+  vincularResponsavelAoAluno,
   listarResponsaveisDoAluno,
+  listarResponsaveisDaEmpresa,
+  atualizarResponsavelDaEmpresa,
   atualizarContaResponsavel,
   vincularNovoFilho,
+  listarMeusPedidosVinculo,
+  listarPedidosVinculo,
+  listarNotificacoesVinculo,
+  decidirPedidoVinculo,
   excluir,
 };

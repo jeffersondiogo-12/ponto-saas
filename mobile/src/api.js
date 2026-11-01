@@ -369,7 +369,10 @@ export const api = {
       method: 'POST', body: dados, permitirFila: false, autenticada: false,
       sincronizarFila: false,
     }),
-  listarAlunos: () => requisitar('/api/responsaveis/alunos'),
+  listarAlunos: ({ atualizar = false } = {}) =>
+    requisitar('/api/responsaveis/alunos', { usarCache: !atualizar }),
+  listarMeusPedidosVinculo: () =>
+    requisitar('/api/responsaveis/meus-pedidos-vinculo', { usarCache: false }),
   // `de` e a janela de 7 dias da Home (#56). Com ele, sem cache: o `de` muda todo
   // dia, e cada dia deixaria no AsyncStorage uma entrada que ninguem le de novo.
   frequenciaDoAluno: (alunoId, { de } = {}) =>
@@ -383,7 +386,7 @@ export const api = {
   registrarLeituraAviso: (avisoId) =>
     requisitar(`/api/responsaveis/avisos/${avisoId}/lido`, { method: 'POST', rotulo: 'Confirmar leitura de aviso' }),
   vincularFilho: (dados) =>
-    requisitar('/api/responsaveis/alunos/vincular', {
+    requisitar('/api/responsaveis/pedidos-vinculo', {
       method: 'POST',
       body: dados,
       rotulo: `Vincular ${dados?.nome_completo || 'filho'}`,

@@ -46,7 +46,14 @@ function publicarEvento(tipo, dados) {
     if (cliente.readyState !== WebSocket.OPEN) continue;
     const usuario = cliente.usuario || {};
     if (usuario.empresa_id !== dados.empresaId) continue;
-    if (usuario.tipo === 'responsavel' && dados.alunoId && !usuario.alunoIds?.includes(dados.alunoId)) continue;
+    if (
+      tipo === 'responsavel.vinculo.solicitado'
+      && (usuario.tipo !== 'staff' || !['admin', 'gestor', 'super_admin'].includes(usuario.papel))
+    ) continue;
+    if (usuario.tipo === 'responsavel') {
+      if (dados.responsavelId && usuario.responsavelId !== dados.responsavelId) continue;
+      if (!dados.responsavelId && dados.alunoId && !usuario.alunoIds?.includes(dados.alunoId)) continue;
+    }
     if (usuario.tipo === 'staff' && dados.professorId && usuario.id !== dados.professorId && !['gestor', 'admin', 'super_admin'].includes(usuario.papel)) continue;
     cliente.send(mensagem);
   }

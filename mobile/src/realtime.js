@@ -75,7 +75,7 @@ export async function conectarRealtime(onEvento) {
         const mensagem = JSON.parse(evento.data);
         if (mensagem.tipo !== 'pong' && mensagem.tipo !== 'conectado') {
           const dados = mensagem.dados || {};
-          const chave = [mensagem.tipo, dados.alunoId, dados.atribuicaoId, dados.data, dados.dataHora].join(':');
+          const chave = [mensagem.tipo, dados.pedidoId, dados.alunoId, dados.atribuicaoId, dados.data, dados.dataHora].join(':');
           const agora = Date.now();
           if (eventosRecentes.has(chave) && agora - eventosRecentes.get(chave) < 5000) return;
           eventosRecentes.set(chave, agora);
