@@ -361,6 +361,28 @@ async function usuarioTemPermissao(usuarioId, empresaId, recurso, acao, filialId
   return permissoes.some((linha) => linha.recurso === recurso && linha.acao === acao && linha.permitido);
 }
 
+async function usuarioTemPermissaoAmbiente(usuarioId, empresaId, recurso, acao) { //permissão de ambiente
+  const usuario = await db('usuarios')
+    .where({ id: usuarioId, empresa_id: empresaId, ativo: true })
+    .first('papel', 'filial_id');
+  if (!usuario || usuario.filial_id || !recursoAplicavelAoPapel(usuario.papel, recurso)) return false;
+
+  const [padrao, excecao] = await Promise.all([
+    db('permissoes_papeis')
+      .where({ empresa_id: empresaId, papel: usuario.papel, recurso, acao })
+      .whereNull('filial_id')
+      .whereNull('atribuicao_id')
+      .first('permitido'),
+    db('permissoes_usuarios')
+      .where({ empresa_id: empresaId, usuario_id: usuarioId, recurso, acao })
+      .whereNull('filial_id')
+      .whereNull('atribuicao_id')
+      .first('permitido'),
+  ]);
+
+  return excecao?.permitido ?? padrao?.permitido ?? false;
+}
+
 module.exports = {
   listarAlcanceRecursos,
   listarPorPapel,
@@ -369,6 +391,7 @@ module.exports = {
   listarEfetivoPorUsuario,
   listarEfetivoAgrupado,
   usuarioTemPermissao,
+  usuarioTemPermissaoAmbiente,
   definirOverrideUsuario,
   removerOverrideUsuario,
 };

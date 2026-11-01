@@ -1,7 +1,7 @@
 const express = require('express');
 const responsaveisController = require('./responsaveis.controller');
 const { autenticar, exigirTipo, exigirPapel } = require('../../middlewares/auth');
-const { exigirPermissao } = require('../../middlewares/permissions');
+const { exigirPermissao, exigirPermissaoAmbiente } = require('../../middlewares/permissions'); //importando a permissao
 const { resolverTenant } = require('../../middlewares/tenant');
 
 const router = express.Router();
@@ -69,7 +69,7 @@ router.patch(
   autenticar,
   exigirTipo('staff'),
   resolverTenant,
-  exigirPermissao('responsaveis', 'atualizar'),
+  exigirPermissaoAmbiente('responsaveis', 'atualizar'), //permissao
   responsaveisController.atualizarResponsavelDaEmpresa
 );
 

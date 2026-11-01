@@ -85,6 +85,24 @@ async function criarOuVincularAoAluno(trx, empresaId, alunoId, dados) {
   };
 }
 
+async function vincularContaExistenteAoAluno(trx, empresaId, alunoId, responsavelId, parentesco = null) {
+  if (typeof responsavelId !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(responsavelId)) {
+    throw new AppError('Informe um responsavel_id valido.', 400);
+  }
+  const parentescoNormalizado = normalizarAtualizacaoContaResponsavel({ parentesco }).parentesco;
+  const responsavel = await trx('responsaveis')
+    .where({ id: responsavelId, empresa_id: empresaId, ativo: true })
+    .forUpdate()
+    .first('id', 'empresa_id', 'nome', 'email', 'telefone', 'ativo');
+  if (!responsavel) throw new AppError('Responsavel nao encontrado ou inativo nesta empresa.', 404);
+
+  const [vinculo] = await trx('responsavel_alunos')
+    .insert({ responsavel_id: responsavel.id, aluno_id: alunoId, parentesco: parentescoNormalizado })
+    .returning('*');
+
+  return { responsavel: { ...responsavel, conta_criada: false }, vinculo };
+}
+
 async function obterAlunoIdsVinculados(responsavelId) {
   const vinculos = await db('responsavel_alunos').where({ responsavel_id: responsavelId });
   return vinculos.map((v) => v.aluno_id);
@@ -985,6 +1003,7 @@ module.exports = {
   login,
   cadastrar,
   criarOuVincularAoAluno,
+  vincularContaExistenteAoAluno,
   vincularAluno,
   vincularResponsavelAoAluno,
   listarResponsaveisDoAluno,

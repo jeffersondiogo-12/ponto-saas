@@ -130,6 +130,10 @@ async function resolverPorMatriculaDispositivo(empresaId, filialId, matriculaDis
 
 async function criar(empresaId, dados, filialId = null) {
   if (filialId && dados.filial_id !== filialId) throw new AppError('Aluno deve pertencer a filial do usuario.', 403);
+  const temResponsavelExistente = dados.responsavel_id !== undefined && dados.responsavel_id !== null;
+  if (temResponsavelExistente && dados.responsavel) {
+    throw new AppError('Informe responsavel_id ou os dados de um novo responsavel, nao ambos.', 400);
+  }
   const tipoSanguineo = normalizarTipoSanguineo(dados.tipo_sanguineo);
   const cpf = await normalizarCpfOpcional(dados.cpf);
   const matricula = String(dados.matricula || '').trim() || null;
@@ -155,14 +159,11 @@ async function criar(empresaId, dados, filialId = null) {
       if (matriculaExistente) throw new AppError('Ja existe um aluno com esta matricula.', 409);
     }
 
-    const nomeResponsavel = String(dados.responsavel?.nome || dados.nome_responsavel || '').trim() || null;
-    const contatoResponsavel = String(
-      dados.responsavel
-        ? (dados.responsavel.telefone || dados.responsavel.email || '')
-        : (dados.contato_responsavel || '')
-    ).trim() || null;
+    const temContaResponsavel = temResponsavelExistente || Boolean(dados.responsavel);
+    const nomeResponsavel = temContaResponsavel ? null : String(dados.nome_responsavel || '').trim() || null;
+    const contatoResponsavel = temContaResponsavel ? null : String(dados.contato_responsavel || '').trim() || null;
 
-    const [aluno] = await trx('alunos')
+    let [aluno] = await trx('alunos')
       .insert({
         empresa_id: empresaId,
         filial_id: dados.filial_id,
@@ -177,14 +178,23 @@ async function criar(empresaId, dados, filialId = null) {
       })
       .returning('*');
 
-    if (!dados.responsavel) return { aluno, responsavel: null, vinculo: null };
+    if (!temContaResponsavel) return { aluno, responsavel: null, vinculo: null };
 
-    const acesso = await responsaveisService.criarOuVincularAoAluno(
-      trx,
-      empresaId,
-      aluno.id,
-      dados.responsavel
-    );
+    const acesso = temResponsavelExistente
+      ? await responsaveisService.vincularContaExistenteAoAluno(
+        trx, empresaId, aluno.id, dados.responsavel_id, dados.parentesco
+      )
+      : await responsaveisService.criarOuVincularAoAluno(
+        trx, empresaId, aluno.id, dados.responsavel
+      );
+
+    [aluno] = await trx('alunos')
+      .where({ id: aluno.id, empresa_id: empresaId })
+      .update({
+        nome_responsavel: acesso.responsavel.nome,
+        contato_responsavel: acesso.responsavel.telefone || acesso.responsavel.email,
+      })
+      .returning('*');
 
     return { aluno, ...acesso };
   });
@@ -212,7 +222,7 @@ async function atualizar(empresaId, alunoId, dados, filialId = null) {
   }
 
   return db.transaction(async (trx) => {
-    const [aluno] = await trx('alunos')
+    let [aluno] = await trx('alunos')
       .where({ id: alunoId, empresa_id: empresaId })
       .update({
         matricula,
@@ -235,6 +245,13 @@ async function atualizar(empresaId, alunoId, dados, filialId = null) {
         aluno.id,
         dados.responsavel
       );
+      [aluno] = await trx('alunos')
+        .where({ id: aluno.id, empresa_id: empresaId })
+        .update({
+          nome_responsavel: acesso.responsavel.nome,
+          contato_responsavel: acesso.responsavel.telefone || acesso.responsavel.email,
+        })
+        .returning('*');
     }
 
     const [{ total }] = await trx('responsavel_alunos as ra')
