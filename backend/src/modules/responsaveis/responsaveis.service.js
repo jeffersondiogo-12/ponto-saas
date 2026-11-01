@@ -749,7 +749,8 @@ async function listarNotificacoesVinculo(empresaId, filialId = null) {
       'a.matricula',
       'r.id as responsavel_id',
       'r.nome as responsavel_nome',
-      'r.email as responsavel_email'
+      'r.email as responsavel_email',
+      'r.telefone as responsavel_telefone' //telefone add select
     )
     .where({ 'p.empresa_id': empresaId, 'p.status': 'pendente' })
     .orderBy('p.created_at', 'desc');
@@ -772,6 +773,7 @@ async function listarNotificacoesVinculo(empresaId, filialId = null) {
       id: pedido.responsavel_id,
       nome: pedido.responsavel_nome,
       email: pedido.responsavel_email,
+      telefone: pedido.responsavel_telefone ?? null, //body retorno
     },
   }));
 }
